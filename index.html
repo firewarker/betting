@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Betting Predictor Pro - Auto</title>
+    <title>Betting Predictor Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -22,21 +22,24 @@
 
         // ============================================
         // BETTING PREDICTOR PRO - FOOTBALL-DATA.ORG
-        // API GRATUITA con stagione corrente!
+        // Con CORS proxy per funzionare da locale
         // ============================================
 
-        // Campionati GRATUITI su football-data.org
+        // CORS Proxy per file locale
+        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+        const API_BASE = 'https://api.football-data.org/v4';
+
+        // Campionati GRATUITI
         const LEAGUES = {
-            SA: { name: "Serie A", country: "🇮🇹 Italia", id: "SA" },
-            PL: { name: "Premier League", country: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Inghilterra", id: "PL" },
-            PD: { name: "La Liga", country: "🇪🇸 Spagna", id: "PD" },
-            BL1: { name: "Bundesliga", country: "🇩🇪 Germania", id: "BL1" },
-            FL1: { name: "Ligue 1", country: "🇫🇷 Francia", id: "FL1" },
-            CL: { name: "Champions League", country: "🇪🇺 Europa", id: "CL" },
-            ELC: { name: "Championship", country: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Inghilterra", id: "ELC" },
-            PPL: { name: "Primeira Liga", country: "🇵🇹 Portogallo", id: "PPL" },
-            DED: { name: "Eredivisie", country: "🇳🇱 Olanda", id: "DED" },
-            BSA: { name: "Serie A", country: "🇧🇷 Brasile", id: "BSA" }
+            SA: { name: "Serie A", country: "🇮🇹", id: "SA" },
+            PL: { name: "Premier League", country: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", id: "PL" },
+            PD: { name: "La Liga", country: "🇪🇸", id: "PD" },
+            BL1: { name: "Bundesliga", country: "🇩🇪", id: "BL1" },
+            FL1: { name: "Ligue 1", country: "🇫🇷", id: "FL1" },
+            CL: { name: "Champions League", country: "🇪🇺", id: "CL" },
+            ELC: { name: "Championship", country: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", id: "ELC" },
+            PPL: { name: "Primeira Liga", country: "🇵🇹", id: "PPL" },
+            DED: { name: "Eredivisie", country: "🇳🇱", id: "DED" }
         };
 
         function App() {
@@ -50,9 +53,8 @@
             const [analysisData, setAnalysisData] = useState(null);
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [activeTab, setActiveTab] = useState('matches');
-            const [teamStats, setTeamStats] = useState({});
+            const [useProxy, setUseProxy] = useState(true);
 
-            // Salva API key
             const saveApiKey = () => {
                 if (apiKey.trim()) {
                     localStorage.setItem('footballDataApiKey', apiKey.trim());
@@ -61,17 +63,36 @@
                 }
             };
 
-            // API Call
+            // API Call con gestione CORS
             const apiCall = async (endpoint) => {
-                const response = await fetch(`https://api.football-data.org/v4${endpoint}`, {
+                const directUrl = `${API_BASE}${endpoint}`;
+                
+                // Prima prova diretto (funziona su GitHub Pages)
+                try {
+                    const response = await fetch(directUrl, {
+                        headers: { 'X-Auth-Token': apiKey }
+                    });
+                    
+                    if (response.ok) {
+                        setUseProxy(false);
+                        return await response.json();
+                    }
+                } catch (e) {
+                    console.log('Direct fetch failed, trying proxy...');
+                }
+                
+                // Se fallisce, usa proxy
+                const proxyUrl = `${CORS_PROXY}${encodeURIComponent(directUrl)}`;
+                
+                const response = await fetch(proxyUrl, {
                     headers: { 'X-Auth-Token': apiKey }
                 });
                 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || `Error ${response.status}`);
+                    throw new Error(`Errore ${response.status}`);
                 }
                 
+                setUseProxy(true);
                 return await response.json();
             };
 
@@ -83,48 +104,35 @@
                 setError(null);
                 
                 try {
-                    // Prossime partite (status SCHEDULED o TIMED)
                     const data = await apiCall(`/competitions/${leagueCode}/matches?status=SCHEDULED,TIMED`);
-                    
-                    // Prendi solo le prossime 20
                     const upcoming = (data.matches || []).slice(0, 20);
                     setMatches(upcoming);
                     
                     if (upcoming.length === 0) {
-                        setError('Nessuna partita in programma');
+                        setError('Nessuna partita in programma. Prova un altro campionato.');
                     }
                 } catch (err) {
-                    setError(err.message);
+                    console.error('Load error:', err);
+                    setError('Errore: ' + err.message + '. Verifica API Key.');
                     setMatches([]);
                 } finally {
                     setLoading(false);
                 }
             };
 
-            // Carica statistiche squadra (ultime partite)
+            // Carica ultime partite squadra
             const loadTeamMatches = async (teamId) => {
                 try {
                     const data = await apiCall(`/teams/${teamId}/matches?status=FINISHED&limit=10`);
                     return data.matches || [];
                 } catch (err) {
-                    console.error('Error loading team matches:', err);
+                    console.error('Team matches error:', err);
                     return [];
                 }
             };
 
-            // Carica H2H
-            const loadH2H = async (matchId) => {
-                try {
-                    const data = await apiCall(`/matches/${matchId}/head2head?limit=10`);
-                    return data.aggregates || null;
-                } catch (err) {
-                    console.error('Error loading H2H:', err);
-                    return null;
-                }
-            };
-
-            // Calcola statistiche da ultime partite
-            const calculateStats = (matches, teamId, isHome) => {
+            // Calcola statistiche
+            const calculateStats = (matches, teamId) => {
                 if (!matches || matches.length === 0) {
                     return { avgGoalsFor: 1.3, avgGoalsAgainst: 1.1, failedToScore: 2, cleanSheets: 3, played: 10 };
                 }
@@ -132,9 +140,9 @@
                 let goalsFor = 0, goalsAgainst = 0, failedToScore = 0, cleanSheets = 0;
                 
                 matches.forEach(m => {
-                    const isHomeTeam = m.homeTeam.id === teamId;
-                    const scored = isHomeTeam ? (m.score.fullTime.home || 0) : (m.score.fullTime.away || 0);
-                    const conceded = isHomeTeam ? (m.score.fullTime.away || 0) : (m.score.fullTime.home || 0);
+                    const isHome = m.homeTeam.id === teamId;
+                    const scored = isHome ? (m.score.fullTime.home || 0) : (m.score.fullTime.away || 0);
+                    const conceded = isHome ? (m.score.fullTime.away || 0) : (m.score.fullTime.home || 0);
                     
                     goalsFor += scored;
                     goalsAgainst += conceded;
@@ -146,9 +154,7 @@
                 return {
                     avgGoalsFor: goalsFor / played,
                     avgGoalsAgainst: goalsAgainst / played,
-                    failedToScore,
-                    cleanSheets,
-                    played,
+                    failedToScore, cleanSheets, played,
                     totalGoalsFor: goalsFor,
                     totalGoalsAgainst: goalsAgainst
                 };
@@ -161,21 +167,13 @@
                 setActiveTab('analysis');
                 
                 try {
-                    // Carica dati in parallelo
-                    const [homeMatches, awayMatches, h2hData] = await Promise.all([
+                    const [homeMatches, awayMatches] = await Promise.all([
                         loadTeamMatches(match.homeTeam.id),
-                        loadTeamMatches(match.awayTeam.id),
-                        loadH2H(match.id)
+                        loadTeamMatches(match.awayTeam.id)
                     ]);
                     
-                    const homeStats = calculateStats(homeMatches, match.homeTeam.id, true);
-                    const awayStats = calculateStats(awayMatches, match.awayTeam.id, false);
-                    
-                    console.log('📊 Home stats:', homeStats);
-                    console.log('📊 Away stats:', awayStats);
-                    console.log('📊 H2H:', h2hData);
-                    
-                    // ========== CALCOLI ==========
+                    const homeStats = calculateStats(homeMatches, match.homeTeam.id);
+                    const awayStats = calculateStats(awayMatches, match.awayTeam.id);
                     
                     // GOL ATTESI
                     const expectedHomeGoals = (homeStats.avgGoalsFor + awayStats.avgGoalsAgainst) / 2;
@@ -187,16 +185,6 @@
                     const awayScoreProb = Math.min(95, Math.max(30, (1 - (awayStats.failedToScore / awayStats.played)) * 100));
                     let ggProbability = (homeScoreProb * awayScoreProb) / 100;
                     
-                    // Aggiusta con H2H
-                    if (h2hData && h2hData.numberOfMatches > 0) {
-                        // Calcola BTTS rate da H2H
-                        const h2hTotal = h2hData.totalGoals || 0;
-                        const h2hAvgGoals = h2hTotal / h2hData.numberOfMatches;
-                        if (h2hAvgGoals > 2.5) {
-                            ggProbability = (ggProbability * 0.7) + (70 * 0.3);
-                        }
-                    }
-                    
                     // OVER 2.5
                     let over25Prob = 50;
                     if (expectedTotalGoals > 2.5) {
@@ -206,52 +194,39 @@
                     }
                     over25Prob = Math.min(88, Math.max(15, over25Prob));
                     
-                    // CORNER (stima basata su stile - API non fornisce corner)
+                    // CORNER (stima)
                     const avgGoals = (homeStats.avgGoalsFor + awayStats.avgGoalsFor) / 2;
-                    const expectedCorners = 8 + (avgGoals * 1.5) + (Math.random() - 0.5);
+                    const expectedCorners = 8.5 + (avgGoals * 1.2);
                     
-                    const cornerPredictions = [8.5, 9.5, 10.5, 11.5, 12.5].map(line => {
-                        const diff = Math.abs(expectedCorners - line);
-                        return {
-                            line,
-                            prediction: expectedCorners > line ? 'OVER' : 'UNDER',
-                            confidence: Math.min(78, Math.max(42, 50 + diff * 8))
-                        };
-                    });
+                    const cornerPredictions = [8.5, 9.5, 10.5, 11.5].map(line => ({
+                        line,
+                        prediction: expectedCorners > line ? 'OVER' : 'UNDER',
+                        confidence: Math.min(75, Math.max(42, 50 + Math.abs(expectedCorners - line) * 8))
+                    }));
                     
                     // CARTELLINI (stima)
-                    const expectedCards = 3.5 + (Math.random() * 2);
+                    const expectedCards = 4 + (Math.random() * 1.5);
                     
-                    const cardPredictions = [2.5, 3.5, 4.5, 5.5].map(line => {
-                        const diff = Math.abs(expectedCards - line);
-                        return {
-                            line,
-                            prediction: expectedCards > line ? 'OVER' : 'UNDER',
-                            confidence: Math.min(75, Math.max(42, 50 + diff * 10))
-                        };
-                    });
+                    const cardPredictions = [3.5, 4.5, 5.5].map(line => ({
+                        line,
+                        prediction: expectedCards > line ? 'OVER' : 'UNDER',
+                        confidence: Math.min(72, Math.max(42, 50 + Math.abs(expectedCards - line) * 10))
+                    }));
                     
                     // GOAL predictions
-                    const goalPredictions = [1.5, 2.5, 3.5, 4.5].map(line => {
-                        const diff = Math.abs(expectedTotalGoals - line);
-                        return {
-                            line,
-                            prediction: expectedTotalGoals > line ? 'OVER' : 'UNDER',
-                            confidence: Math.min(85, Math.max(42, 50 + diff * 15))
-                        };
-                    });
+                    const goalPredictions = [1.5, 2.5, 3.5].map(line => ({
+                        line,
+                        prediction: expectedTotalGoals > line ? 'OVER' : 'UNDER',
+                        confidence: Math.min(85, Math.max(42, 50 + Math.abs(expectedTotalGoals - line) * 15))
+                    }));
                     
-                    // Confidence
                     const ggConfidence = Math.min(85, Math.max(45, Math.abs(ggProbability - 50) + 50));
                     const over25Confidence = Math.min(85, Math.max(45, Math.abs(over25Prob - 50) + 50));
                     const bestCornerBet = cornerPredictions.reduce((b, c) => c.confidence > b.confidence ? c : b);
                     const bestCardBet = cardPredictions.reduce((b, c) => c.confidence > b.confidence ? c : b);
                     
                     setAnalysisData({
-                        match,
-                        homeStats,
-                        awayStats,
-                        h2h: h2hData,
+                        match, homeStats, awayStats,
                         goals: {
                             expectedHome: expectedHomeGoals.toFixed(2),
                             expectedAway: expectedAwayGoals.toFixed(2),
@@ -274,16 +249,13 @@
                         corners: {
                             expectedTotal: expectedCorners.toFixed(1),
                             predictions: cornerPredictions,
-                            bestBet: bestCornerBet,
-                            note: "⚠️ Stima (API non fornisce corner)"
+                            bestBet: bestCornerBet
                         },
                         cards: {
                             expectedTotal: expectedCards.toFixed(1),
                             predictions: cardPredictions,
-                            bestBet: bestCardBet,
-                            note: "⚠️ Stima (API non fornisce cartellini)"
-                        },
-                        overallConfidence: Math.round((ggConfidence + over25Confidence) / 2)
+                            bestBet: bestCardBet
+                        }
                     });
                     
                 } catch (err) {
@@ -293,51 +265,52 @@
                 }
             };
 
-            // Carica partite al cambio lega
             useEffect(() => {
                 if (apiKey && !showSetup) {
                     loadMatches(selectedLeague);
                 }
             }, [selectedLeague, apiKey, showSetup]);
 
-            // Components
             const ConfidenceBadge = ({ value }) => {
                 const v = parseFloat(value);
-                let cls = 'bg-red-100 text-red-700 border-red-300';
-                if (v >= 68) cls = 'bg-green-100 text-green-700 border-green-300';
-                else if (v >= 55) cls = 'bg-amber-100 text-amber-700 border-amber-300';
-                return <span className={`px-2 py-1 rounded text-xs font-bold border ${cls}`}>{Math.round(v)}%</span>;
+                let cls = 'bg-red-100 text-red-700';
+                if (v >= 68) cls = 'bg-green-100 text-green-700';
+                else if (v >= 55) cls = 'bg-amber-100 text-amber-700';
+                return <span className={`px-2 py-1 rounded text-xs font-bold ${cls}`}>{Math.round(v)}%</span>;
             };
 
             const formatDate = (dateStr) => {
-                const date = new Date(dateStr);
+                const d = new Date(dateStr);
                 return {
-                    date: date.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' }),
-                    time: date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+                    date: d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' }),
+                    time: d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
                 };
             };
 
-            // SETUP SCREEN
+            // SETUP
             if (showSetup) {
                 return (
-                    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+                    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full">
                             <div className="text-center mb-6">
-                                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
                                     <span className="text-3xl">⚽</span>
                                 </div>
-                                <h1 className="text-xl font-bold text-gray-900">Betting Predictor Pro</h1>
-                                <p className="text-gray-500 text-sm mt-1">Configurazione API</p>
+                                <h1 className="text-2xl font-bold text-gray-900">Betting Predictor</h1>
+                                <p className="text-gray-500 text-sm">Pronostici automatici</p>
                             </div>
                             
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                                <h3 className="font-bold text-blue-800 text-sm mb-2">📋 Come ottenere l'API Key GRATIS:</h3>
-                                <ol className="text-xs text-blue-700 space-y-1 list-decimal ml-4">
-                                    <li>Vai su <a href="https://www.football-data.org/client/register" target="_blank" className="underline font-medium">football-data.org/register</a></li>
-                                    <li>Registrati (nome, email, password)</li>
-                                    <li>Conferma l'email</li>
-                                    <li>Copia l'API Token dalla dashboard</li>
-                                    <li>Incollalo qui sotto</li>
+                            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+                                <h3 className="font-bold text-green-800 text-sm mb-2">🔑 Ottieni API Key GRATIS:</h3>
+                                <ol className="text-sm text-green-700 space-y-2 list-decimal ml-4">
+                                    <li>
+                                        <a href="https://www.football-data.org/client/register" target="_blank" className="underline font-bold text-green-600">
+                                            Clicca qui per registrarti →
+                                        </a>
+                                    </li>
+                                    <li>Compila nome, email, password</li>
+                                    <li>Conferma email</li>
+                                    <li>Copia il token dalla dashboard</li>
                                 </ol>
                             </div>
                             
@@ -347,22 +320,24 @@
                                     type="text"
                                     value={apiKey}
                                     onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder="Incolla qui il tuo API token..."
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                    placeholder="Incolla il token qui..."
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center font-mono"
                                 />
                             </div>
                             
                             <button
                                 onClick={saveApiKey}
                                 disabled={!apiKey.trim()}
-                                className="w-full py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white rounded-lg font-bold transition-colors"
+                                className="w-full py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
                             >
                                 🚀 Inizia
                             </button>
                             
-                            <p className="text-center text-xs text-gray-500 mt-4">
-                                ✅ Gratis • ✅ Stagione corrente • ✅ Serie A, Premier, Liga, Bundes, Ligue 1, UCL
-                            </p>
+                            <div className="mt-4 text-center">
+                                <p className="text-xs text-gray-500">
+                                    ✅ Serie A, Premier, Liga, Bundes, Ligue 1, UCL
+                                </p>
+                            </div>
                         </div>
                     </div>
                 );
@@ -371,61 +346,49 @@
             // MAIN APP
             return (
                 <div className="min-h-screen bg-gray-100">
-                    {/* Header */}
                     <header className="bg-white shadow-sm sticky top-0 z-40">
-                        <div className="max-w-4xl mx-auto px-4 py-3">
+                        <div className="max-w-lg mx-auto px-4 py-3">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                                        <span className="text-white text-lg">⚽</span>
-                                    </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-2xl">⚽</span>
                                     <div>
-                                        <h1 className="text-base font-bold text-gray-900">Betting Predictor</h1>
-                                        <p className="text-xs text-green-600 font-medium">● Auto - Live Data</p>
+                                        <h1 className="text-sm font-bold text-gray-900">Betting Predictor</h1>
+                                        <p className="text-xs text-green-600">● Live</p>
                                     </div>
                                 </div>
                                 
-                                {/* League selector */}
                                 <select
                                     value={selectedLeague}
                                     onChange={(e) => setSelectedLeague(e.target.value)}
-                                    className="px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm font-medium focus:ring-2 focus:ring-green-500"
+                                    className="px-2 py-1.5 bg-gray-100 rounded-lg text-sm font-medium"
                                 >
-                                    {Object.entries(LEAGUES).map(([code, league]) => (
-                                        <option key={code} value={code}>
-                                            {league.country.split(' ')[0]} {league.name}
-                                        </option>
+                                    {Object.entries(LEAGUES).map(([code, l]) => (
+                                        <option key={code} value={code}>{l.country} {l.name}</option>
                                     ))}
                                 </select>
                             </div>
                         </div>
                         
-                        {/* Tabs */}
-                        <div className="max-w-4xl mx-auto px-4 border-t border-gray-100">
-                            <div className="flex">
-                                {[
-                                    { id: 'matches', label: '📅 Partite' },
-                                    { id: 'analysis', label: '🎯 Analisi' }
-                                ].map(tab => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${
-                                            activeTab === tab.id 
-                                                ? 'border-green-500 text-green-600' 
-                                                : 'border-transparent text-gray-500'
-                                        }`}
-                                    >
-                                        {tab.label}
-                                    </button>
-                                ))}
-                            </div>
+                        <div className="max-w-lg mx-auto px-4 border-t border-gray-100 flex">
+                            {[
+                                { id: 'matches', label: '📅 Partite' },
+                                { id: 'analysis', label: '🎯 Analisi' }
+                            ].map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`flex-1 py-2.5 text-sm font-medium border-b-2 ${
+                                        activeTab === tab.id ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
                         </div>
                     </header>
 
-                    <main className="max-w-4xl mx-auto px-4 py-4">
+                    <main className="max-w-lg mx-auto px-4 py-4">
                         
-                        {/* MATCHES TAB */}
                         {activeTab === 'matches' && (
                             <div className="space-y-3">
                                 {error && (
@@ -435,56 +398,38 @@
                                 )}
                                 
                                 <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold text-gray-900">{LEAGUES[selectedLeague]?.name}</span>
-                                            <span className="text-gray-400 text-sm">• {matches.length} partite</span>
-                                        </div>
-                                        <button 
-                                            onClick={() => loadMatches(selectedLeague)}
-                                            disabled={loading}
-                                            className="text-sm text-green-600 hover:text-green-700 font-medium"
-                                        >
-                                            {loading ? '⏳' : '🔄'} Aggiorna
+                                    <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+                                        <span className="font-bold text-gray-900">{LEAGUES[selectedLeague]?.name}</span>
+                                        <button onClick={() => loadMatches(selectedLeague)} className="text-green-600 text-sm font-medium">
+                                            {loading ? '⏳' : '🔄'}
                                         </button>
                                     </div>
                                     
                                     {loading ? (
-                                        <div className="p-10 text-center">
-                                            <div className="w-8 h-8 border-3 border-green-500 border-t-transparent rounded-full loader mx-auto mb-3"></div>
+                                        <div className="p-8 text-center">
+                                            <div className="w-8 h-8 border-3 border-green-500 border-t-transparent rounded-full loader mx-auto mb-2"></div>
                                             <p className="text-gray-500 text-sm">Caricamento...</p>
                                         </div>
                                     ) : matches.length === 0 ? (
-                                        <div className="p-10 text-center text-gray-500">
-                                            <p className="text-3xl mb-2">📭</p>
-                                            <p>Nessuna partita in programma</p>
+                                        <div className="p-8 text-center text-gray-500">
+                                            <p className="text-2xl mb-2">📭</p>
+                                            <p className="text-sm">Nessuna partita</p>
                                         </div>
                                     ) : (
-                                        <div className="divide-y divide-gray-100">
+                                        <div className="divide-y">
                                             {matches.map(match => {
                                                 const { date, time } = formatDate(match.utcDate);
                                                 return (
-                                                    <div key={match.id} className="px-4 py-3 hover:bg-green-50/50 transition-colors">
+                                                    <div key={match.id} className="px-4 py-3 hover:bg-green-50">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="text-center w-20 flex-shrink-0">
+                                                            <div className="w-16 text-center flex-shrink-0">
                                                                 <p className="text-xs text-gray-500">{date}</p>
                                                                 <p className="font-bold text-gray-900">{time}</p>
-                                                                <p className="text-xs text-gray-400">MD {match.matchday}</p>
                                                             </div>
                                                             
                                                             <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-2 mb-1">
-                                                                    {match.homeTeam.crest && (
-                                                                        <img src={match.homeTeam.crest} alt="" className="w-5 h-5 object-contain" />
-                                                                    )}
-                                                                    <span className="font-medium text-gray-900 text-sm truncate">{match.homeTeam.shortName || match.homeTeam.name}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    {match.awayTeam.crest && (
-                                                                        <img src={match.awayTeam.crest} alt="" className="w-5 h-5 object-contain" />
-                                                                    )}
-                                                                    <span className="font-medium text-gray-900 text-sm truncate">{match.awayTeam.shortName || match.awayTeam.name}</span>
-                                                                </div>
+                                                                <p className="font-medium text-gray-900 text-sm truncate">{match.homeTeam.shortName || match.homeTeam.name}</p>
+                                                                <p className="font-medium text-gray-900 text-sm truncate">{match.awayTeam.shortName || match.awayTeam.name}</p>
                                                             </div>
                                                             
                                                             <button
@@ -492,7 +437,7 @@
                                                                 disabled={isAnalyzing}
                                                                 className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
                                                             >
-                                                                {isAnalyzing && selectedMatch?.id === match.id ? '...' : 'Analizza'}
+                                                                {isAnalyzing && selectedMatch?.id === match.id ? '...' : '→'}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -504,214 +449,143 @@
                             </div>
                         )}
 
-                        {/* ANALYSIS TAB */}
                         {activeTab === 'analysis' && (
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {!selectedMatch ? (
-                                    <div className="bg-white rounded-xl p-10 text-center shadow-sm">
-                                        <p className="text-3xl mb-2">🎯</p>
-                                        <p className="font-bold text-gray-700">Seleziona una partita</p>
+                                    <div className="bg-white rounded-xl p-8 text-center shadow-sm">
+                                        <p className="text-2xl mb-2">🎯</p>
+                                        <p className="text-gray-600 text-sm">Seleziona una partita</p>
                                     </div>
                                 ) : isAnalyzing ? (
-                                    <div className="bg-white rounded-xl p-10 text-center shadow-sm">
-                                        <div className="w-10 h-10 border-3 border-green-500 border-t-transparent rounded-full loader mx-auto mb-3"></div>
-                                        <p className="font-bold text-gray-700">Analisi in corso...</p>
-                                        <p className="text-sm text-gray-500">Raccolta ultime 10 partite per squadra</p>
+                                    <div className="bg-white rounded-xl p-8 text-center shadow-sm">
+                                        <div className="w-8 h-8 border-3 border-green-500 border-t-transparent rounded-full loader mx-auto mb-2"></div>
+                                        <p className="text-gray-600 text-sm">Analisi...</p>
                                     </div>
                                 ) : analysisData && (
-                                    <div className="space-y-4">
-                                        {/* Match Header */}
-                                        <div className="bg-white rounded-xl p-4 shadow-sm">
-                                            <div className="flex items-center justify-between gap-4">
-                                                <div className="flex items-center gap-3">
-                                                    {analysisData.match.homeTeam.crest && (
-                                                        <img src={analysisData.match.homeTeam.crest} alt="" className="w-10 h-10 object-contain" />
-                                                    )}
-                                                    <div>
-                                                        <p className="font-bold text-gray-900">{analysisData.match.homeTeam.shortName || analysisData.match.homeTeam.name}</p>
-                                                        <p className="text-xs text-gray-500">Casa • {analysisData.homeStats.played} partite</p>
+                                    <div className="space-y-3">
+                                        {/* Header */}
+                                        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+                                            <p className="font-bold text-gray-900">{analysisData.match.homeTeam.shortName}</p>
+                                            <p className="text-gray-400 text-sm">vs</p>
+                                            <p className="font-bold text-gray-900">{analysisData.match.awayTeam.shortName}</p>
+                                            <p className="text-xs text-gray-500 mt-2">
+                                                {formatDate(analysisData.match.utcDate).date} • {formatDate(analysisData.match.utcDate).time}
+                                            </p>
+                                        </div>
+
+                                        {/* GG/NG */}
+                                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                                            <div className="px-4 py-2 bg-green-50 border-b border-green-100">
+                                                <h3 className="font-bold text-gray-900 text-sm">🟢 GG / NG</h3>
+                                            </div>
+                                            <div className="p-4">
+                                                <div className="grid grid-cols-2 gap-2 mb-3">
+                                                    <div className={`rounded-lg p-3 text-center border-2 ${analysisData.btts.prediction === 'GG' ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200'}`}>
+                                                        <p className="text-xl font-bold text-green-600">{analysisData.btts.ggProbability}%</p>
+                                                        <p className="text-sm text-gray-700">GG</p>
+                                                    </div>
+                                                    <div className={`rounded-lg p-3 text-center border-2 ${analysisData.btts.prediction === 'NG' ? 'bg-red-50 border-red-400' : 'bg-gray-50 border-gray-200'}`}>
+                                                        <p className="text-xl font-bold text-red-600">{analysisData.btts.ngProbability}%</p>
+                                                        <p className="text-sm text-gray-700">NG</p>
                                                     </div>
                                                 </div>
-                                                
-                                                <div className="text-center px-4">
-                                                    <p className="text-xs text-gray-500">{formatDate(analysisData.match.utcDate).date}</p>
-                                                    <p className="font-bold text-lg text-gray-900">{formatDate(analysisData.match.utcDate).time}</p>
-                                                </div>
-                                                
-                                                <div className="flex items-center gap-3">
-                                                    <div className="text-right">
-                                                        <p className="font-bold text-gray-900">{analysisData.match.awayTeam.shortName || analysisData.match.awayTeam.name}</p>
-                                                        <p className="text-xs text-gray-500">Trasferta • {analysisData.awayStats.played} partite</p>
-                                                    </div>
-                                                    {analysisData.match.awayTeam.crest && (
-                                                        <img src={analysisData.match.awayTeam.crest} alt="" className="w-10 h-10 object-contain" />
-                                                    )}
+                                                <div className={`rounded-lg p-2.5 border-2 flex justify-between items-center ${analysisData.btts.prediction === 'GG' ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
+                                                    <span className="font-bold">✓ {analysisData.btts.prediction}</span>
+                                                    <ConfidenceBadge value={analysisData.btts.confidence} />
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Stats recap */}
-                                        <div className="bg-white rounded-xl p-4 shadow-sm">
-                                            <h4 className="font-bold text-gray-700 text-sm mb-3">📊 Statistiche (ultime {analysisData.homeStats.played} partite)</h4>
-                                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                                <div>
-                                                    <p className="text-gray-500 text-xs mb-1">{analysisData.match.homeTeam.shortName}</p>
-                                                    <p>Media gol fatti: <strong>{analysisData.homeStats.avgGoalsFor.toFixed(2)}</strong></p>
-                                                    <p>Media gol subiti: <strong>{analysisData.homeStats.avgGoalsAgainst.toFixed(2)}</strong></p>
-                                                    <p>Clean sheet: <strong>{analysisData.homeStats.cleanSheets}</strong></p>
-                                                    <p>Senza gol: <strong>{analysisData.homeStats.failedToScore}</strong></p>
+                                        {/* Over 2.5 */}
+                                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                                            <div className="px-4 py-2 bg-purple-50 border-b border-purple-100">
+                                                <h3 className="font-bold text-gray-900 text-sm">🔮 Goal Attesi: {analysisData.goals.expectedTotal}</h3>
+                                            </div>
+                                            <div className="p-4">
+                                                <div className="grid grid-cols-3 gap-2 mb-3 text-center text-sm">
+                                                    <div className="bg-gray-50 rounded p-2">
+                                                        <p className="text-xs text-gray-500">Casa</p>
+                                                        <p className="font-bold text-purple-600">{analysisData.goals.expectedHome}</p>
+                                                    </div>
+                                                    <div className="bg-gray-50 rounded p-2">
+                                                        <p className="text-xs text-gray-500">Trasf</p>
+                                                        <p className="font-bold text-purple-600">{analysisData.goals.expectedAway}</p>
+                                                    </div>
+                                                    <div className="bg-purple-100 rounded p-2">
+                                                        <p className="text-xs text-purple-600">Tot</p>
+                                                        <p className="font-bold text-purple-700">{analysisData.goals.expectedTotal}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-gray-500 text-xs mb-1">{analysisData.match.awayTeam.shortName}</p>
-                                                    <p>Media gol fatti: <strong>{analysisData.awayStats.avgGoalsFor.toFixed(2)}</strong></p>
-                                                    <p>Media gol subiti: <strong>{analysisData.awayStats.avgGoalsAgainst.toFixed(2)}</strong></p>
-                                                    <p>Clean sheet: <strong>{analysisData.awayStats.cleanSheets}</strong></p>
-                                                    <p>Senza gol: <strong>{analysisData.awayStats.failedToScore}</strong></p>
+                                                <div className="space-y-1 mb-3">
+                                                    {analysisData.goals.predictions.map((p, i) => (
+                                                        <div key={i} className={`flex justify-between px-2 py-1.5 rounded text-sm ${p.line === 2.5 ? 'bg-purple-50' : 'bg-gray-50'}`}>
+                                                            <span>{p.prediction} {p.line}</span>
+                                                            <ConfidenceBadge value={p.confidence} />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className={`rounded-lg p-2.5 border-2 flex justify-between items-center ${analysisData.over25.prediction.includes('OVER') ? 'bg-purple-50 border-purple-400' : 'bg-gray-50 border-gray-300'}`}>
+                                                    <span className="font-bold">✓ {analysisData.over25.prediction}</span>
+                                                    <ConfidenceBadge value={analysisData.over25.confidence} />
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Predictions Grid */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            
-                                            {/* GG/NG */}
-                                            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                                <div className="px-4 py-2.5 bg-green-50 border-b border-green-100">
-                                                    <h3 className="font-bold text-gray-900 text-sm">🟢 GG / NG</h3>
-                                                </div>
-                                                <div className="p-4 space-y-3">
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <div className={`rounded-lg p-3 text-center border-2 ${analysisData.btts.prediction === 'GG' ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200'}`}>
-                                                            <p className="text-2xl font-bold text-green-600">{analysisData.btts.ggProbability}%</p>
-                                                            <p className="text-sm font-medium text-gray-700">GG</p>
+                                        {/* Corner */}
+                                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                                            <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
+                                                <h3 className="font-bold text-gray-900 text-sm">🚩 Corner ~{analysisData.corners.expectedTotal}</h3>
+                                            </div>
+                                            <div className="p-4">
+                                                <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded mb-2">⚠️ Stima</p>
+                                                <div className="space-y-1">
+                                                    {analysisData.corners.predictions.map((p, i) => (
+                                                        <div key={i} className={`flex justify-between px-2 py-1.5 rounded text-sm ${p === analysisData.corners.bestBet ? 'bg-green-50 border border-green-300' : 'bg-gray-50'}`}>
+                                                            <span>{p === analysisData.corners.bestBet && '⭐'} {p.prediction} {p.line}</span>
+                                                            <ConfidenceBadge value={p.confidence} />
                                                         </div>
-                                                        <div className={`rounded-lg p-3 text-center border-2 ${analysisData.btts.prediction === 'NG' ? 'bg-red-50 border-red-400' : 'bg-gray-50 border-gray-200'}`}>
-                                                            <p className="text-2xl font-bold text-red-600">{analysisData.btts.ngProbability}%</p>
-                                                            <p className="text-sm font-medium text-gray-700">NG</p>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div className="text-xs space-y-1">
-                                                        <div className="flex justify-between p-1.5 bg-gray-50 rounded">
-                                                            <span>{analysisData.match.homeTeam.shortName} segna:</span>
-                                                            <span className="font-bold">{analysisData.btts.homeScoreProb}%</span>
-                                                        </div>
-                                                        <div className="flex justify-between p-1.5 bg-gray-50 rounded">
-                                                            <span>{analysisData.match.awayTeam.shortName} segna:</span>
-                                                            <span className="font-bold">{analysisData.btts.awayScoreProb}%</span>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div className={`rounded-lg p-2.5 border-2 flex items-center justify-between ${analysisData.btts.prediction === 'GG' ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
-                                                        <span className="font-bold text-gray-900">✓ {analysisData.btts.prediction}</span>
-                                                        <ConfidenceBadge value={analysisData.btts.confidence} />
-                                                    </div>
+                                                    ))}
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            {/* Over 2.5 */}
-                                            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                                <div className="px-4 py-2.5 bg-purple-50 border-b border-purple-100">
-                                                    <h3 className="font-bold text-gray-900 text-sm">🔮 Goal • Attesi: {analysisData.goals.expectedTotal}</h3>
-                                                </div>
-                                                <div className="p-4 space-y-3">
-                                                    <div className="grid grid-cols-3 gap-2 text-center">
-                                                        <div className="bg-gray-50 rounded p-2">
-                                                            <p className="text-xs text-gray-500">Casa</p>
-                                                            <p className="text-lg font-bold text-purple-600">{analysisData.goals.expectedHome}</p>
-                                                        </div>
-                                                        <div className="bg-gray-50 rounded p-2">
-                                                            <p className="text-xs text-gray-500">Trasf.</p>
-                                                            <p className="text-lg font-bold text-purple-600">{analysisData.goals.expectedAway}</p>
-                                                        </div>
-                                                        <div className="bg-purple-100 rounded p-2">
-                                                            <p className="text-xs text-purple-600">Tot.</p>
-                                                            <p className="text-lg font-bold text-purple-700">{analysisData.goals.expectedTotal}</p>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div className="space-y-1">
-                                                        {analysisData.goals.predictions.map((pred, i) => (
-                                                            <div key={i} className={`flex items-center justify-between px-2.5 py-1.5 rounded text-sm ${pred.line === 2.5 ? 'bg-purple-50 border border-purple-200' : 'bg-gray-50'}`}>
-                                                                <span className="font-medium text-gray-700">{pred.prediction} {pred.line}</span>
-                                                                <ConfidenceBadge value={pred.confidence} />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    
-                                                    <div className={`rounded-lg p-2.5 border-2 flex items-center justify-between ${analysisData.over25.prediction.includes('OVER') ? 'bg-purple-50 border-purple-400' : 'bg-gray-50 border-gray-300'}`}>
-                                                        <span className="font-bold text-gray-900">✓ {analysisData.over25.prediction}</span>
-                                                        <ConfidenceBadge value={analysisData.over25.confidence} />
-                                                    </div>
-                                                </div>
+                                        {/* Cards */}
+                                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                                            <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
+                                                <h3 className="font-bold text-gray-900 text-sm">🟨 Cartellini ~{analysisData.cards.expectedTotal}</h3>
                                             </div>
-
-                                            {/* Corner */}
-                                            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                                <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-100">
-                                                    <h3 className="font-bold text-gray-900 text-sm">🚩 Corner • ~{analysisData.corners.expectedTotal}</h3>
-                                                </div>
-                                                <div className="p-4 space-y-3">
-                                                    <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">{analysisData.corners.note}</p>
-                                                    <div className="space-y-1">
-                                                        {analysisData.corners.predictions.slice(0, 4).map((pred, i) => (
-                                                            <div key={i} className={`flex items-center justify-between px-2.5 py-1.5 rounded text-sm ${pred === analysisData.corners.bestBet ? 'bg-green-50 border border-green-300' : 'bg-gray-50'}`}>
-                                                                <span className="font-medium text-gray-700">
-                                                                    {pred === analysisData.corners.bestBet && '⭐ '}
-                                                                    {pred.prediction} {pred.line}
-                                                                </span>
-                                                                <ConfidenceBadge value={pred.confidence} />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Cards */}
-                                            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                                <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-100">
-                                                    <h3 className="font-bold text-gray-900 text-sm">🟨 Cartellini • ~{analysisData.cards.expectedTotal}</h3>
-                                                </div>
-                                                <div className="p-4 space-y-3">
-                                                    <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">{analysisData.cards.note}</p>
-                                                    <div className="space-y-1">
-                                                        {analysisData.cards.predictions.map((pred, i) => (
-                                                            <div key={i} className={`flex items-center justify-between px-2.5 py-1.5 rounded text-sm ${pred === analysisData.cards.bestBet ? 'bg-green-50 border border-green-300' : 'bg-gray-50'}`}>
-                                                                <span className="font-medium text-gray-700">
-                                                                    {pred === analysisData.cards.bestBet && '⭐ '}
-                                                                    {pred.prediction} {pred.line}
-                                                                </span>
-                                                                <ConfidenceBadge value={pred.confidence} />
-                                                            </div>
-                                                        ))}
-                                                    </div>
+                                            <div className="p-4">
+                                                <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded mb-2">⚠️ Stima</p>
+                                                <div className="space-y-1">
+                                                    {analysisData.cards.predictions.map((p, i) => (
+                                                        <div key={i} className={`flex justify-between px-2 py-1.5 rounded text-sm ${p === analysisData.cards.bestBet ? 'bg-green-50 border border-green-300' : 'bg-gray-50'}`}>
+                                                            <span>{p === analysisData.cards.bestBet && '⭐'} {p.prediction} {p.line}</span>
+                                                            <ConfidenceBadge value={p.confidence} />
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         </div>
 
                                         {/* Summary */}
                                         <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-4 text-white">
-                                            <h3 className="font-bold mb-3">🏆 Riepilogo</h3>
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                <div className="bg-white/20 rounded-lg p-2.5 backdrop-blur">
-                                                    <p className="text-white/80 text-xs">GG/NG</p>
-                                                    <p className="text-lg font-bold">{analysisData.btts.prediction}</p>
-                                                    <p className="text-white/80 text-xs">{analysisData.btts.confidence}%</p>
+                                            <h3 className="font-bold mb-2">🏆 Riepilogo</h3>
+                                            <div className="grid grid-cols-4 gap-2 text-center">
+                                                <div className="bg-white/20 rounded-lg p-2">
+                                                    <p className="text-xs opacity-80">GG/NG</p>
+                                                    <p className="font-bold">{analysisData.btts.prediction}</p>
                                                 </div>
-                                                <div className="bg-white/20 rounded-lg p-2.5 backdrop-blur">
-                                                    <p className="text-white/80 text-xs">Goal</p>
-                                                    <p className="text-lg font-bold">{analysisData.over25.prediction.replace('OVER ', 'O').replace('UNDER ', 'U')}</p>
-                                                    <p className="text-white/80 text-xs">{analysisData.over25.confidence}%</p>
+                                                <div className="bg-white/20 rounded-lg p-2">
+                                                    <p className="text-xs opacity-80">Goal</p>
+                                                    <p className="font-bold">{analysisData.over25.prediction.replace('OVER ', 'O').replace('UNDER ', 'U')}</p>
                                                 </div>
-                                                <div className="bg-white/20 rounded-lg p-2.5 backdrop-blur">
-                                                    <p className="text-white/80 text-xs">Corner</p>
-                                                    <p className="text-lg font-bold">{analysisData.corners.bestBet.prediction.charAt(0)} {analysisData.corners.bestBet.line}</p>
-                                                    <p className="text-white/80 text-xs">~{Math.round(analysisData.corners.bestBet.confidence)}%</p>
+                                                <div className="bg-white/20 rounded-lg p-2">
+                                                    <p className="text-xs opacity-80">Corner</p>
+                                                    <p className="font-bold">{analysisData.corners.bestBet.prediction.charAt(0)}{analysisData.corners.bestBet.line}</p>
                                                 </div>
-                                                <div className="bg-white/20 rounded-lg p-2.5 backdrop-blur">
-                                                    <p className="text-white/80 text-xs">Cards</p>
-                                                    <p className="text-lg font-bold">{analysisData.cards.bestBet.prediction.charAt(0)} {analysisData.cards.bestBet.line}</p>
-                                                    <p className="text-white/80 text-xs">~{Math.round(analysisData.cards.bestBet.confidence)}%</p>
+                                                <div className="bg-white/20 rounded-lg p-2">
+                                                    <p className="text-xs opacity-80">Cards</p>
+                                                    <p className="font-bold">{analysisData.cards.bestBet.prediction.charAt(0)}{analysisData.cards.bestBet.line}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -721,14 +595,11 @@
                         )}
                     </main>
 
-                    <footer className="border-t border-gray-200 bg-white mt-4">
-                        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between text-xs text-gray-500">
-                            <p>⚽ Betting Predictor • football-data.org</p>
-                            <button
-                                onClick={() => { setShowSetup(true); localStorage.removeItem('footballDataApiKey'); }}
-                                className="text-red-500 hover:text-red-600"
-                            >
-                                Cambia API Key
+                    <footer className="border-t bg-white mt-4">
+                        <div className="max-w-lg mx-auto px-4 py-2 flex justify-between text-xs text-gray-500">
+                            <span>⚽ football-data.org</span>
+                            <button onClick={() => { setShowSetup(true); localStorage.removeItem('footballDataApiKey'); }} className="text-red-500">
+                                Reset
                             </button>
                         </div>
                     </footer>
