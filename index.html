@@ -5,610 +5,600 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Betting Predictor Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; }
         .loader { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
-<body>
+<body class="bg-gray-100">
     <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-
+    <script>
         // ============================================
-        // BETTING PREDICTOR PRO - FOOTBALL-DATA.ORG
-        // Con CORS proxy per funzionare da locale
+        // BETTING PREDICTOR PRO - VERSIONE FINALE
+        // Usa corsproxy.io per funzionare da locale
         // ============================================
 
-        // CORS Proxy per file locale
-        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
         const API_BASE = 'https://api.football-data.org/v4';
+        const PROXY = (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`;
 
-        // Campionati GRATUITI
         const LEAGUES = {
-            SA: { name: "Serie A", country: "🇮🇹", id: "SA" },
-            PL: { name: "Premier League", country: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", id: "PL" },
-            PD: { name: "La Liga", country: "🇪🇸", id: "PD" },
-            BL1: { name: "Bundesliga", country: "🇩🇪", id: "BL1" },
-            FL1: { name: "Ligue 1", country: "🇫🇷", id: "FL1" },
-            CL: { name: "Champions League", country: "🇪🇺", id: "CL" },
-            ELC: { name: "Championship", country: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", id: "ELC" },
-            PPL: { name: "Primeira Liga", country: "🇵🇹", id: "PPL" },
-            DED: { name: "Eredivisie", country: "🇳🇱", id: "DED" }
+            SA: { name: "Serie A", flag: "🇮🇹" },
+            PL: { name: "Premier League", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+            PD: { name: "La Liga", flag: "🇪🇸" },
+            BL1: { name: "Bundesliga", flag: "🇩🇪" },
+            FL1: { name: "Ligue 1", flag: "🇫🇷" },
+            CL: { name: "Champions League", flag: "🇪🇺" },
+            ELC: { name: "Championship", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+            PPL: { name: "Primeira Liga", flag: "🇵🇹" },
+            DED: { name: "Eredivisie", flag: "🇳🇱" }
         };
 
-        function App() {
-            const [apiKey, setApiKey] = useState(() => localStorage.getItem('footballDataApiKey') || '');
-            const [showSetup, setShowSetup] = useState(!localStorage.getItem('footballDataApiKey'));
-            const [selectedLeague, setSelectedLeague] = useState('SA');
-            const [matches, setMatches] = useState([]);
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState(null);
-            const [selectedMatch, setSelectedMatch] = useState(null);
-            const [analysisData, setAnalysisData] = useState(null);
-            const [isAnalyzing, setIsAnalyzing] = useState(false);
-            const [activeTab, setActiveTab] = useState('matches');
-            const [useProxy, setUseProxy] = useState(true);
+        // State
+        let state = {
+            apiKey: localStorage.getItem('footballDataApiKey') || '',
+            showSetup: !localStorage.getItem('footballDataApiKey'),
+            selectedLeague: 'SA',
+            matches: [],
+            loading: false,
+            error: null,
+            activeTab: 'matches',
+            selectedMatch: null,
+            analysisData: null,
+            isAnalyzing: false
+        };
 
-            const saveApiKey = () => {
-                if (apiKey.trim()) {
-                    localStorage.setItem('footballDataApiKey', apiKey.trim());
-                    setShowSetup(false);
-                    loadMatches(selectedLeague);
-                }
-            };
+        // API Call
+        async function apiCall(endpoint) {
+            const url = PROXY(`${API_BASE}${endpoint}`);
+            const response = await fetch(url, {
+                headers: { 'X-Auth-Token': state.apiKey }
+            });
+            
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`Errore ${response.status}: ${text.substring(0, 100)}`);
+            }
+            
+            return await response.json();
+        }
 
-            // API Call con gestione CORS
-            const apiCall = async (endpoint) => {
-                const directUrl = `${API_BASE}${endpoint}`;
+        // Load matches
+        async function loadMatches() {
+            if (!state.apiKey) return;
+            
+            state.loading = true;
+            state.error = null;
+            render();
+            
+            try {
+                const data = await apiCall(`/competitions/${state.selectedLeague}/matches?status=SCHEDULED,TIMED`);
+                state.matches = (data.matches || []).slice(0, 30);
                 
-                // Prima prova diretto (funziona su GitHub Pages)
-                try {
-                    const response = await fetch(directUrl, {
-                        headers: { 'X-Auth-Token': apiKey }
-                    });
-                    
-                    if (response.ok) {
-                        setUseProxy(false);
-                        return await response.json();
+                if (state.matches.length === 0) {
+                    state.error = 'Nessuna partita in programma';
+                }
+            } catch (err) {
+                state.error = err.message;
+                state.matches = [];
+            } finally {
+                state.loading = false;
+                render();
+            }
+        }
+
+        // Load team matches
+        async function loadTeamMatches(teamId) {
+            try {
+                const data = await apiCall(`/teams/${teamId}/matches?status=FINISHED&limit=10`);
+                return data.matches || [];
+            } catch (err) {
+                console.error('Team matches error:', err);
+                return [];
+            }
+        }
+
+        // Calculate stats
+        function calculateStats(matches, teamId) {
+            if (!matches || matches.length === 0) {
+                return { avgGoalsFor: 1.3, avgGoalsAgainst: 1.1, failedToScore: 2, cleanSheets: 3, played: 10 };
+            }
+            
+            let goalsFor = 0, goalsAgainst = 0, failedToScore = 0, cleanSheets = 0;
+            
+            matches.forEach(m => {
+                const isHome = m.homeTeam.id === teamId;
+                const scored = isHome ? (m.score.fullTime.home || 0) : (m.score.fullTime.away || 0);
+                const conceded = isHome ? (m.score.fullTime.away || 0) : (m.score.fullTime.home || 0);
+                
+                goalsFor += scored;
+                goalsAgainst += conceded;
+                if (scored === 0) failedToScore++;
+                if (conceded === 0) cleanSheets++;
+            });
+            
+            const played = matches.length;
+            return { avgGoalsFor: goalsFor / played, avgGoalsAgainst: goalsAgainst / played, failedToScore, cleanSheets, played };
+        }
+
+        // Analyze match
+        async function analyzeMatch(match) {
+            state.isAnalyzing = true;
+            state.selectedMatch = match;
+            state.activeTab = 'analysis';
+            render();
+            
+            try {
+                const [homeMatches, awayMatches] = await Promise.all([
+                    loadTeamMatches(match.homeTeam.id),
+                    loadTeamMatches(match.awayTeam.id)
+                ]);
+                
+                const homeStats = calculateStats(homeMatches, match.homeTeam.id);
+                const awayStats = calculateStats(awayMatches, match.awayTeam.id);
+                
+                // CALCOLI
+                const expectedHomeGoals = (homeStats.avgGoalsFor + awayStats.avgGoalsAgainst) / 2;
+                const expectedAwayGoals = (awayStats.avgGoalsFor + homeStats.avgGoalsAgainst) / 2;
+                const expectedTotalGoals = expectedHomeGoals + expectedAwayGoals;
+                
+                // GG/NG
+                const homeScoreProb = Math.min(95, Math.max(30, (1 - (homeStats.failedToScore / homeStats.played)) * 100));
+                const awayScoreProb = Math.min(95, Math.max(30, (1 - (awayStats.failedToScore / awayStats.played)) * 100));
+                const ggProbability = (homeScoreProb * awayScoreProb) / 100;
+                
+                // OVER 2.5
+                let over25Prob = 50;
+                if (expectedTotalGoals > 2.5) {
+                    over25Prob = 50 + ((expectedTotalGoals - 2.5) * 20);
+                } else {
+                    over25Prob = 50 - ((2.5 - expectedTotalGoals) * 20);
+                }
+                over25Prob = Math.min(88, Math.max(15, over25Prob));
+                
+                // CORNER (stima)
+                const expectedCorners = 8.5 + ((homeStats.avgGoalsFor + awayStats.avgGoalsFor) / 2) * 1.2;
+                const cornerPredictions = [8.5, 9.5, 10.5, 11.5].map(line => ({
+                    line,
+                    prediction: expectedCorners > line ? 'OVER' : 'UNDER',
+                    confidence: Math.min(75, Math.max(42, 50 + Math.abs(expectedCorners - line) * 8))
+                }));
+                
+                // CARDS (stima)
+                const expectedCards = 4 + Math.random() * 1.5;
+                const cardPredictions = [3.5, 4.5, 5.5].map(line => ({
+                    line,
+                    prediction: expectedCards > line ? 'OVER' : 'UNDER',
+                    confidence: Math.min(72, Math.max(42, 50 + Math.abs(expectedCards - line) * 10))
+                }));
+                
+                // GOAL predictions
+                const goalPredictions = [1.5, 2.5, 3.5].map(line => ({
+                    line,
+                    prediction: expectedTotalGoals > line ? 'OVER' : 'UNDER',
+                    confidence: Math.min(85, Math.max(42, 50 + Math.abs(expectedTotalGoals - line) * 15))
+                }));
+                
+                const ggConfidence = Math.min(85, Math.max(45, Math.abs(ggProbability - 50) + 50));
+                const over25Confidence = Math.min(85, Math.max(45, Math.abs(over25Prob - 50) + 50));
+                
+                state.analysisData = {
+                    match, homeStats, awayStats,
+                    goals: {
+                        expectedHome: expectedHomeGoals.toFixed(2),
+                        expectedAway: expectedAwayGoals.toFixed(2),
+                        expectedTotal: expectedTotalGoals.toFixed(2),
+                        predictions: goalPredictions
+                    },
+                    btts: {
+                        ggProbability: ggProbability.toFixed(1),
+                        ngProbability: (100 - ggProbability).toFixed(1),
+                        prediction: ggProbability > 52 ? 'GG' : 'NG',
+                        confidence: ggConfidence.toFixed(0),
+                        homeScoreProb: homeScoreProb.toFixed(0),
+                        awayScoreProb: awayScoreProb.toFixed(0)
+                    },
+                    over25: {
+                        probability: over25Prob.toFixed(1),
+                        prediction: over25Prob > 50 ? 'OVER 2.5' : 'UNDER 2.5',
+                        confidence: over25Confidence.toFixed(0)
+                    },
+                    corners: {
+                        expectedTotal: expectedCorners.toFixed(1),
+                        predictions: cornerPredictions,
+                        bestBet: cornerPredictions.reduce((b, c) => c.confidence > b.confidence ? c : b)
+                    },
+                    cards: {
+                        expectedTotal: expectedCards.toFixed(1),
+                        predictions: cardPredictions,
+                        bestBet: cardPredictions.reduce((b, c) => c.confidence > b.confidence ? c : b)
                     }
-                } catch (e) {
-                    console.log('Direct fetch failed, trying proxy...');
-                }
-                
-                // Se fallisce, usa proxy
-                const proxyUrl = `${CORS_PROXY}${encodeURIComponent(directUrl)}`;
-                
-                const response = await fetch(proxyUrl, {
-                    headers: { 'X-Auth-Token': apiKey }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`Errore ${response.status}`);
-                }
-                
-                setUseProxy(true);
-                return await response.json();
-            };
-
-            // Carica partite
-            const loadMatches = async (leagueCode) => {
-                if (!apiKey) return;
-                
-                setLoading(true);
-                setError(null);
-                
-                try {
-                    const data = await apiCall(`/competitions/${leagueCode}/matches?status=SCHEDULED,TIMED`);
-                    const upcoming = (data.matches || []).slice(0, 20);
-                    setMatches(upcoming);
-                    
-                    if (upcoming.length === 0) {
-                        setError('Nessuna partita in programma. Prova un altro campionato.');
-                    }
-                } catch (err) {
-                    console.error('Load error:', err);
-                    setError('Errore: ' + err.message + '. Verifica API Key.');
-                    setMatches([]);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            // Carica ultime partite squadra
-            const loadTeamMatches = async (teamId) => {
-                try {
-                    const data = await apiCall(`/teams/${teamId}/matches?status=FINISHED&limit=10`);
-                    return data.matches || [];
-                } catch (err) {
-                    console.error('Team matches error:', err);
-                    return [];
-                }
-            };
-
-            // Calcola statistiche
-            const calculateStats = (matches, teamId) => {
-                if (!matches || matches.length === 0) {
-                    return { avgGoalsFor: 1.3, avgGoalsAgainst: 1.1, failedToScore: 2, cleanSheets: 3, played: 10 };
-                }
-                
-                let goalsFor = 0, goalsAgainst = 0, failedToScore = 0, cleanSheets = 0;
-                
-                matches.forEach(m => {
-                    const isHome = m.homeTeam.id === teamId;
-                    const scored = isHome ? (m.score.fullTime.home || 0) : (m.score.fullTime.away || 0);
-                    const conceded = isHome ? (m.score.fullTime.away || 0) : (m.score.fullTime.home || 0);
-                    
-                    goalsFor += scored;
-                    goalsAgainst += conceded;
-                    if (scored === 0) failedToScore++;
-                    if (conceded === 0) cleanSheets++;
-                });
-                
-                const played = matches.length;
-                return {
-                    avgGoalsFor: goalsFor / played,
-                    avgGoalsAgainst: goalsAgainst / played,
-                    failedToScore, cleanSheets, played,
-                    totalGoalsFor: goalsFor,
-                    totalGoalsAgainst: goalsAgainst
                 };
-            };
-
-            // Analizza partita
-            const analyzeMatch = async (match) => {
-                setIsAnalyzing(true);
-                setSelectedMatch(match);
-                setActiveTab('analysis');
                 
-                try {
-                    const [homeMatches, awayMatches] = await Promise.all([
-                        loadTeamMatches(match.homeTeam.id),
-                        loadTeamMatches(match.awayTeam.id)
-                    ]);
-                    
-                    const homeStats = calculateStats(homeMatches, match.homeTeam.id);
-                    const awayStats = calculateStats(awayMatches, match.awayTeam.id);
-                    
-                    // GOL ATTESI
-                    const expectedHomeGoals = (homeStats.avgGoalsFor + awayStats.avgGoalsAgainst) / 2;
-                    const expectedAwayGoals = (awayStats.avgGoalsFor + homeStats.avgGoalsAgainst) / 2;
-                    const expectedTotalGoals = expectedHomeGoals + expectedAwayGoals;
-                    
-                    // GG/NG
-                    const homeScoreProb = Math.min(95, Math.max(30, (1 - (homeStats.failedToScore / homeStats.played)) * 100));
-                    const awayScoreProb = Math.min(95, Math.max(30, (1 - (awayStats.failedToScore / awayStats.played)) * 100));
-                    let ggProbability = (homeScoreProb * awayScoreProb) / 100;
-                    
-                    // OVER 2.5
-                    let over25Prob = 50;
-                    if (expectedTotalGoals > 2.5) {
-                        over25Prob = 50 + ((expectedTotalGoals - 2.5) * 20);
-                    } else {
-                        over25Prob = 50 - ((2.5 - expectedTotalGoals) * 20);
-                    }
-                    over25Prob = Math.min(88, Math.max(15, over25Prob));
-                    
-                    // CORNER (stima)
-                    const avgGoals = (homeStats.avgGoalsFor + awayStats.avgGoalsFor) / 2;
-                    const expectedCorners = 8.5 + (avgGoals * 1.2);
-                    
-                    const cornerPredictions = [8.5, 9.5, 10.5, 11.5].map(line => ({
-                        line,
-                        prediction: expectedCorners > line ? 'OVER' : 'UNDER',
-                        confidence: Math.min(75, Math.max(42, 50 + Math.abs(expectedCorners - line) * 8))
-                    }));
-                    
-                    // CARTELLINI (stima)
-                    const expectedCards = 4 + (Math.random() * 1.5);
-                    
-                    const cardPredictions = [3.5, 4.5, 5.5].map(line => ({
-                        line,
-                        prediction: expectedCards > line ? 'OVER' : 'UNDER',
-                        confidence: Math.min(72, Math.max(42, 50 + Math.abs(expectedCards - line) * 10))
-                    }));
-                    
-                    // GOAL predictions
-                    const goalPredictions = [1.5, 2.5, 3.5].map(line => ({
-                        line,
-                        prediction: expectedTotalGoals > line ? 'OVER' : 'UNDER',
-                        confidence: Math.min(85, Math.max(42, 50 + Math.abs(expectedTotalGoals - line) * 15))
-                    }));
-                    
-                    const ggConfidence = Math.min(85, Math.max(45, Math.abs(ggProbability - 50) + 50));
-                    const over25Confidence = Math.min(85, Math.max(45, Math.abs(over25Prob - 50) + 50));
-                    const bestCornerBet = cornerPredictions.reduce((b, c) => c.confidence > b.confidence ? c : b);
-                    const bestCardBet = cardPredictions.reduce((b, c) => c.confidence > b.confidence ? c : b);
-                    
-                    setAnalysisData({
-                        match, homeStats, awayStats,
-                        goals: {
-                            expectedHome: expectedHomeGoals.toFixed(2),
-                            expectedAway: expectedAwayGoals.toFixed(2),
-                            expectedTotal: expectedTotalGoals.toFixed(2),
-                            predictions: goalPredictions
-                        },
-                        btts: {
-                            ggProbability: ggProbability.toFixed(1),
-                            ngProbability: (100 - ggProbability).toFixed(1),
-                            prediction: ggProbability > 52 ? 'GG' : 'NG',
-                            confidence: ggConfidence.toFixed(0),
-                            homeScoreProb: homeScoreProb.toFixed(0),
-                            awayScoreProb: awayScoreProb.toFixed(0)
-                        },
-                        over25: {
-                            probability: over25Prob.toFixed(1),
-                            prediction: over25Prob > 50 ? 'OVER 2.5' : 'UNDER 2.5',
-                            confidence: over25Confidence.toFixed(0)
-                        },
-                        corners: {
-                            expectedTotal: expectedCorners.toFixed(1),
-                            predictions: cornerPredictions,
-                            bestBet: bestCornerBet
-                        },
-                        cards: {
-                            expectedTotal: expectedCards.toFixed(1),
-                            predictions: cardPredictions,
-                            bestBet: bestCardBet
-                        }
-                    });
-                    
-                } catch (err) {
-                    setError('Errore analisi: ' + err.message);
-                } finally {
-                    setIsAnalyzing(false);
-                }
+            } catch (err) {
+                state.error = 'Errore analisi: ' + err.message;
+            } finally {
+                state.isAnalyzing = false;
+                render();
+            }
+        }
+
+        // Format date
+        function formatDate(dateStr) {
+            const d = new Date(dateStr);
+            return {
+                date: d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' }),
+                time: d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
             };
+        }
 
-            useEffect(() => {
-                if (apiKey && !showSetup) {
-                    loadMatches(selectedLeague);
-                }
-            }, [selectedLeague, apiKey, showSetup]);
+        // Confidence badge
+        function confidenceBadge(value) {
+            const v = parseFloat(value);
+            let cls = 'bg-red-100 text-red-700';
+            if (v >= 68) cls = 'bg-green-100 text-green-700';
+            else if (v >= 55) cls = 'bg-amber-100 text-amber-700';
+            return `<span class="px-2 py-1 rounded text-xs font-bold ${cls}">${Math.round(v)}%</span>`;
+        }
 
-            const ConfidenceBadge = ({ value }) => {
-                const v = parseFloat(value);
-                let cls = 'bg-red-100 text-red-700';
-                if (v >= 68) cls = 'bg-green-100 text-green-700';
-                else if (v >= 55) cls = 'bg-amber-100 text-amber-700';
-                return <span className={`px-2 py-1 rounded text-xs font-bold ${cls}`}>{Math.round(v)}%</span>;
-            };
+        // Save API key
+        function saveApiKey() {
+            const input = document.getElementById('apiKeyInput');
+            state.apiKey = input.value.trim();
+            localStorage.setItem('footballDataApiKey', state.apiKey);
+            state.showSetup = false;
+            render();
+            loadMatches();
+        }
 
-            const formatDate = (dateStr) => {
-                const d = new Date(dateStr);
-                return {
-                    date: d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' }),
-                    time: d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
-                };
-            };
+        // Change league
+        function changeLeague(code) {
+            state.selectedLeague = code;
+            state.selectedMatch = null;
+            state.analysisData = null;
+            loadMatches();
+        }
 
-            // SETUP
-            if (showSetup) {
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full">
-                            <div className="text-center mb-6">
-                                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                                    <span className="text-3xl">⚽</span>
+        // Set tab
+        function setTab(tab) {
+            state.activeTab = tab;
+            render();
+        }
+
+        // Reset
+        function resetApp() {
+            localStorage.removeItem('footballDataApiKey');
+            state.apiKey = '';
+            state.showSetup = true;
+            state.matches = [];
+            render();
+        }
+
+        // RENDER
+        function render() {
+            const root = document.getElementById('root');
+            
+            // SETUP SCREEN
+            if (state.showSetup) {
+                root.innerHTML = `
+                    <div class="min-h-screen flex items-center justify-center p-4">
+                        <div class="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full">
+                            <div class="text-center mb-6">
+                                <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                    <span class="text-3xl">⚽</span>
                                 </div>
-                                <h1 className="text-2xl font-bold text-gray-900">Betting Predictor</h1>
-                                <p className="text-gray-500 text-sm">Pronostici automatici</p>
+                                <h1 class="text-2xl font-bold text-gray-900">Betting Predictor</h1>
+                                <p class="text-gray-500">Pronostici automatici</p>
                             </div>
                             
-                            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
-                                <h3 className="font-bold text-green-800 text-sm mb-2">🔑 Ottieni API Key GRATIS:</h3>
-                                <ol className="text-sm text-green-700 space-y-2 list-decimal ml-4">
-                                    <li>
-                                        <a href="https://www.football-data.org/client/register" target="_blank" className="underline font-bold text-green-600">
-                                            Clicca qui per registrarti →
-                                        </a>
-                                    </li>
-                                    <li>Compila nome, email, password</li>
-                                    <li>Conferma email</li>
-                                    <li>Copia il token dalla dashboard</li>
-                                </ol>
+                            <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+                                <p class="font-bold text-green-800 text-sm mb-2">🔑 API Key da football-data.org</p>
+                                <p class="text-xs text-green-700">Registrati gratis su <a href="https://www.football-data.org/client/register" target="_blank" class="underline font-bold">football-data.org</a> e copia il token</p>
                             </div>
                             
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">API Token</label>
-                                <input
-                                    type="text"
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder="Incolla il token qui..."
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center font-mono"
-                                />
-                            </div>
+                            <input 
+                                id="apiKeyInput"
+                                type="text" 
+                                placeholder="Incolla API token..."
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl mb-4 text-center font-mono"
+                            />
                             
-                            <button
-                                onClick={saveApiKey}
-                                disabled={!apiKey.trim()}
-                                className="w-full py-3 bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
-                            >
+                            <button onclick="saveApiKey()" class="w-full py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-bold text-lg">
                                 🚀 Inizia
                             </button>
-                            
-                            <div className="mt-4 text-center">
-                                <p className="text-xs text-gray-500">
-                                    ✅ Serie A, Premier, Liga, Bundes, Ligue 1, UCL
-                                </p>
-                            </div>
                         </div>
                     </div>
-                );
+                `;
+                return;
             }
 
             // MAIN APP
-            return (
-                <div className="min-h-screen bg-gray-100">
-                    <header className="bg-white shadow-sm sticky top-0 z-40">
-                        <div className="max-w-lg mx-auto px-4 py-3">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-2xl">⚽</span>
-                                    <div>
-                                        <h1 className="text-sm font-bold text-gray-900">Betting Predictor</h1>
-                                        <p className="text-xs text-green-600">● Live</p>
-                                    </div>
-                                </div>
-                                
-                                <select
-                                    value={selectedLeague}
-                                    onChange={(e) => setSelectedLeague(e.target.value)}
-                                    className="px-2 py-1.5 bg-gray-100 rounded-lg text-sm font-medium"
-                                >
-                                    {Object.entries(LEAGUES).map(([code, l]) => (
-                                        <option key={code} value={code}>{l.country} {l.name}</option>
-                                    ))}
-                                </select>
+            const league = LEAGUES[state.selectedLeague];
+            
+            let content = '';
+            
+            // MATCHES TAB
+            if (state.activeTab === 'matches') {
+                if (state.loading) {
+                    content = `
+                        <div class="bg-white rounded-xl p-8 text-center shadow-sm">
+                            <div class="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full loader mx-auto mb-3"></div>
+                            <p class="text-gray-500">Caricamento...</p>
+                        </div>
+                    `;
+                } else if (state.error) {
+                    content = `
+                        <div class="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm">
+                            ⚠️ ${state.error}
+                        </div>
+                    `;
+                } else if (state.matches.length === 0) {
+                    content = `
+                        <div class="bg-white rounded-xl p-8 text-center shadow-sm">
+                            <p class="text-3xl mb-2">📭</p>
+                            <p class="text-gray-500">Nessuna partita</p>
+                        </div>
+                    `;
+                } else {
+                    content = `
+                        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                            <div class="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+                                <span class="font-bold text-gray-900">${league.flag} ${league.name}</span>
+                                <span class="text-gray-400 text-sm">${state.matches.length} partite</span>
+                            </div>
+                            <div class="divide-y max-h-96 overflow-y-auto">
+                                ${state.matches.map(m => {
+                                    const { date, time } = formatDate(m.utcDate);
+                                    return `
+                                        <div class="px-4 py-3 hover:bg-green-50 cursor-pointer" onclick="analyzeMatch(state.matches.find(x => x.id === ${m.id}))">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-16 text-center flex-shrink-0">
+                                                    <p class="text-xs text-gray-500">${date}</p>
+                                                    <p class="font-bold text-gray-900">${time}</p>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="font-medium text-gray-900 text-sm truncate">${m.homeTeam.shortName || m.homeTeam.name}</p>
+                                                    <p class="font-medium text-gray-900 text-sm truncate">${m.awayTeam.shortName || m.awayTeam.name}</p>
+                                                </div>
+                                                <span class="text-green-500 font-bold">→</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
+                    `;
+                }
+            }
+            
+            // ANALYSIS TAB
+            if (state.activeTab === 'analysis') {
+                if (state.isAnalyzing) {
+                    content = `
+                        <div class="bg-white rounded-xl p-8 text-center shadow-sm">
+                            <div class="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full loader mx-auto mb-3"></div>
+                            <p class="text-gray-500">Analisi in corso...</p>
+                        </div>
+                    `;
+                } else if (!state.analysisData) {
+                    content = `
+                        <div class="bg-white rounded-xl p-8 text-center shadow-sm">
+                            <p class="text-3xl mb-2">🎯</p>
+                            <p class="text-gray-500">Seleziona una partita</p>
+                        </div>
+                    `;
+                } else {
+                    const a = state.analysisData;
+                    const { date, time } = formatDate(a.match.utcDate);
+                    
+                    content = `
+                        <!-- Header -->
+                        <div class="bg-white rounded-xl p-4 shadow-sm text-center mb-3">
+                            <p class="font-bold text-gray-900">${a.match.homeTeam.shortName || a.match.homeTeam.name}</p>
+                            <p class="text-gray-400 text-sm">vs</p>
+                            <p class="font-bold text-gray-900">${a.match.awayTeam.shortName || a.match.awayTeam.name}</p>
+                            <p class="text-xs text-gray-500 mt-2">${date} • ${time}</p>
+                        </div>
                         
-                        <div className="max-w-lg mx-auto px-4 border-t border-gray-100 flex">
-                            {[
-                                { id: 'matches', label: '📅 Partite' },
-                                { id: 'analysis', label: '🎯 Analisi' }
-                            ].map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`flex-1 py-2.5 text-sm font-medium border-b-2 ${
-                                        activeTab === tab.id ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'
-                                    }`}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
+                        <!-- Stats -->
+                        <div class="bg-white rounded-xl p-4 shadow-sm mb-3">
+                            <p class="font-bold text-gray-700 text-sm mb-2">📊 Ultime ${a.homeStats.played} partite</p>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">${a.match.homeTeam.shortName}</p>
+                                    <p>Gol fatti: <strong>${a.homeStats.avgGoalsFor.toFixed(2)}</strong>/p</p>
+                                    <p>Gol subiti: <strong>${a.homeStats.avgGoalsAgainst.toFixed(2)}</strong>/p</p>
+                                    <p>Clean sheet: <strong>${a.homeStats.cleanSheets}</strong></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 mb-1">${a.match.awayTeam.shortName}</p>
+                                    <p>Gol fatti: <strong>${a.awayStats.avgGoalsFor.toFixed(2)}</strong>/p</p>
+                                    <p>Gol subiti: <strong>${a.awayStats.avgGoalsAgainst.toFixed(2)}</strong>/p</p>
+                                    <p>Clean sheet: <strong>${a.awayStats.cleanSheets}</strong></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GG/NG -->
+                        <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-3">
+                            <div class="px-4 py-2 bg-green-50 border-b border-green-100">
+                                <h3 class="font-bold text-gray-900 text-sm">🟢 GG / NG</h3>
+                            </div>
+                            <div class="p-4">
+                                <div class="grid grid-cols-2 gap-2 mb-3">
+                                    <div class="rounded-lg p-3 text-center border-2 ${a.btts.prediction === 'GG' ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200'}">
+                                        <p class="text-xl font-bold text-green-600">${a.btts.ggProbability}%</p>
+                                        <p class="text-sm text-gray-700">GG</p>
+                                    </div>
+                                    <div class="rounded-lg p-3 text-center border-2 ${a.btts.prediction === 'NG' ? 'bg-red-50 border-red-400' : 'bg-gray-50 border-gray-200'}">
+                                        <p class="text-xl font-bold text-red-600">${a.btts.ngProbability}%</p>
+                                        <p class="text-sm text-gray-700">NG</p>
+                                    </div>
+                                </div>
+                                <div class="text-xs space-y-1 mb-3">
+                                    <div class="flex justify-between p-1.5 bg-gray-50 rounded">
+                                        <span>${a.match.homeTeam.shortName} segna:</span>
+                                        <strong>${a.btts.homeScoreProb}%</strong>
+                                    </div>
+                                    <div class="flex justify-between p-1.5 bg-gray-50 rounded">
+                                        <span>${a.match.awayTeam.shortName} segna:</span>
+                                        <strong>${a.btts.awayScoreProb}%</strong>
+                                    </div>
+                                </div>
+                                <div class="rounded-lg p-2.5 border-2 flex justify-between items-center ${a.btts.prediction === 'GG' ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}">
+                                    <span class="font-bold">✓ ${a.btts.prediction}</span>
+                                    ${confidenceBadge(a.btts.confidence)}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Over 2.5 -->
+                        <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-3">
+                            <div class="px-4 py-2 bg-purple-50 border-b border-purple-100">
+                                <h3 class="font-bold text-gray-900 text-sm">🔮 Goal • Attesi: ${a.goals.expectedTotal}</h3>
+                            </div>
+                            <div class="p-4">
+                                <div class="grid grid-cols-3 gap-2 mb-3 text-center text-sm">
+                                    <div class="bg-gray-50 rounded p-2">
+                                        <p class="text-xs text-gray-500">Casa</p>
+                                        <p class="font-bold text-purple-600">${a.goals.expectedHome}</p>
+                                    </div>
+                                    <div class="bg-gray-50 rounded p-2">
+                                        <p class="text-xs text-gray-500">Trasf</p>
+                                        <p class="font-bold text-purple-600">${a.goals.expectedAway}</p>
+                                    </div>
+                                    <div class="bg-purple-100 rounded p-2">
+                                        <p class="text-xs text-purple-600">Tot</p>
+                                        <p class="font-bold text-purple-700">${a.goals.expectedTotal}</p>
+                                    </div>
+                                </div>
+                                <div class="space-y-1 mb-3">
+                                    ${a.goals.predictions.map(p => `
+                                        <div class="flex justify-between px-2 py-1.5 rounded text-sm ${p.line === 2.5 ? 'bg-purple-50' : 'bg-gray-50'}">
+                                            <span>${p.prediction} ${p.line}</span>
+                                            ${confidenceBadge(p.confidence)}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <div class="rounded-lg p-2.5 border-2 flex justify-between items-center ${a.over25.prediction.includes('OVER') ? 'bg-purple-50 border-purple-400' : 'bg-gray-50 border-gray-300'}">
+                                    <span class="font-bold">✓ ${a.over25.prediction}</span>
+                                    ${confidenceBadge(a.over25.confidence)}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Corner -->
+                        <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-3">
+                            <div class="px-4 py-2 bg-blue-50 border-b border-blue-100">
+                                <h3 class="font-bold text-gray-900 text-sm">🚩 Corner ~${a.corners.expectedTotal}</h3>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded mb-2">⚠️ Stima</p>
+                                <div class="space-y-1">
+                                    ${a.corners.predictions.map(p => `
+                                        <div class="flex justify-between px-2 py-1.5 rounded text-sm ${p === a.corners.bestBet ? 'bg-green-50 border border-green-300' : 'bg-gray-50'}">
+                                            <span>${p === a.corners.bestBet ? '⭐ ' : ''}${p.prediction} ${p.line}</span>
+                                            ${confidenceBadge(p.confidence)}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cards -->
+                        <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-3">
+                            <div class="px-4 py-2 bg-amber-50 border-b border-amber-100">
+                                <h3 class="font-bold text-gray-900 text-sm">🟨 Cartellini ~${a.cards.expectedTotal}</h3>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded mb-2">⚠️ Stima</p>
+                                <div class="space-y-1">
+                                    ${a.cards.predictions.map(p => `
+                                        <div class="flex justify-between px-2 py-1.5 rounded text-sm ${p === a.cards.bestBet ? 'bg-green-50 border border-green-300' : 'bg-gray-50'}">
+                                            <span>${p === a.cards.bestBet ? '⭐ ' : ''}${p.prediction} ${p.line}</span>
+                                            ${confidenceBadge(p.confidence)}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Summary -->
+                        <div class="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-4 text-white">
+                            <h3 class="font-bold mb-2">🏆 Riepilogo</h3>
+                            <div class="grid grid-cols-4 gap-2 text-center text-sm">
+                                <div class="bg-white/20 rounded-lg p-2">
+                                    <p class="text-xs opacity-80">GG/NG</p>
+                                    <p class="font-bold">${a.btts.prediction}</p>
+                                </div>
+                                <div class="bg-white/20 rounded-lg p-2">
+                                    <p class="text-xs opacity-80">Goal</p>
+                                    <p class="font-bold">${a.over25.prediction.replace('OVER ', 'O').replace('UNDER ', 'U')}</p>
+                                </div>
+                                <div class="bg-white/20 rounded-lg p-2">
+                                    <p class="text-xs opacity-80">Corner</p>
+                                    <p class="font-bold">${a.corners.bestBet.prediction.charAt(0)}${a.corners.bestBet.line}</p>
+                                </div>
+                                <div class="bg-white/20 rounded-lg p-2">
+                                    <p class="text-xs opacity-80">Cards</p>
+                                    <p class="font-bold">${a.cards.bestBet.prediction.charAt(0)}${a.cards.bestBet.line}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            root.innerHTML = `
+                <div class="max-w-lg mx-auto min-h-screen flex flex-col">
+                    <!-- Header -->
+                    <header class="bg-white shadow-sm sticky top-0 z-40">
+                        <div class="px-4 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-2xl">⚽</span>
+                                <div>
+                                    <h1 class="text-sm font-bold text-gray-900">Betting Predictor</h1>
+                                    <p class="text-xs text-green-600">● Live</p>
+                                </div>
+                            </div>
+                            
+                            <select onchange="changeLeague(this.value)" class="px-2 py-1.5 bg-gray-100 rounded-lg text-sm font-medium">
+                                ${Object.entries(LEAGUES).map(([code, l]) => `
+                                    <option value="${code}" ${code === state.selectedLeague ? 'selected' : ''}>${l.flag} ${l.name}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                        
+                        <div class="flex border-t border-gray-100">
+                            <button onclick="setTab('matches')" class="flex-1 py-2.5 text-sm font-medium border-b-2 ${state.activeTab === 'matches' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'}">
+                                📅 Partite
+                            </button>
+                            <button onclick="setTab('analysis')" class="flex-1 py-2.5 text-sm font-medium border-b-2 ${state.activeTab === 'analysis' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500'}">
+                                🎯 Analisi
+                            </button>
                         </div>
                     </header>
 
-                    <main className="max-w-lg mx-auto px-4 py-4">
-                        
-                        {activeTab === 'matches' && (
-                            <div className="space-y-3">
-                                {error && (
-                                    <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
-                                        ⚠️ {error}
-                                    </div>
-                                )}
-                                
-                                <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                    <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
-                                        <span className="font-bold text-gray-900">{LEAGUES[selectedLeague]?.name}</span>
-                                        <button onClick={() => loadMatches(selectedLeague)} className="text-green-600 text-sm font-medium">
-                                            {loading ? '⏳' : '🔄'}
-                                        </button>
-                                    </div>
-                                    
-                                    {loading ? (
-                                        <div className="p-8 text-center">
-                                            <div className="w-8 h-8 border-3 border-green-500 border-t-transparent rounded-full loader mx-auto mb-2"></div>
-                                            <p className="text-gray-500 text-sm">Caricamento...</p>
-                                        </div>
-                                    ) : matches.length === 0 ? (
-                                        <div className="p-8 text-center text-gray-500">
-                                            <p className="text-2xl mb-2">📭</p>
-                                            <p className="text-sm">Nessuna partita</p>
-                                        </div>
-                                    ) : (
-                                        <div className="divide-y">
-                                            {matches.map(match => {
-                                                const { date, time } = formatDate(match.utcDate);
-                                                return (
-                                                    <div key={match.id} className="px-4 py-3 hover:bg-green-50">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-16 text-center flex-shrink-0">
-                                                                <p className="text-xs text-gray-500">{date}</p>
-                                                                <p className="font-bold text-gray-900">{time}</p>
-                                                            </div>
-                                                            
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="font-medium text-gray-900 text-sm truncate">{match.homeTeam.shortName || match.homeTeam.name}</p>
-                                                                <p className="font-medium text-gray-900 text-sm truncate">{match.awayTeam.shortName || match.awayTeam.name}</p>
-                                                            </div>
-                                                            
-                                                            <button
-                                                                onClick={() => analyzeMatch(match)}
-                                                                disabled={isAnalyzing}
-                                                                className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-                                                            >
-                                                                {isAnalyzing && selectedMatch?.id === match.id ? '...' : '→'}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'analysis' && (
-                            <div className="space-y-3">
-                                {!selectedMatch ? (
-                                    <div className="bg-white rounded-xl p-8 text-center shadow-sm">
-                                        <p className="text-2xl mb-2">🎯</p>
-                                        <p className="text-gray-600 text-sm">Seleziona una partita</p>
-                                    </div>
-                                ) : isAnalyzing ? (
-                                    <div className="bg-white rounded-xl p-8 text-center shadow-sm">
-                                        <div className="w-8 h-8 border-3 border-green-500 border-t-transparent rounded-full loader mx-auto mb-2"></div>
-                                        <p className="text-gray-600 text-sm">Analisi...</p>
-                                    </div>
-                                ) : analysisData && (
-                                    <div className="space-y-3">
-                                        {/* Header */}
-                                        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-                                            <p className="font-bold text-gray-900">{analysisData.match.homeTeam.shortName}</p>
-                                            <p className="text-gray-400 text-sm">vs</p>
-                                            <p className="font-bold text-gray-900">{analysisData.match.awayTeam.shortName}</p>
-                                            <p className="text-xs text-gray-500 mt-2">
-                                                {formatDate(analysisData.match.utcDate).date} • {formatDate(analysisData.match.utcDate).time}
-                                            </p>
-                                        </div>
-
-                                        {/* GG/NG */}
-                                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                            <div className="px-4 py-2 bg-green-50 border-b border-green-100">
-                                                <h3 className="font-bold text-gray-900 text-sm">🟢 GG / NG</h3>
-                                            </div>
-                                            <div className="p-4">
-                                                <div className="grid grid-cols-2 gap-2 mb-3">
-                                                    <div className={`rounded-lg p-3 text-center border-2 ${analysisData.btts.prediction === 'GG' ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200'}`}>
-                                                        <p className="text-xl font-bold text-green-600">{analysisData.btts.ggProbability}%</p>
-                                                        <p className="text-sm text-gray-700">GG</p>
-                                                    </div>
-                                                    <div className={`rounded-lg p-3 text-center border-2 ${analysisData.btts.prediction === 'NG' ? 'bg-red-50 border-red-400' : 'bg-gray-50 border-gray-200'}`}>
-                                                        <p className="text-xl font-bold text-red-600">{analysisData.btts.ngProbability}%</p>
-                                                        <p className="text-sm text-gray-700">NG</p>
-                                                    </div>
-                                                </div>
-                                                <div className={`rounded-lg p-2.5 border-2 flex justify-between items-center ${analysisData.btts.prediction === 'GG' ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
-                                                    <span className="font-bold">✓ {analysisData.btts.prediction}</span>
-                                                    <ConfidenceBadge value={analysisData.btts.confidence} />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Over 2.5 */}
-                                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                            <div className="px-4 py-2 bg-purple-50 border-b border-purple-100">
-                                                <h3 className="font-bold text-gray-900 text-sm">🔮 Goal Attesi: {analysisData.goals.expectedTotal}</h3>
-                                            </div>
-                                            <div className="p-4">
-                                                <div className="grid grid-cols-3 gap-2 mb-3 text-center text-sm">
-                                                    <div className="bg-gray-50 rounded p-2">
-                                                        <p className="text-xs text-gray-500">Casa</p>
-                                                        <p className="font-bold text-purple-600">{analysisData.goals.expectedHome}</p>
-                                                    </div>
-                                                    <div className="bg-gray-50 rounded p-2">
-                                                        <p className="text-xs text-gray-500">Trasf</p>
-                                                        <p className="font-bold text-purple-600">{analysisData.goals.expectedAway}</p>
-                                                    </div>
-                                                    <div className="bg-purple-100 rounded p-2">
-                                                        <p className="text-xs text-purple-600">Tot</p>
-                                                        <p className="font-bold text-purple-700">{analysisData.goals.expectedTotal}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-1 mb-3">
-                                                    {analysisData.goals.predictions.map((p, i) => (
-                                                        <div key={i} className={`flex justify-between px-2 py-1.5 rounded text-sm ${p.line === 2.5 ? 'bg-purple-50' : 'bg-gray-50'}`}>
-                                                            <span>{p.prediction} {p.line}</span>
-                                                            <ConfidenceBadge value={p.confidence} />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <div className={`rounded-lg p-2.5 border-2 flex justify-between items-center ${analysisData.over25.prediction.includes('OVER') ? 'bg-purple-50 border-purple-400' : 'bg-gray-50 border-gray-300'}`}>
-                                                    <span className="font-bold">✓ {analysisData.over25.prediction}</span>
-                                                    <ConfidenceBadge value={analysisData.over25.confidence} />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Corner */}
-                                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                            <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
-                                                <h3 className="font-bold text-gray-900 text-sm">🚩 Corner ~{analysisData.corners.expectedTotal}</h3>
-                                            </div>
-                                            <div className="p-4">
-                                                <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded mb-2">⚠️ Stima</p>
-                                                <div className="space-y-1">
-                                                    {analysisData.corners.predictions.map((p, i) => (
-                                                        <div key={i} className={`flex justify-between px-2 py-1.5 rounded text-sm ${p === analysisData.corners.bestBet ? 'bg-green-50 border border-green-300' : 'bg-gray-50'}`}>
-                                                            <span>{p === analysisData.corners.bestBet && '⭐'} {p.prediction} {p.line}</span>
-                                                            <ConfidenceBadge value={p.confidence} />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Cards */}
-                                        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-                                            <div className="px-4 py-2 bg-amber-50 border-b border-amber-100">
-                                                <h3 className="font-bold text-gray-900 text-sm">🟨 Cartellini ~{analysisData.cards.expectedTotal}</h3>
-                                            </div>
-                                            <div className="p-4">
-                                                <p className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded mb-2">⚠️ Stima</p>
-                                                <div className="space-y-1">
-                                                    {analysisData.cards.predictions.map((p, i) => (
-                                                        <div key={i} className={`flex justify-between px-2 py-1.5 rounded text-sm ${p === analysisData.cards.bestBet ? 'bg-green-50 border border-green-300' : 'bg-gray-50'}`}>
-                                                            <span>{p === analysisData.cards.bestBet && '⭐'} {p.prediction} {p.line}</span>
-                                                            <ConfidenceBadge value={p.confidence} />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Summary */}
-                                        <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-4 text-white">
-                                            <h3 className="font-bold mb-2">🏆 Riepilogo</h3>
-                                            <div className="grid grid-cols-4 gap-2 text-center">
-                                                <div className="bg-white/20 rounded-lg p-2">
-                                                    <p className="text-xs opacity-80">GG/NG</p>
-                                                    <p className="font-bold">{analysisData.btts.prediction}</p>
-                                                </div>
-                                                <div className="bg-white/20 rounded-lg p-2">
-                                                    <p className="text-xs opacity-80">Goal</p>
-                                                    <p className="font-bold">{analysisData.over25.prediction.replace('OVER ', 'O').replace('UNDER ', 'U')}</p>
-                                                </div>
-                                                <div className="bg-white/20 rounded-lg p-2">
-                                                    <p className="text-xs opacity-80">Corner</p>
-                                                    <p className="font-bold">{analysisData.corners.bestBet.prediction.charAt(0)}{analysisData.corners.bestBet.line}</p>
-                                                </div>
-                                                <div className="bg-white/20 rounded-lg p-2">
-                                                    <p className="text-xs opacity-80">Cards</p>
-                                                    <p className="font-bold">{analysisData.cards.bestBet.prediction.charAt(0)}{analysisData.cards.bestBet.line}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                    <!-- Content -->
+                    <main class="flex-1 p-4">
+                        ${content}
                     </main>
 
-                    <footer className="border-t bg-white mt-4">
-                        <div className="max-w-lg mx-auto px-4 py-2 flex justify-between text-xs text-gray-500">
-                            <span>⚽ football-data.org</span>
-                            <button onClick={() => { setShowSetup(true); localStorage.removeItem('footballDataApiKey'); }} className="text-red-500">
-                                Reset
-                            </button>
-                        </div>
+                    <!-- Footer -->
+                    <footer class="bg-white border-t p-3 flex justify-between items-center text-xs text-gray-500">
+                        <span>⚽ football-data.org</span>
+                        <button onclick="resetApp()" class="text-red-500 hover:text-red-600">Reset</button>
                     </footer>
                 </div>
-            );
+            `;
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        // Init
+        render();
+        if (state.apiKey && !state.showSetup) {
+            loadMatches();
+        }
     </script>
 </body>
 </html>
