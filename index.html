@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Betting Predictor ULTIMATE</title>
+    <title>🎯 PRO BETTING SYSTEM V2 | All Leagues</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; }
@@ -11,7 +11,10 @@
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .pulse { animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .gradient-text { background: linear-gradient(135deg, #10b981, #059669); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .tab-active { border-bottom: 3px solid #10b981; color: #10b981; background: #ecfdf5; }
+        .hot { animation: glow 2s infinite; }
+        @keyframes glow { 0%, 100% { box-shadow: 0 0 5px #10b981; } 50% { box-shadow: 0 0 20px #10b981; } }
+        select { max-width: 100%; }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -19,121 +22,144 @@
 
     <script>
         // ============================================================
-        // 🎯 BETTING PREDICTOR ULTIMATE
-        // ============================================================
-        // 
-        // ALGORITMI PROPRIETARI:
-        //
-        // ═══════════════════════════════════════════════════════════
-        // 📊 ALGORITMO GG (Goal-Goal / BTTS)
-        // ═══════════════════════════════════════════════════════════
-        // Formula: P(GG) = P(Home segna) × P(Away segna) × K_adjustment
-        // 
-        // Dove:
-        // - P(Home segna) = 1 - e^(-λ_home)  [Poisson]
-        // - λ_home = (AvgGoalsFatti × AvgGoalsSubitiAvversario) / MediaLega
-        // - K_adjustment = fattore basato su forma + H2H + clean sheets
-        //
-        // Fattori considerati:
-        // 1. Media gol fatti (ultime 10 partite)
-        // 2. Media gol subiti avversario
-        // 3. % partite con GG (storico squadra)
-        // 4. Clean sheets (riduce probabilità GG)
-        // 5. Partite senza segnare (riduce prob. di segnare)
-        // 6. Forma recente (ultime 5 pesate)
-        //
-        // ═══════════════════════════════════════════════════════════
-        // ⚽ ALGORITMO OVER 2.5
-        // ═══════════════════════════════════════════════════════════
-        // Formula: P(Over 2.5) = 1 - Σ P(k goals) per k=0,1,2
-        //
-        // Usando distribuzione Poisson bivariata:
-        // P(Home=h, Away=a) = P_poisson(h, λ_home) × P_poisson(a, λ_away)
-        //
-        // Aggiustamenti:
-        // 1. Media gol totali nelle partite delle squadre
-        // 2. % Over 2.5 storico di entrambe
-        // 3. Forza attacco vs debolezza difesa
-        // 4. Fattore casa (+12% gol per home team)
-        //
-        // ═══════════════════════════════════════════════════════════
-        // 🚩 ALGORITMO CORNER
-        // ═══════════════════════════════════════════════════════════
-        // I corner NON sono forniti dall'API, quindi uso correlazioni:
-        //
-        // Corner attesi = BaseCorner × AttackFactor × DominanceFactor × HomeFactor
-        //
-        // Dove:
-        // - BaseCorner = Media campionato / 2 (per squadra)
-        // - AttackFactor = AvgGoalsFatti / MediaLegaGoals (squadre offensive = +corner)
-        // - DominanceFactor = Possesso stimato (gol fatti / gol totali match)
-        // - HomeFactor = 1.15 casa, 0.90 trasferta
-        // - DefenseFactor = Squadre vs difese forti = +corner (tiri bloccati)
-        //
-        // Correlazioni usate (da studi statistici):
-        // - Gol segnati ↔ Corner: r = 0.42
-        // - Possesso ↔ Corner: r = 0.38
-        // - Tiri ↔ Corner: r = 0.55
-        //
-        // ═══════════════════════════════════════════════════════════
-        // 🟨 ALGORITMO CARTELLINI
-        // ═══════════════════════════════════════════════════════════
-        // Cards attesi = BaseCards × AggressiveFactor × FrustrationFactor × MatchFactor
-        //
-        // Dove:
-        // - BaseCards = Media campionato / 2
-        // - AggressiveFactor = AvgGoalsSubiti / MediaLega (difese sotto pressione = +falli)
-        // - FrustrationFactor = 1 / AvgGoalsFatti (squadre che non segnano = frustrazione)
-        // - MatchFactor = Importanza partita (derby, salvezza = +20%)
-        // - AwayPenalty = Trasferta +18% cartellini
-        //
-        // Correlazioni usate:
-        // - Gol subiti ↔ Falli: r = 0.35
-        // - Differenza reti ↔ Cards: r = -0.28 (partite equilibrate = +cards)
-        //
+        // 🎯 PRO BETTING SYSTEM V2 - ALL LEAGUES
         // ============================================================
 
         const PROXY = (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`;
         const FD_API = 'https://api.football-data.org/v4';
+        const DB_KEY = 'proBettingHistoryV2';
 
-        // Medie accurate per campionato (stagione 2024/25 - dati reali)
-        const LEAGUE_DATA = {
+        // ============================================================
+        // 📊 TUTTI I CAMPIONATI DISPONIBILI (12 competizioni FREE)
+        // ============================================================
+        const LEAGUES = {
+            // 🏆 TOP 5 EUROPEI
             SA: { 
-                name: "Serie A", flag: "🇮🇹", fdId: "SA",
-                avgGoals: 2.72, avgHomeGoals: 1.51, avgAwayGoals: 1.21,
+                name: "Serie A", 
+                country: "Italia",
+                flag: "🇮🇹", 
+                category: "top5",
+                avgGoals: 2.72, avgHomeGoals: 1.51, avgAwayGoals: 1.21, 
                 avgCorners: 10.3, avgCards: 4.2,
-                bttsRate: 52, over25Rate: 51
+                homeWinRate: 45, drawRate: 25, awayWinRate: 30
             },
             PL: { 
-                name: "Premier League", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", fdId: "PL",
-                avgGoals: 2.88, avgHomeGoals: 1.58, avgAwayGoals: 1.30,
+                name: "Premier League", 
+                country: "Inghilterra",
+                flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", 
+                category: "top5",
+                avgGoals: 2.88, avgHomeGoals: 1.58, avgAwayGoals: 1.30, 
                 avgCorners: 10.8, avgCards: 3.6,
-                bttsRate: 55, over25Rate: 54
+                homeWinRate: 43, drawRate: 24, awayWinRate: 33
             },
             PD: { 
-                name: "La Liga", flag: "🇪🇸", fdId: "PD",
-                avgGoals: 2.58, avgHomeGoals: 1.45, avgAwayGoals: 1.13,
+                name: "La Liga", 
+                country: "Spagna",
+                flag: "🇪🇸", 
+                category: "top5",
+                avgGoals: 2.58, avgHomeGoals: 1.45, avgAwayGoals: 1.13, 
                 avgCorners: 9.9, avgCards: 4.8,
-                bttsRate: 48, over25Rate: 47
+                homeWinRate: 47, drawRate: 26, awayWinRate: 27
             },
             BL1: { 
-                name: "Bundesliga", flag: "🇩🇪", fdId: "BL1",
-                avgGoals: 3.12, avgHomeGoals: 1.72, avgAwayGoals: 1.40,
+                name: "Bundesliga", 
+                country: "Germania",
+                flag: "🇩🇪", 
+                category: "top5",
+                avgGoals: 3.12, avgHomeGoals: 1.72, avgAwayGoals: 1.40, 
                 avgCorners: 10.6, avgCards: 3.5,
-                bttsRate: 58, over25Rate: 58
+                homeWinRate: 44, drawRate: 22, awayWinRate: 34
             },
             FL1: { 
-                name: "Ligue 1", flag: "🇫🇷", fdId: "FL1",
-                avgGoals: 2.68, avgHomeGoals: 1.48, avgAwayGoals: 1.20,
+                name: "Ligue 1", 
+                country: "Francia",
+                flag: "🇫🇷", 
+                category: "top5",
+                avgGoals: 2.68, avgHomeGoals: 1.48, avgAwayGoals: 1.20, 
                 avgCorners: 10.1, avgCards: 4.0,
-                bttsRate: 50, over25Rate: 49
+                homeWinRate: 46, drawRate: 25, awayWinRate: 29
+            },
+            
+            // 🥈 SECONDE LEGHE & ALTRI CAMPIONATI
+            ELC: { 
+                name: "Championship", 
+                country: "Inghilterra",
+                flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", 
+                category: "second",
+                avgGoals: 2.75, avgHomeGoals: 1.52, avgAwayGoals: 1.23, 
+                avgCorners: 10.5, avgCards: 3.8,
+                homeWinRate: 44, drawRate: 26, awayWinRate: 30
+            },
+            DED: { 
+                name: "Eredivisie", 
+                country: "Olanda",
+                flag: "🇳🇱", 
+                category: "second",
+                avgGoals: 3.20, avgHomeGoals: 1.78, avgAwayGoals: 1.42, 
+                avgCorners: 10.2, avgCards: 4.0,
+                homeWinRate: 47, drawRate: 22, awayWinRate: 31
+            },
+            PPL: { 
+                name: "Primeira Liga", 
+                country: "Portogallo",
+                flag: "🇵🇹", 
+                category: "second",
+                avgGoals: 2.65, avgHomeGoals: 1.50, avgAwayGoals: 1.15, 
+                avgCorners: 9.8, avgCards: 4.5,
+                homeWinRate: 48, drawRate: 24, awayWinRate: 28
+            },
+            BSA: { 
+                name: "Serie A", 
+                country: "Brasile",
+                flag: "🇧🇷", 
+                category: "second",
+                avgGoals: 2.45, avgHomeGoals: 1.42, avgAwayGoals: 1.03, 
+                avgCorners: 9.5, avgCards: 4.8,
+                homeWinRate: 50, drawRate: 26, awayWinRate: 24
+            },
+            
+            // 🏆 COPPE EUROPEE & NAZIONALI
+            CL: { 
+                name: "Champions League", 
+                country: "Europa",
+                flag: "🏆", 
+                category: "cups",
+                avgGoals: 2.95, avgHomeGoals: 1.62, avgAwayGoals: 1.33, 
+                avgCorners: 10.8, avgCards: 3.2,
+                homeWinRate: 46, drawRate: 23, awayWinRate: 31
+            },
+            EC: { 
+                name: "Europei", 
+                country: "Europa",
+                flag: "🇪🇺", 
+                category: "cups",
+                avgGoals: 2.35, avgHomeGoals: 1.30, avgAwayGoals: 1.05, 
+                avgCorners: 9.5, avgCards: 3.0,
+                homeWinRate: 42, drawRate: 28, awayWinRate: 30
+            },
+            WC: { 
+                name: "Mondiali", 
+                country: "Mondo",
+                flag: "🌍", 
+                category: "cups",
+                avgGoals: 2.55, avgHomeGoals: 1.40, avgAwayGoals: 1.15, 
+                avgCorners: 9.8, avgCards: 3.5,
+                homeWinRate: 44, drawRate: 26, awayWinRate: 30
             }
+        };
+
+        // Categorie per il selettore
+        const CATEGORIES = {
+            top5: { name: "🏆 Top 5 Europei", leagues: ['SA', 'PL', 'PD', 'BL1', 'FL1'] },
+            second: { name: "🥈 Altri Campionati", leagues: ['ELC', 'DED', 'PPL', 'BSA'] },
+            cups: { name: "🏆 Coppe", leagues: ['CL', 'EC', 'WC'] }
         };
 
         let state = {
             apiKey: localStorage.getItem('footballDataApiKey') || '',
             showSetup: !localStorage.getItem('footballDataApiKey'),
             selectedLeague: 'SA',
+            selectedCategory: 'top5',
             matches: [],
             loading: false,
             error: null,
@@ -142,14 +168,25 @@
             analysisData: null,
             isAnalyzing: false,
             analysisStep: '',
-            analysisProgress: 0
+            externalData: {
+                homeCorners: '', awayCorners: '',
+                homeCards: '', awayCards: '',
+                h2hCorners: '', h2hCards: '',
+                refereeCards: '',
+                homeAbsences: '', awayAbsences: '',
+                homeForm: '', awayForm: '',
+                hunterBetTip: '', hunterBetConfidence: ''
+            },
+            showExternalInput: false,
+            minConfidence: 60,
+            history: JSON.parse(localStorage.getItem(DB_KEY) || '[]'),
+            historyFilter: 'all'
         };
 
         // ============================================================
         // FUNZIONI MATEMATICHE
         // ============================================================
 
-        // Fattoriale
         function factorial(n) {
             if (n <= 1) return 1;
             let r = 1;
@@ -157,317 +194,382 @@
             return r;
         }
 
-        // Distribuzione di Poisson: P(X = k) = (λ^k × e^-λ) / k!
         function poisson(lambda, k) {
             if (lambda <= 0) return k === 0 ? 1 : 0;
             return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
         }
 
-        // Probabilità di segnare almeno 1 gol: P(X ≥ 1) = 1 - P(X = 0)
         function probToScore(lambda) {
             return (1 - Math.exp(-lambda)) * 100;
         }
 
-        // Probabilità Over X.5 con Poisson bivariata
-        function calculateOverProb(lambdaHome, lambdaAway, threshold) {
+        function poissonOver(lambda, threshold) {
+            let under = 0;
+            for (let k = 0; k <= Math.floor(threshold); k++) {
+                under += poisson(lambda, k);
+            }
+            return (1 - under) * 100;
+        }
+
+        function bivariatePoissonOver(lambdaH, lambdaA, threshold) {
             let probUnder = 0;
-            const maxGoals = Math.floor(threshold);
-            
-            for (let h = 0; h <= maxGoals; h++) {
-                for (let a = 0; a <= maxGoals - h; a++) {
-                    if (h + a <= maxGoals) {
-                        probUnder += poisson(lambdaHome, h) * poisson(lambdaAway, a);
+            const max = Math.floor(threshold);
+            for (let h = 0; h <= max; h++) {
+                for (let a = 0; a <= max - h; a++) {
+                    if (h + a <= max) {
+                        probUnder += poisson(lambdaH, h) * poisson(lambdaA, a);
                     }
                 }
             }
-            
             return (1 - probUnder) * 100;
         }
 
-        // Calcola Lambda (gol attesi) con formula avanzata
-        function calculateLambda(teamAttack, opponentDefense, leagueAvg, isHome) {
-            // Forza attacco = media gol fatti / media lega
-            const attackStrength = teamAttack / leagueAvg;
-            // Debolezza difesa = media gol subiti avversario / media lega
-            const defenseWeakness = opponentDefense / leagueAvg;
-            
-            // Lambda base
-            let lambda = leagueAvg * attackStrength * defenseWeakness;
-            
-            // Fattore casa/trasferta
-            if (isHome) {
-                lambda *= 1.12; // +12% casa
-            } else {
-                lambda *= 0.88; // -12% trasferta
+        function calculate1X2(lambdaH, lambdaA) {
+            let home = 0, draw = 0, away = 0;
+            for (let h = 0; h <= 10; h++) {
+                for (let a = 0; a <= 10; a++) {
+                    const prob = poisson(lambdaH, h) * poisson(lambdaA, a);
+                    if (h > a) home += prob;
+                    else if (h === a) draw += prob;
+                    else away += prob;
+                }
             }
-            
-            // Limita tra 0.4 e 3.5
-            return Math.max(0.4, Math.min(3.5, lambda));
+            return { home: home * 100, draw: draw * 100, away: away * 100 };
+        }
+
+        function calculateLambda(attack, oppDefense, leagueAvg, isHome, formFactor = 1, absenceFactor = 1) {
+            const attackStrength = attack / leagueAvg;
+            const defenseWeakness = oppDefense / leagueAvg;
+            let lambda = leagueAvg * attackStrength * defenseWeakness;
+            lambda *= isHome ? 1.12 : 0.88;
+            lambda *= formFactor;
+            lambda *= absenceFactor;
+            return Math.max(0.3, Math.min(4.0, lambda));
         }
 
         // ============================================================
-        // 🎯 ALGORITMO GG/NG
+        // ANALISI MERCATI
         // ============================================================
-        function calculateBTTS(homeStats, awayStats, league) {
-            const leagueData = LEAGUE_DATA[league];
-            
-            // Calcola Lambda per ogni squadra
-            const homeLambda = calculateLambda(
-                homeStats.avgGoalsFor,
-                awayStats.avgGoalsAgainst,
-                leagueData.avgHomeGoals,
-                true
-            );
-            
-            const awayLambda = calculateLambda(
-                awayStats.avgGoalsFor,
-                homeStats.avgGoalsAgainst,
-                leagueData.avgAwayGoals,
-                false
-            );
-            
-            // Probabilità che ciascuna squadra segni (Poisson)
-            const homeScoresProb = probToScore(homeLambda);
-            const awayScoresProb = probToScore(awayLambda);
-            
-            // GG base = P(home segna) × P(away segna)
-            let ggBase = (homeScoresProb * awayScoresProb) / 100;
-            
-            // Aggiustamento 1: Storico BTTS delle squadre (peso 25%)
-            const historicalBtts = (homeStats.bttsRate + awayStats.bttsRate) / 2;
-            ggBase = ggBase * 0.75 + historicalBtts * 0.25;
-            
-            // Aggiustamento 2: Clean sheets (riduce GG)
-            const homeCleanSheetRate = (homeStats.cleanSheets / homeStats.played) * 100;
-            const awayCleanSheetRate = (awayStats.cleanSheets / awayStats.played) * 100;
-            const cleanSheetPenalty = ((homeCleanSheetRate + awayCleanSheetRate) / 2) * 0.15;
-            ggBase -= cleanSheetPenalty;
-            
-            // Aggiustamento 3: Forma recente (peso 15%)
-            const homeFormFactor = homeStats.formGoals / Math.max(homeStats.avgGoalsFor, 0.5);
-            const awayFormFactor = awayStats.formGoals / Math.max(awayStats.avgGoalsFor, 0.5);
-            const formAdjustment = ((homeFormFactor + awayFormFactor) / 2 - 1) * 10;
-            ggBase += formAdjustment;
-            
-            // Limita tra 25% e 82%
-            ggBase = Math.max(25, Math.min(82, ggBase));
-            
-            // Calcola confidence
-            const confidence = 50 + Math.abs(ggBase - 50) * 0.65;
-            
-            return {
-                ggProbability: ggBase,
-                ngProbability: 100 - ggBase,
-                homeScoringProb: homeScoresProb,
-                awayScoringProb: awayScoresProb,
-                prediction: ggBase > 50 ? 'GG' : 'NG',
-                confidence: Math.min(85, Math.max(45, confidence)),
-                homeLambda,
-                awayLambda
-            };
-        }
 
-        // ============================================================
-        // ⚽ ALGORITMO OVER 2.5
-        // ============================================================
-        function calculateOver25(homeStats, awayStats, bttsResult, league) {
-            const leagueData = LEAGUE_DATA[league];
+        function analyzeAllMarkets(homeStats, awayStats, league, extData) {
+            const ld = LEAGUES[league];
             
-            // Usa i lambda già calcolati
-            const { homeLambda, awayLambda } = bttsResult;
+            let homeFormFactor = 1, awayFormFactor = 1;
+            if (extData.homeForm) homeFormFactor = 0.7 + (parseFloat(extData.homeForm) / 10) * 0.6;
+            if (extData.awayForm) awayFormFactor = 0.7 + (parseFloat(extData.awayForm) / 10) * 0.6;
+            
+            let homeAbsenceFactor = 1, awayAbsenceFactor = 1;
+            if (extData.homeAbsences) homeAbsenceFactor = Math.max(0.7, 1 - parseInt(extData.homeAbsences) * 0.05);
+            if (extData.awayAbsences) awayAbsenceFactor = Math.max(0.7, 1 - parseInt(extData.awayAbsences) * 0.05);
+            
+            const homeLambda = calculateLambda(homeStats.avgGoalsFor, awayStats.avgGoalsAgainst, ld.avgHomeGoals, true, homeFormFactor, homeAbsenceFactor);
+            const awayLambda = calculateLambda(awayStats.avgGoalsFor, homeStats.avgGoalsAgainst, ld.avgAwayGoals, false, awayFormFactor, awayAbsenceFactor);
             const totalLambda = homeLambda + awayLambda;
             
-            // Calcola probabilità Over con Poisson
-            const over15 = calculateOverProb(homeLambda, awayLambda, 1.5);
-            const over25 = calculateOverProb(homeLambda, awayLambda, 2.5);
-            const over35 = calculateOverProb(homeLambda, awayLambda, 3.5);
-            const over45 = calculateOverProb(homeLambda, awayLambda, 4.5);
-            
-            // Aggiustamento con storico (peso 30%)
-            const historicalOver25 = (homeStats.over25Rate + awayStats.over25Rate) / 2;
-            const adjustedOver25 = over25 * 0.70 + historicalOver25 * 0.30;
-            
-            // Aggiustamento con media gol reale delle squadre
-            const realAvgGoals = (homeStats.avgTotalGoals + awayStats.avgTotalGoals) / 2;
-            const leagueAvgGoals = leagueData.avgGoals;
-            const goalsAdjustment = ((realAvgGoals / leagueAvgGoals) - 1) * 8;
-            
-            const finalOver25 = Math.max(18, Math.min(85, adjustedOver25 + goalsAdjustment));
-            
-            // Confidence
-            const confidence = 50 + Math.abs(finalOver25 - 50) * 0.6;
-            
-            return {
-                totalXG: totalLambda,
-                homeXG: homeLambda,
-                awayXG: awayLambda,
-                predictions: [
-                    { line: 1.5, probability: over15, prediction: over15 > 50 ? 'OVER' : 'UNDER' },
-                    { line: 2.5, probability: finalOver25, prediction: finalOver25 > 50 ? 'OVER' : 'UNDER' },
-                    { line: 3.5, probability: over35, prediction: over35 > 50 ? 'OVER' : 'UNDER' },
-                    { line: 4.5, probability: over45, prediction: over45 > 50 ? 'OVER' : 'UNDER' }
-                ],
-                mainPrediction: finalOver25 > 50 ? 'OVER 2.5' : 'UNDER 2.5',
-                mainProbability: finalOver25,
-                confidence: Math.min(85, Math.max(45, confidence))
+            // 1X2
+            const result1X2 = calculate1X2(homeLambda, awayLambda);
+            const adj1X2 = {
+                home: result1X2.home * 0.7 + (homeStats.homeWinRate || ld.homeWinRate) * 0.3,
+                draw: result1X2.draw * 0.7 + (homeStats.drawRate || ld.drawRate) * 0.3,
+                away: result1X2.away * 0.7 + (awayStats.awayWinRate || ld.awayWinRate) * 0.3
             };
-        }
-
-        // ============================================================
-        // 🚩 ALGORITMO CORNER
-        // ============================================================
-        function calculateCorners(homeStats, awayStats, league) {
-            const leagueData = LEAGUE_DATA[league];
-            const baseCornerPerTeam = leagueData.avgCorners / 2;
+            const total1X2 = adj1X2.home + adj1X2.draw + adj1X2.away;
+            adj1X2.home = (adj1X2.home / total1X2) * 100;
+            adj1X2.draw = (adj1X2.draw / total1X2) * 100;
+            adj1X2.away = (adj1X2.away / total1X2) * 100;
             
-            // === CORNER CASA ===
-            // Factor 1: Attacco (più gol = più corner) - Correlazione 0.42
-            const homeAttackFactor = Math.pow(homeStats.avgGoalsFor / leagueData.avgHomeGoals, 0.42);
+            // Double Chance
+            const doubleChance = {
+                '1X': adj1X2.home + adj1X2.draw,
+                'X2': adj1X2.draw + adj1X2.away,
+                '12': adj1X2.home + adj1X2.away
+            };
             
-            // Factor 2: Dominanza (possesso stimato)
-            const homeDominance = homeStats.avgGoalsFor / (homeStats.avgGoalsFor + homeStats.avgGoalsAgainst + 0.1);
-            const homeDominanceFactor = 0.7 + (homeDominance * 0.6);
+            // GG/NG
+            const homeScores = probToScore(homeLambda);
+            const awayScores = probToScore(awayLambda);
+            let ggProb = (homeScores * awayScores) / 100;
+            const histBtts = (homeStats.bttsRate + awayStats.bttsRate) / 2;
+            ggProb = ggProb * 0.7 + histBtts * 0.3;
             
-            // Factor 3: Difesa avversaria (difese forti = più corner per attaccante)
-            const awayDefenseStrength = awayStats.cleanSheets / Math.max(awayStats.played, 1);
-            const homeVsDefenseFactor = 1 + (awayDefenseStrength * 0.25);
+            // Over/Under Goals
+            const overUnderGoals = {};
+            [0.5, 1.5, 2.5, 3.5, 4.5].forEach(line => {
+                const over = bivariatePoissonOver(homeLambda, awayLambda, line);
+                const histOver = line === 2.5 ? (homeStats.over25Rate + awayStats.over25Rate) / 2 : over;
+                const adjOver = line === 2.5 ? over * 0.7 + histOver * 0.3 : over;
+                overUnderGoals[line] = { over: adjOver, under: 100 - adjOver };
+            });
             
-            // Factor 4: Casa
-            const homeAdvantage = 1.15;
+            // Over/Under Casa/Trasferta
+            const overUnderHome = {};
+            const overUnderAway = {};
+            [0.5, 1.5, 2.5].forEach(line => {
+                overUnderHome[line] = { over: poissonOver(homeLambda, line), under: 100 - poissonOver(homeLambda, line) };
+                overUnderAway[line] = { over: poissonOver(awayLambda, line), under: 100 - poissonOver(awayLambda, line) };
+            });
             
-            let homeCorners = baseCornerPerTeam * homeAttackFactor * homeDominanceFactor * homeVsDefenseFactor * homeAdvantage;
+            // Corner
+            let homeCorners, awayCorners;
+            const baseCorner = ld.avgCorners / 2;
             
-            // === CORNER TRASFERTA ===
-            const awayAttackFactor = Math.pow(awayStats.avgGoalsFor / leagueData.avgAwayGoals, 0.42);
-            const awayDominance = awayStats.avgGoalsFor / (awayStats.avgGoalsFor + awayStats.avgGoalsAgainst + 0.1);
-            const awayDominanceFactor = 0.7 + (awayDominance * 0.6);
-            const homeDefenseStrength = homeStats.cleanSheets / Math.max(homeStats.played, 1);
-            const awayVsDefenseFactor = 1 + (homeDefenseStrength * 0.25);
-            const awayDisadvantage = 0.90;
+            if (extData.homeCorners && extData.awayCorners) {
+                homeCorners = parseFloat(extData.homeCorners);
+                awayCorners = parseFloat(extData.awayCorners);
+            } else {
+                const homeAttackFactor = Math.pow(homeStats.avgGoalsFor / ld.avgHomeGoals, 0.42);
+                const homeDominance = homeStats.avgGoalsFor / (homeStats.avgGoalsFor + homeStats.avgGoalsAgainst + 0.1);
+                homeCorners = baseCorner * homeAttackFactor * (0.7 + homeDominance * 0.6) * 1.15;
+                
+                const awayAttackFactor = Math.pow(awayStats.avgGoalsFor / ld.avgAwayGoals, 0.42);
+                const awayDominance = awayStats.avgGoalsFor / (awayStats.avgGoalsFor + awayStats.avgGoalsAgainst + 0.1);
+                awayCorners = baseCorner * awayAttackFactor * (0.7 + awayDominance * 0.6) * 0.90;
+            }
             
-            let awayCorners = baseCornerPerTeam * awayAttackFactor * awayDominanceFactor * awayVsDefenseFactor * awayDisadvantage;
+            if (extData.h2hCorners) {
+                const h2h = parseFloat(extData.h2hCorners);
+                const adj = (h2h - (homeCorners + awayCorners)) * 0.25;
+                homeCorners += adj / 2;
+                awayCorners += adj / 2;
+            }
             
-            // Limita corner per squadra tra 3 e 8
             homeCorners = Math.max(3, Math.min(8, homeCorners));
             awayCorners = Math.max(3, Math.min(8, awayCorners));
-            
             const totalCorners = homeCorners + awayCorners;
             
-            // Genera predictions per ogni linea
-            const lines = [8.5, 9.5, 10.5, 11.5, 12.5];
-            const predictions = lines.map(line => {
+            const cornerPredictions = {};
+            [8.5, 9.5, 10.5, 11.5, 12.5].forEach(line => {
                 const diff = totalCorners - line;
-                // Deviazione standard stimata per corner: ~2.5
-                const zScore = diff / 2.5;
-                // Converti z-score in probabilità
-                let probability = 50 + (zScore * 28);
-                probability = Math.max(15, Math.min(85, probability));
-                
-                const prediction = diff > 0 ? 'OVER' : 'UNDER';
-                const confidence = 50 + Math.abs(diff) * 7;
-                
-                return {
-                    line,
-                    prediction,
-                    probability: prediction === 'OVER' ? probability : 100 - probability,
-                    confidence: Math.min(82, Math.max(40, confidence))
-                };
+                const prob = 50 + (diff / 2.2) * 28;
+                cornerPredictions[line] = { over: Math.max(15, Math.min(85, prob)), under: Math.max(15, Math.min(85, 100 - prob)) };
             });
             
-            // Trova best bet (confidence più alta)
-            const bestBet = predictions.reduce((best, curr) => 
-                curr.confidence > best.confidence ? curr : best
-            );
+            const homeCornerPreds = {}, awayCornerPreds = {};
+            [3.5, 4.5, 5.5].forEach(line => {
+                const hProb = 50 + ((homeCorners - line) / 1.5) * 25;
+                const aProb = 50 + ((awayCorners - line) / 1.5) * 25;
+                homeCornerPreds[line] = { over: Math.max(20, Math.min(80, hProb)), under: Math.max(20, Math.min(80, 100 - hProb)) };
+                awayCornerPreds[line] = { over: Math.max(20, Math.min(80, aProb)), under: Math.max(20, Math.min(80, 100 - aProb)) };
+            });
             
-            return {
-                homeExpected: homeCorners,
-                awayExpected: awayCorners,
-                totalExpected: totalCorners,
-                predictions,
-                bestBet
-            };
-        }
-
-        // ============================================================
-        // 🟨 ALGORITMO CARTELLINI
-        // ============================================================
-        function calculateCards(homeStats, awayStats, league) {
-            const leagueData = LEAGUE_DATA[league];
-            const baseCardsPerTeam = leagueData.avgCards / 2;
+            // Cards
+            let homeCards, awayCards;
+            const baseCards = ld.avgCards / 2;
             
-            // === CARDS CASA ===
-            // Factor 1: Pressione difensiva (più gol subiti = più falli = più cards)
-            const homeDefensivePressure = Math.pow(homeStats.avgGoalsAgainst / leagueData.avgAwayGoals, 0.35);
+            if (extData.homeCards && extData.awayCards) {
+                homeCards = parseFloat(extData.homeCards);
+                awayCards = parseFloat(extData.awayCards);
+            } else {
+                const homeDefPressure = Math.pow(homeStats.avgGoalsAgainst / ld.avgAwayGoals, 0.35);
+                const homeFrustration = Math.pow(ld.avgHomeGoals / Math.max(homeStats.avgGoalsFor, 0.5), 0.25);
+                homeCards = baseCards * homeDefPressure * homeFrustration * 0.88;
+                
+                const awayDefPressure = Math.pow(awayStats.avgGoalsAgainst / ld.avgHomeGoals, 0.35);
+                const awayFrustration = Math.pow(ld.avgAwayGoals / Math.max(awayStats.avgGoalsFor, 0.5), 0.25);
+                awayCards = baseCards * awayDefPressure * awayFrustration * 1.18;
+            }
             
-            // Factor 2: Frustrazione offensiva (pochi gol = frustrazione)
-            const homeOffensiveFrustration = Math.pow(leagueData.avgHomeGoals / Math.max(homeStats.avgGoalsFor, 0.5), 0.25);
+            if (extData.refereeCards) {
+                const refAvg = parseFloat(extData.refereeCards);
+                const adj = (refAvg - (homeCards + awayCards)) * 0.35;
+                homeCards += adj * 0.45;
+                awayCards += adj * 0.55;
+            }
             
-            // Factor 3: Competitività partita (partite equilibrate = più cards)
-            const goalDiff = Math.abs(homeStats.avgGoalsFor - awayStats.avgGoalsFor);
-            const competitivenessFactor = 1 + (0.3 / (1 + goalDiff));
-            
-            // Casa prende meno cartellini
-            const homeAdvantage = 0.88;
-            
-            let homeCards = baseCardsPerTeam * homeDefensivePressure * homeOffensiveFrustration * competitivenessFactor * homeAdvantage;
-            
-            // === CARDS TRASFERTA ===
-            const awayDefensivePressure = Math.pow(awayStats.avgGoalsAgainst / leagueData.avgHomeGoals, 0.35);
-            const awayOffensiveFrustration = Math.pow(leagueData.avgAwayGoals / Math.max(awayStats.avgGoalsFor, 0.5), 0.25);
-            
-            // Trasferta prende più cartellini
-            const awayDisadvantage = 1.18;
-            
-            let awayCards = baseCardsPerTeam * awayDefensivePressure * awayOffensiveFrustration * competitivenessFactor * awayDisadvantage;
-            
-            // Limita cards per squadra tra 1.2 e 3.5
-            homeCards = Math.max(1.2, Math.min(3.5, homeCards));
-            awayCards = Math.max(1.2, Math.min(3.5, awayCards));
-            
+            homeCards = Math.max(1, Math.min(4, homeCards));
+            awayCards = Math.max(1, Math.min(4, awayCards));
             const totalCards = homeCards + awayCards;
             
-            // Genera predictions
-            const lines = [2.5, 3.5, 4.5, 5.5, 6.5];
-            const predictions = lines.map(line => {
+            const cardPredictions = {};
+            [2.5, 3.5, 4.5, 5.5, 6.5].forEach(line => {
                 const diff = totalCards - line;
-                // Deviazione standard stimata per cards: ~1.8
-                const zScore = diff / 1.8;
-                let probability = 50 + (zScore * 30);
-                probability = Math.max(15, Math.min(85, probability));
-                
-                const prediction = diff > 0 ? 'OVER' : 'UNDER';
-                const confidence = 50 + Math.abs(diff) * 9;
-                
-                return {
-                    line,
-                    prediction,
-                    probability: prediction === 'OVER' ? probability : 100 - probability,
-                    confidence: Math.min(80, Math.max(40, confidence))
-                };
+                const prob = 50 + (diff / 1.6) * 30;
+                cardPredictions[line] = { over: Math.max(15, Math.min(85, prob)), under: Math.max(15, Math.min(85, 100 - prob)) };
             });
             
-            const bestBet = predictions.reduce((best, curr) => 
-                curr.confidence > best.confidence ? curr : best
-            );
+            const homeCardPreds = {}, awayCardPreds = {};
+            [0.5, 1.5, 2.5].forEach(line => {
+                const hProb = 50 + ((homeCards - line) / 1.2) * 28;
+                const aProb = 50 + ((awayCards - line) / 1.2) * 28;
+                homeCardPreds[line] = { over: Math.max(20, Math.min(80, hProb)), under: Math.max(20, Math.min(80, 100 - hProb)) };
+                awayCardPreds[line] = { over: Math.max(20, Math.min(80, aProb)), under: Math.max(20, Math.min(80, 100 - aProb)) };
+            });
+            
+            // Combo
+            const combos = {
+                'GG + O2.5': ggProb * (overUnderGoals[2.5].over / 100) * 1.1,
+                'GG + U3.5': ggProb * (overUnderGoals[3.5].under / 100),
+                'NG + U2.5': (100 - ggProb) * (overUnderGoals[2.5].under / 100) * 1.1,
+                '1 + O1.5': adj1X2.home * (overUnderGoals[1.5].over / 100) / 100,
+                '2 + O1.5': adj1X2.away * (overUnderGoals[1.5].over / 100) / 100,
+                '1 + GG': adj1X2.home * (ggProb / 100),
+                '2 + GG': adj1X2.away * (ggProb / 100)
+            };
+            
+            let hunterBetData = null;
+            if (extData.hunterBetTip && extData.hunterBetConfidence) {
+                hunterBetData = { tip: extData.hunterBetTip, confidence: parseFloat(extData.hunterBetConfidence) };
+            }
             
             return {
-                homeExpected: homeCards,
-                awayExpected: awayCards,
-                totalExpected: totalCards,
-                predictions,
-                bestBet
+                xG: { home: homeLambda, away: awayLambda, total: totalLambda },
+                result1X2: adj1X2,
+                doubleChance,
+                btts: { gg: ggProb, ng: 100 - ggProb },
+                overUnderGoals,
+                overUnderHome,
+                overUnderAway,
+                corners: { home: homeCorners, away: awayCorners, total: totalCorners, predictions: cornerPredictions, homePreds: homeCornerPreds, awayPreds: awayCornerPreds },
+                cards: { home: homeCards, away: awayCards, total: totalCards, predictions: cardPredictions, homePreds: homeCardPreds, awayPreds: awayCardPreds },
+                combos,
+                hunterBet: hunterBetData,
+                dataSource: (extData.homeCorners || extData.refereeCards) ? 'external' : 'algorithm'
             };
         }
 
+        function generatePredictions(markets, match) {
+            const predictions = [];
+            const homeName = match.homeTeam.shortName || match.homeTeam.name;
+            const awayName = match.awayTeam.shortName || match.awayTeam.name;
+            
+            // 1X2
+            const best1X2 = Object.entries({ '1': markets.result1X2.home, 'X': markets.result1X2.draw, '2': markets.result1X2.away }).sort((a, b) => b[1] - a[1])[0];
+            predictions.push({ market: '1X2', selection: best1X2[0], label: best1X2[0] === '1' ? homeName : (best1X2[0] === '2' ? awayName : 'Pareggio'), probability: best1X2[1], confidence: Math.min(85, 40 + best1X2[1] * 0.5), category: 'esito' });
+            
+            // Double Chance
+            const bestDC = Object.entries(markets.doubleChance).sort((a, b) => b[1] - a[1])[0];
+            predictions.push({ market: 'Double Chance', selection: bestDC[0], label: bestDC[0], probability: bestDC[1], confidence: Math.min(88, 45 + bestDC[1] * 0.45), category: 'esito' });
+            
+            // GG/NG
+            const bestBtts = markets.btts.gg > 50 ? { sel: 'GG', prob: markets.btts.gg } : { sel: 'NG', prob: markets.btts.ng };
+            predictions.push({ market: 'GG/NG', selection: bestBtts.sel, label: bestBtts.sel === 'GG' ? 'Goal' : 'No Goal', probability: bestBtts.prob, confidence: Math.min(85, 45 + Math.abs(bestBtts.prob - 50) * 0.7), category: 'goal' });
+            
+            // Over/Under Goals
+            Object.entries(markets.overUnderGoals).forEach(([line, data]) => {
+                const best = data.over > 50 ? { sel: 'OVER', prob: data.over } : { sel: 'UNDER', prob: data.under };
+                predictions.push({ market: `Goal ${best.sel} ${line}`, selection: `${best.sel} ${line}`, label: `${best.sel} ${line}`, probability: best.prob, confidence: Math.min(85, 45 + Math.abs(best.prob - 50) * 0.65), category: 'goal' });
+            });
+            
+            // Over/Under Casa
+            Object.entries(markets.overUnderHome).forEach(([line, data]) => {
+                const best = data.over > 50 ? { sel: 'OVER', prob: data.over } : { sel: 'UNDER', prob: data.under };
+                predictions.push({ market: `${homeName} ${best.sel} ${line}`, selection: `Casa ${best.sel} ${line}`, label: `${homeName} ${best.sel} ${line}`, probability: best.prob, confidence: Math.min(82, 42 + Math.abs(best.prob - 50) * 0.6), category: 'goal' });
+            });
+            
+            // Over/Under Trasferta
+            Object.entries(markets.overUnderAway).forEach(([line, data]) => {
+                const best = data.over > 50 ? { sel: 'OVER', prob: data.over } : { sel: 'UNDER', prob: data.under };
+                predictions.push({ market: `${awayName} ${best.sel} ${line}`, selection: `Trasf ${best.sel} ${line}`, label: `${awayName} ${best.sel} ${line}`, probability: best.prob, confidence: Math.min(82, 42 + Math.abs(best.prob - 50) * 0.6), category: 'goal' });
+            });
+            
+            // Corner
+            const boost = markets.dataSource === 'external' ? 5 : 0;
+            Object.entries(markets.corners.predictions).forEach(([line, data]) => {
+                const best = data.over > 50 ? { sel: 'OVER', prob: data.over } : { sel: 'UNDER', prob: data.under };
+                predictions.push({ market: `Corner ${best.sel} ${line}`, selection: `Corner ${best.sel} ${line}`, label: `Corner ${best.sel} ${line}`, probability: best.prob, confidence: Math.min(85, 42 + Math.abs(best.prob - 50) * 0.6 + boost), category: 'corner' });
+            });
+            
+            Object.entries(markets.corners.homePreds).forEach(([line, data]) => {
+                const best = data.over > 50 ? { sel: 'OVER', prob: data.over } : { sel: 'UNDER', prob: data.under };
+                predictions.push({ market: `${homeName} Corner ${best.sel} ${line}`, selection: `Corner Casa ${best.sel} ${line}`, label: `${homeName} C. ${best.sel} ${line}`, probability: best.prob, confidence: Math.min(80, 40 + Math.abs(best.prob - 50) * 0.55), category: 'corner' });
+            });
+            
+            Object.entries(markets.corners.awayPreds).forEach(([line, data]) => {
+                const best = data.over > 50 ? { sel: 'OVER', prob: data.over } : { sel: 'UNDER', prob: data.under };
+                predictions.push({ market: `${awayName} Corner ${best.sel} ${line}`, selection: `Corner Trasf ${best.sel} ${line}`, label: `${awayName} C. ${best.sel} ${line}`, probability: best.prob, confidence: Math.min(80, 40 + Math.abs(best.prob - 50) * 0.55), category: 'corner' });
+            });
+            
+            // Cards
+            Object.entries(markets.cards.predictions).forEach(([line, data]) => {
+                const best = data.over > 50 ? { sel: 'OVER', prob: data.over } : { sel: 'UNDER', prob: data.under };
+                predictions.push({ market: `Cards ${best.sel} ${line}`, selection: `Cards ${best.sel} ${line}`, label: `Cartellini ${best.sel} ${line}`, probability: best.prob, confidence: Math.min(82, 40 + Math.abs(best.prob - 50) * 0.55 + boost), category: 'cards' });
+            });
+            
+            // Combo
+            Object.entries(markets.combos).forEach(([combo, prob]) => {
+                if (prob > 25) {
+                    predictions.push({ market: `Combo: ${combo}`, selection: combo, label: combo, probability: prob, confidence: Math.min(78, 35 + prob * 0.5), category: 'combo' });
+                }
+            });
+            
+            // HunterBet
+            if (markets.hunterBet) {
+                predictions.push({ market: 'HunterBet', selection: markets.hunterBet.tip, label: `🎯 ${markets.hunterBet.tip}`, probability: markets.hunterBet.confidence, confidence: markets.hunterBet.confidence, category: 'external', isHunterBet: true });
+            }
+            
+            return predictions.sort((a, b) => b.confidence - a.confidence);
+        }
+
         // ============================================================
-        // API & DATA LOADING
+        // STORICO
         // ============================================================
-        
+
+        function saveToHistory(match, predictions, selectedPreds) {
+            const entry = {
+                id: Date.now(),
+                matchId: match.id,
+                date: match.utcDate,
+                homeTeam: match.homeTeam.shortName || match.homeTeam.name,
+                awayTeam: match.awayTeam.shortName || match.awayTeam.name,
+                league: state.selectedLeague,
+                predictions: selectedPreds.map(p => ({ market: p.market, selection: p.selection, confidence: p.confidence, result: null })),
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+            state.history.unshift(entry);
+            localStorage.setItem(DB_KEY, JSON.stringify(state.history));
+            render();
+        }
+
+        function updateHistoryResult(entryId, predIndex, won) {
+            const entry = state.history.find(e => e.id === entryId);
+            if (entry) {
+                entry.predictions[predIndex].result = won ? 'won' : 'lost';
+                const allResolved = entry.predictions.every(p => p.result !== null);
+                if (allResolved) {
+                    const allWon = entry.predictions.every(p => p.result === 'won');
+                    const anyWon = entry.predictions.some(p => p.result === 'won');
+                    entry.status = allWon ? 'won' : (anyWon ? 'partial' : 'lost');
+                }
+                localStorage.setItem(DB_KEY, JSON.stringify(state.history));
+                render();
+            }
+        }
+
+        function getHistoryStats() {
+            const resolved = state.history.filter(e => e.status !== 'pending');
+            const won = resolved.filter(e => e.status === 'won').length;
+            const partial = resolved.filter(e => e.status === 'partial').length;
+            const lost = resolved.filter(e => e.status === 'lost').length;
+            let totalPreds = 0, wonPreds = 0;
+            state.history.forEach(entry => {
+                entry.predictions.forEach(p => {
+                    if (p.result !== null) { totalPreds++; if (p.result === 'won') wonPreds++; }
+                });
+            });
+            return {
+                total: state.history.length, resolved: resolved.length, won, partial, lost,
+                winRate: resolved.length > 0 ? (won / resolved.length * 100).toFixed(1) : 0,
+                predTotal: totalPreds, predWon: wonPreds,
+                predHitRate: totalPreds > 0 ? (wonPreds / totalPreds * 100).toFixed(1) : 0
+            };
+        }
+
+        function clearHistory() {
+            if (confirm('Cancellare tutto lo storico?')) {
+                state.history = [];
+                localStorage.setItem(DB_KEY, JSON.stringify([]));
+                render();
+            }
+        }
+
+        // ============================================================
+        // API
+        // ============================================================
+
         async function apiCall(endpoint) {
             const url = PROXY(`${FD_API}${endpoint}`);
-            const response = await fetch(url, {
-                headers: { 'X-Auth-Token': state.apiKey }
-            });
+            const response = await fetch(url, { headers: { 'X-Auth-Token': state.apiKey } });
             if (!response.ok) throw new Error(`Error ${response.status}`);
             return await response.json();
         }
@@ -478,13 +580,9 @@
             render();
             
             try {
-                const league = LEAGUE_DATA[state.selectedLeague];
-                const data = await apiCall(`/competitions/${league.fdId}/matches?status=SCHEDULED,TIMED`);
-                state.matches = (data.matches || []).slice(0, 25);
-                
-                if (state.matches.length === 0) {
-                    state.error = 'Nessuna partita in programma';
-                }
+                const data = await apiCall(`/competitions/${state.selectedLeague}/matches?status=SCHEDULED,TIMED`);
+                state.matches = (data.matches || []).slice(0, 30);
+                if (state.matches.length === 0) state.error = 'Nessuna partita in programma';
             } catch (err) {
                 state.error = 'Errore: ' + err.message;
             } finally {
@@ -493,157 +591,56 @@
             }
         }
 
-        // Calcola statistiche dettagliate da ultime partite
-        function calculateDetailedStats(matches, teamId) {
+        function calcStats(matches, teamId) {
             if (!matches || matches.length === 0) {
-                return {
-                    played: 0,
-                    avgGoalsFor: 1.3,
-                    avgGoalsAgainst: 1.1,
-                    avgTotalGoals: 2.4,
-                    cleanSheets: 0,
-                    failedToScore: 0,
-                    bttsCount: 0,
-                    bttsRate: 50,
-                    over25Count: 0,
-                    over25Rate: 50,
-                    formGoals: 1.3,
-                    formPoints: 1.5,
-                    wins: 0,
-                    draws: 0,
-                    losses: 0
-                };
+                return { played: 0, avgGoalsFor: 1.3, avgGoalsAgainst: 1.1, bttsRate: 50, over25Rate: 50, cleanSheets: 0, homeWinRate: 45, drawRate: 25, awayWinRate: 30 };
             }
-            
-            let goalsFor = 0, goalsAgainst = 0;
-            let cleanSheets = 0, failedToScore = 0;
-            let bttsCount = 0, over25Count = 0;
-            let wins = 0, draws = 0, losses = 0;
-            let formGoals = 0, formWeight = 0;
-            
-            matches.forEach((match, index) => {
-                const isHome = match.homeTeam.id === teamId;
-                const scored = isHome ? (match.score.fullTime.home || 0) : (match.score.fullTime.away || 0);
-                const conceded = isHome ? (match.score.fullTime.away || 0) : (match.score.fullTime.home || 0);
-                const totalGoals = (match.score.fullTime.home || 0) + (match.score.fullTime.away || 0);
-                
-                goalsFor += scored;
-                goalsAgainst += conceded;
-                
-                if (conceded === 0) cleanSheets++;
-                if (scored === 0) failedToScore++;
-                if (scored > 0 && conceded > 0) bttsCount++;
-                if (totalGoals > 2) over25Count++;
-                
-                if (scored > conceded) wins++;
-                else if (scored === conceded) draws++;
-                else losses++;
-                
-                // Forma pesata (ultime partite pesano di più)
-                const weight = matches.length - index;
-                formGoals += scored * weight;
-                formWeight += weight;
+            let gf = 0, ga = 0, btts = 0, o25 = 0, cs = 0, homeW = 0, draws = 0, awayW = 0, homeGames = 0, awayGames = 0;
+            matches.forEach(m => {
+                const isHome = m.homeTeam.id === teamId;
+                const scored = isHome ? (m.score.fullTime.home || 0) : (m.score.fullTime.away || 0);
+                const conceded = isHome ? (m.score.fullTime.away || 0) : (m.score.fullTime.home || 0);
+                const total = (m.score.fullTime.home || 0) + (m.score.fullTime.away || 0);
+                gf += scored; ga += conceded;
+                if (scored > 0 && conceded > 0) btts++;
+                if (total > 2) o25++;
+                if (conceded === 0) cs++;
+                if (isHome) { homeGames++; if (scored > conceded) homeW++; else if (scored === conceded) draws++; }
+                else { awayGames++; if (scored > conceded) awayW++; else if (scored === conceded) draws++; }
             });
-            
             const played = matches.length;
-            
             return {
-                played,
-                avgGoalsFor: goalsFor / played,
-                avgGoalsAgainst: goalsAgainst / played,
-                avgTotalGoals: (goalsFor + goalsAgainst) / played,
-                cleanSheets,
-                failedToScore,
-                bttsCount,
-                bttsRate: (bttsCount / played) * 100,
-                over25Count,
-                over25Rate: (over25Count / played) * 100,
-                formGoals: formGoals / formWeight,
-                formPoints: (wins * 3 + draws) / played,
-                wins,
-                draws,
-                losses
+                played, avgGoalsFor: gf / played, avgGoalsAgainst: ga / played,
+                bttsRate: (btts / played) * 100, over25Rate: (o25 / played) * 100, cleanSheets: cs,
+                homeWinRate: homeGames > 0 ? (homeW / homeGames) * 100 : 45,
+                drawRate: played > 0 ? (draws / played) * 100 : 25,
+                awayWinRate: awayGames > 0 ? (awayW / awayGames) * 100 : 30
             };
         }
 
-        // ============================================================
-        // ANALISI COMPLETA
-        // ============================================================
-        
         async function analyzeMatch(match) {
             state.isAnalyzing = true;
             state.selectedMatch = match;
             state.activeTab = 'analysis';
-            state.analysisProgress = 0;
+            state.externalData = { homeCorners: '', awayCorners: '', homeCards: '', awayCards: '', h2hCorners: '', h2hCards: '', refereeCards: '', homeAbsences: '', awayAbsences: '', homeForm: '', awayForm: '', hunterBetTip: '', hunterBetConfidence: '' };
             render();
 
             try {
-                // Step 1: Carica partite casa
-                state.analysisStep = `📊 Caricamento ${match.homeTeam.shortName || match.homeTeam.name}...`;
-                state.analysisProgress = 20;
+                state.analysisStep = 'Caricamento...';
                 render();
-                
-                const homeData = await apiCall(`/teams/${match.homeTeam.id}/matches?status=FINISHED&limit=12`);
-                const homeMatches = homeData.matches || [];
-                
-                // Step 2: Carica partite trasferta
-                state.analysisStep = `📊 Caricamento ${match.awayTeam.shortName || match.awayTeam.name}...`;
-                state.analysisProgress = 40;
+                const [homeData, awayData] = await Promise.all([
+                    apiCall(`/teams/${match.homeTeam.id}/matches?status=FINISHED&limit=15`),
+                    apiCall(`/teams/${match.awayTeam.id}/matches?status=FINISHED&limit=15`)
+                ]);
+                state.analysisStep = 'Analisi...';
                 render();
-                
-                const awayData = await apiCall(`/teams/${match.awayTeam.id}/matches?status=FINISHED&limit=12`);
-                const awayMatches = awayData.matches || [];
-                
-                // Step 3: Calcola statistiche
-                state.analysisStep = '🔢 Calcolo statistiche avanzate...';
-                state.analysisProgress = 60;
-                render();
-                
-                const homeStats = calculateDetailedStats(homeMatches, match.homeTeam.id);
-                const awayStats = calculateDetailedStats(awayMatches, match.awayTeam.id);
-                
-                // Step 4: Applica algoritmi
-                state.analysisStep = '🧠 Applicazione algoritmi predittivi...';
-                state.analysisProgress = 80;
-                render();
-                
-                // GG/NG
-                const bttsResult = calculateBTTS(homeStats, awayStats, state.selectedLeague);
-                
-                // Over 2.5
-                const goalsResult = calculateOver25(homeStats, awayStats, bttsResult, state.selectedLeague);
-                
-                // Corner
-                const cornersResult = calculateCorners(homeStats, awayStats, state.selectedLeague);
-                
-                // Cards
-                const cardsResult = calculateCards(homeStats, awayStats, state.selectedLeague);
-                
-                // Step 5: Genera risultati
-                state.analysisStep = '✅ Generazione pronostici...';
-                state.analysisProgress = 100;
-                render();
-                
-                // Salva risultati
-                state.analysisData = {
-                    match,
-                    homeStats,
-                    awayStats,
-                    dataQuality: {
-                        homeMatches: homeMatches.length,
-                        awayMatches: awayMatches.length,
-                        isReliable: homeMatches.length >= 5 && awayMatches.length >= 5
-                    },
-                    btts: bttsResult,
-                    goals: goalsResult,
-                    corners: cornersResult,
-                    cards: cardsResult,
-                    timestamp: new Date().toISOString()
-                };
-                
+                const homeStats = calcStats(homeData.matches || [], match.homeTeam.id);
+                const awayStats = calcStats(awayData.matches || [], match.awayTeam.id);
+                const markets = analyzeAllMarkets(homeStats, awayStats, state.selectedLeague, state.externalData);
+                const predictions = generatePredictions(markets, match);
+                state.analysisData = { match, homeStats, awayStats, markets, predictions, selectedPredictions: [] };
             } catch (err) {
-                console.error('Analysis error:', err);
-                state.error = 'Errore analisi: ' + err.message;
+                state.error = 'Errore: ' + err.message;
             } finally {
                 state.isAnalyzing = false;
                 state.analysisStep = '';
@@ -651,151 +648,143 @@
             }
         }
 
+        function recalculate() {
+            if (!state.analysisData) return;
+            const { homeStats, awayStats, match } = state.analysisData;
+            const markets = analyzeAllMarkets(homeStats, awayStats, state.selectedLeague, state.externalData);
+            const predictions = generatePredictions(markets, match);
+            state.analysisData.markets = markets;
+            state.analysisData.predictions = predictions;
+            state.showExternalInput = false;
+            render();
+        }
+
+        function togglePrediction(pred) {
+            const idx = state.analysisData.selectedPredictions.findIndex(p => p.market === pred.market);
+            if (idx >= 0) state.analysisData.selectedPredictions.splice(idx, 1);
+            else state.analysisData.selectedPredictions.push(pred);
+            render();
+        }
+
+        function savePredictions() {
+            if (state.analysisData.selectedPredictions.length === 0) { alert('Seleziona almeno un pronostico!'); return; }
+            saveToHistory(state.analysisData.match, state.analysisData.predictions, state.analysisData.selectedPredictions);
+            alert('✅ Salvato!');
+            state.analysisData.selectedPredictions = [];
+            render();
+        }
+
         // ============================================================
-        // RENDER
+        // RENDER HELPERS
         // ============================================================
 
         function formatDate(dateStr) {
             const d = new Date(dateStr);
-            return {
-                date: d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' }),
-                time: d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
-            };
+            return { date: d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' }), time: d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) };
         }
 
-        function badge(value, type = 'default') {
+        function badge(value, size = 'sm') {
             const v = parseFloat(value);
-            let cls = 'bg-red-100 text-red-700 border-red-200';
-            let label = 'Bassa';
-            if (v >= 68) { cls = 'bg-green-100 text-green-700 border-green-200'; label = 'Alta'; }
-            else if (v >= 55) { cls = 'bg-amber-100 text-amber-700 border-amber-200'; label = 'Media'; }
-            
-            if (type === 'full') {
-                return `<span class="px-2 py-1 rounded text-xs font-bold border ${cls}">${Math.round(v)}% ${label}</span>`;
-            }
-            return `<span class="px-2 py-1 rounded text-xs font-bold border ${cls}">${Math.round(v)}%</span>`;
+            let cls = 'bg-red-100 text-red-700';
+            if (v >= 70) cls = 'bg-green-100 text-green-700';
+            else if (v >= 55) cls = 'bg-amber-100 text-amber-700';
+            const sizeClass = size === 'lg' ? 'px-3 py-1.5 text-sm' : 'px-2 py-0.5 text-xs';
+            return `<span class="rounded font-bold ${cls} ${sizeClass}">${Math.round(v)}%</span>`;
         }
 
-        function probBar(value, color) {
-            const colors = { green: 'bg-green-500', red: 'bg-red-500', blue: 'bg-blue-500', amber: 'bg-amber-500', purple: 'bg-purple-500' };
-            return `<div class="h-2 bg-gray-200 rounded-full overflow-hidden"><div class="${colors[color]} h-full" style="width:${Math.min(100,value)}%"></div></div>`;
+        function categoryIcon(cat) {
+            return { esito: '🏆', goal: '⚽', corner: '🚩', cards: '🟨', combo: '🎰', external: '🎯' }[cat] || '📊';
         }
 
+        function updateExtData(field, value) { state.externalData[field] = value; }
         function saveKey() {
             const key = document.getElementById('apiKeyInput').value.trim();
-            if (key) {
-                localStorage.setItem('footballDataApiKey', key);
-                state.apiKey = key;
-                state.showSetup = false;
-                render();
-                loadMatches();
-            }
+            if (key) { localStorage.setItem('footballDataApiKey', key); state.apiKey = key; state.showSetup = false; render(); loadMatches(); }
         }
+        function changeLeague(code) { state.selectedLeague = code; state.selectedMatch = null; state.analysisData = null; loadMatches(); }
+        function changeCategory(cat) { state.selectedCategory = cat; state.selectedLeague = CATEGORIES[cat].leagues[0]; state.selectedMatch = null; state.analysisData = null; loadMatches(); }
+        function setTab(tab) { state.activeTab = tab; render(); }
+        function toggleExternalInput() { state.showExternalInput = !state.showExternalInput; render(); }
+        function setMinConfidence(val) { state.minConfidence = parseInt(val); render(); }
+        function setHistoryFilter(f) { state.historyFilter = f; render(); }
+        function resetApp() { localStorage.removeItem('footballDataApiKey'); state.apiKey = ''; state.showSetup = true; state.matches = []; render(); }
 
-        function changeLeague(code) {
-            state.selectedLeague = code;
-            state.selectedMatch = null;
-            state.analysisData = null;
-            loadMatches();
-        }
-
-        function setTab(tab) {
-            state.activeTab = tab;
-            render();
-        }
-
-        function resetApp() {
-            localStorage.removeItem('footballDataApiKey');
-            state = { ...state, apiKey: '', showSetup: true, matches: [] };
-            render();
-        }
+        // ============================================================
+        // MAIN RENDER
+        // ============================================================
 
         function render() {
             const root = document.getElementById('root');
 
             if (state.showSetup) {
                 root.innerHTML = `
-                    <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-emerald-900 via-green-800 to-teal-900">
+                    <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-green-900 to-gray-900">
                         <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
                             <div class="text-center mb-8">
-                                <div class="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl transform -rotate-3">
+                                <div class="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
                                     <span class="text-5xl">🎯</span>
                                 </div>
-                                <h1 class="text-3xl font-black gradient-text">ULTIMATE</h1>
-                                <p class="text-gray-500 font-medium">Betting Predictor</p>
+                                <h1 class="text-3xl font-black text-gray-900">PRO BETTING V2</h1>
+                                <p class="text-green-600 font-medium">12 Campionati • Tutti i Mercati</p>
                             </div>
                             
                             <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-5 mb-6 border border-green-200">
-                                <p class="font-bold text-green-800 mb-3">🧠 Algoritmi inclusi:</p>
-                                <div class="grid grid-cols-2 gap-2 text-xs text-green-700">
-                                    <div class="flex items-center gap-1"><span>✓</span> Poisson Distribution</div>
-                                    <div class="flex items-center gap-1"><span>✓</span> Expected Goals (xG)</div>
-                                    <div class="flex items-center gap-1"><span>✓</span> Forma Pesata</div>
-                                    <div class="flex items-center gap-1"><span>✓</span> Corner Correlation</div>
-                                    <div class="flex items-center gap-1"><span>✓</span> Cards Aggression</div>
-                                    <div class="flex items-center gap-1"><span>✓</span> Home/Away Factor</div>
+                                <p class="font-bold text-green-800 mb-2">🏆 Campionati inclusi:</p>
+                                <div class="grid grid-cols-2 gap-1 text-xs text-green-700">
+                                    <div>🇮🇹 Serie A</div>
+                                    <div>🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</div>
+                                    <div>🇪🇸 La Liga</div>
+                                    <div>🇩🇪 Bundesliga</div>
+                                    <div>🇫🇷 Ligue 1</div>
+                                    <div>🏴󠁧󠁢󠁥󠁮󠁧󠁿 Championship</div>
+                                    <div>🇳🇱 Eredivisie</div>
+                                    <div>🇵🇹 Primeira Liga</div>
+                                    <div>🇧🇷 Serie A Brasil</div>
+                                    <div>🏆 Champions League</div>
+                                    <div>🇪🇺 Europei</div>
+                                    <div>🌍 Mondiali</div>
                                 </div>
                             </div>
                             
                             <div class="mb-6">
                                 <label class="block text-sm font-bold text-gray-700 mb-2">🔑 API Key</label>
-                                <input id="apiKeyInput" type="text" placeholder="Da football-data.org..." 
-                                    class="w-full px-4 py-4 border-2 border-gray-200 rounded-2xl font-mono text-center focus:border-green-500 focus:ring-4 focus:ring-green-100"/>
-                                <p class="text-xs text-gray-500 mt-2 text-center">
-                                    <a href="https://www.football-data.org/client/register" target="_blank" class="text-green-600 underline">Registrati gratis</a> per ottenere la key
-                                </p>
+                                <input id="apiKeyInput" type="text" placeholder="Da football-data.org..." class="w-full px-4 py-4 border-2 border-gray-200 rounded-2xl font-mono text-center"/>
+                                <p class="text-xs text-gray-500 mt-2 text-center"><a href="https://www.football-data.org/client/register" target="_blank" class="text-green-600 underline">Registrati gratis</a></p>
                             </div>
                             
-                            <button onclick="saveKey()" class="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-2xl font-bold text-lg shadow-lg transform transition hover:scale-[1.02]">
-                                🚀 INIZIA ORA
-                            </button>
+                            <button onclick="saveKey()" class="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-bold text-lg shadow-lg">🚀 INIZIA</button>
                         </div>
                     </div>
                 `;
                 return;
             }
 
-            const league = LEAGUE_DATA[state.selectedLeague];
+            const league = LEAGUES[state.selectedLeague];
             let content = '';
 
+            // MATCHES TAB
             if (state.activeTab === 'matches') {
                 if (state.loading) {
-                    content = `<div class="bg-white rounded-2xl p-12 text-center shadow-lg">
-                        <div class="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full loader mx-auto mb-4"></div>
-                        <p class="text-gray-600 font-medium">Caricamento partite...</p>
-                    </div>`;
+                    content = `<div class="bg-white rounded-2xl p-12 text-center shadow-lg"><div class="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full loader mx-auto mb-4"></div><p>Caricamento...</p></div>`;
                 } else if (state.matches.length === 0) {
-                    content = `<div class="bg-white rounded-2xl p-12 text-center shadow-lg">
-                        <p class="text-5xl mb-4">📭</p>
-                        <p class="text-gray-600 font-medium">Nessuna partita in programma</p>
-                    </div>`;
+                    content = `<div class="bg-white rounded-2xl p-12 text-center shadow-lg"><p class="text-5xl mb-4">📭</p><p>Nessuna partita</p></div>`;
                 } else {
                     content = `
                         <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
-                            <div class="px-5 py-4 bg-gradient-to-r from-green-500 to-emerald-500 flex justify-between items-center">
-                                <span class="font-bold text-white text-lg">${league.flag} ${league.name}</span>
-                                <button onclick="loadMatches()" class="text-white/80 hover:text-white text-sm font-medium">🔄 Aggiorna</button>
+                            <div class="px-5 py-4 bg-gradient-to-r from-green-600 to-emerald-600 flex justify-between items-center">
+                                <span class="font-bold text-white">${league.flag} ${league.name}</span>
+                                <button onclick="loadMatches()" class="text-white/80 hover:text-white">🔄</button>
                             </div>
                             <div class="divide-y max-h-[450px] overflow-y-auto">
                                 ${state.matches.map((m, i) => {
                                     const { date, time } = formatDate(m.utcDate);
-                                    return `
-                                        <div class="px-5 py-4 hover:bg-green-50 cursor-pointer transition-all" onclick="analyzeMatch(state.matches[${i}])">
-                                            <div class="flex items-center gap-4">
-                                                <div class="w-20 text-center flex-shrink-0">
-                                                    <p class="text-xs text-gray-500 font-medium">${date}</p>
-                                                    <p class="text-lg font-bold text-gray-900">${time}</p>
-                                                </div>
-                                                <div class="flex-1 min-w-0">
-                                                    <p class="font-semibold text-gray-900 truncate">${m.homeTeam.shortName || m.homeTeam.name}</p>
-                                                    <p class="font-medium text-gray-600 truncate">${m.awayTeam.shortName || m.awayTeam.name}</p>
-                                                </div>
-                                                <div class="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center text-green-600 font-bold text-lg hover:bg-green-200 transition">
-                                                    →
-                                                </div>
-                                            </div>
+                                    return `<div class="px-4 py-3 hover:bg-green-50 cursor-pointer" onclick="analyzeMatch(state.matches[${i}])">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-14 text-center"><p class="text-xs text-gray-500">${date}</p><p class="font-bold">${time}</p></div>
+                                            <div class="flex-1 min-w-0"><p class="font-semibold text-sm truncate">${m.homeTeam.shortName || m.homeTeam.name}</p><p class="text-gray-600 text-sm truncate">${m.awayTeam.shortName || m.awayTeam.name}</p></div>
+                                            <div class="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center text-green-600">→</div>
                                         </div>
-                                    `;
+                                    </div>`;
                                 }).join('')}
                             </div>
                         </div>
@@ -803,302 +792,248 @@
                 }
             }
 
+            // ANALYSIS TAB
             if (state.activeTab === 'analysis') {
                 if (state.isAnalyzing) {
-                    content = `
-                        <div class="bg-white rounded-2xl p-8 text-center shadow-lg">
-                            <div class="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full loader mx-auto mb-4"></div>
-                            <p class="font-bold text-gray-900 text-lg mb-2">Analisi Avanzata</p>
-                            <p class="text-green-600 font-medium pulse mb-4">${state.analysisStep}</p>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-green-500 h-2 rounded-full transition-all duration-500" style="width:${state.analysisProgress}%"></div>
-                            </div>
-                        </div>
-                    `;
+                    content = `<div class="bg-white rounded-2xl p-8 text-center shadow-lg"><div class="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full loader mx-auto mb-4"></div><p class="font-bold mb-2">Analisi</p><p class="text-green-600 pulse">${state.analysisStep}</p></div>`;
                 } else if (!state.analysisData) {
-                    content = `
-                        <div class="bg-white rounded-2xl p-12 text-center shadow-lg">
-                            <p class="text-5xl mb-4">🎯</p>
-                            <p class="font-bold text-gray-700 text-lg">Seleziona una partita</p>
-                            <p class="text-gray-500 mt-1">per l'analisi con algoritmi avanzati</p>
-                        </div>
-                    `;
+                    content = `<div class="bg-white rounded-2xl p-12 text-center shadow-lg"><p class="text-5xl mb-4">🎯</p><p class="font-bold">Seleziona una partita</p></div>`;
                 } else {
                     const a = state.analysisData;
-                    const { date, time } = formatDate(a.match.utcDate);
-                    const homeName = a.match.homeTeam.shortName || a.match.homeTeam.name;
-                    const awayName = a.match.awayTeam.shortName || a.match.awayTeam.name;
+                    const m = a.match;
+                    const { date, time } = formatDate(m.utcDate);
+                    const homeName = m.homeTeam.shortName || m.homeTeam.name;
+                    const awayName = m.awayTeam.shortName || m.awayTeam.name;
+                    const filteredPreds = a.predictions.filter(p => p.confidence >= state.minConfidence);
+                    
+                    const extPanel = state.showExternalInput ? `
+                        <div class="bg-blue-50 border-2 border-blue-300 rounded-2xl p-4 mb-4">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-bold text-blue-800 text-sm">📊 Dati Esterni</h4>
+                                <a href="https://makeyourstats.com/it" target="_blank" class="text-xs bg-blue-500 text-white px-2 py-1 rounded">MakeYourStats</a>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <input type="number" step="0.1" placeholder="${homeName} Corner/p" value="${state.externalData.homeCorners}" onchange="updateExtData('homeCorners', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                                <input type="number" step="0.1" placeholder="${awayName} Corner/p" value="${state.externalData.awayCorners}" onchange="updateExtData('awayCorners', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                                <input type="number" step="0.1" placeholder="${homeName} Cards/p" value="${state.externalData.homeCards}" onchange="updateExtData('homeCards', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                                <input type="number" step="0.1" placeholder="${awayName} Cards/p" value="${state.externalData.awayCards}" onchange="updateExtData('awayCards', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 mb-2">
+                                <input type="number" step="0.1" placeholder="H2H Corner" value="${state.externalData.h2hCorners}" onchange="updateExtData('h2hCorners', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                                <input type="number" step="0.1" placeholder="H2H Cards" value="${state.externalData.h2hCards}" onchange="updateExtData('h2hCards', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                                <input type="number" step="0.1" placeholder="Arbitro Cards" value="${state.externalData.refereeCards}" onchange="updateExtData('refereeCards', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <input type="number" min="0" max="10" placeholder="${homeName} Forma (0-10)" value="${state.externalData.homeForm}" onchange="updateExtData('homeForm', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                                <input type="number" min="0" max="10" placeholder="${awayName} Forma (0-10)" value="${state.externalData.awayForm}" onchange="updateExtData('awayForm', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                                <input type="number" min="0" max="10" placeholder="${homeName} Assenze" value="${state.externalData.homeAbsences}" onchange="updateExtData('homeAbsences', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                                <input type="number" min="0" max="10" placeholder="${awayName} Assenze" value="${state.externalData.awayAbsences}" onchange="updateExtData('awayAbsences', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mb-3">
+                                <input type="text" placeholder="HunterBet Tip" value="${state.externalData.hunterBetTip}" onchange="updateExtData('hunterBetTip', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                                <input type="number" placeholder="HunterBet %" value="${state.externalData.hunterBetConfidence}" onchange="updateExtData('hunterBetConfidence', this.value)" class="px-2 py-1.5 border rounded text-xs"/>
+                            </div>
+                            <button onclick="recalculate()" class="w-full py-2 bg-blue-500 text-white rounded-lg font-bold text-sm">🔄 RICALCOLA</button>
+                        </div>
+                    ` : '';
 
                     content = `
-                        <!-- HEADER -->
-                        <div class="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 rounded-2xl p-5 text-white mb-4 shadow-lg">
+                        <div class="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-4 text-white mb-4">
                             <div class="text-center">
-                                <p class="text-xl font-bold">${homeName}</p>
-                                <p class="text-white/70 text-sm my-1">vs</p>
-                                <p class="text-xl font-bold">${awayName}</p>
-                                <p class="text-white/60 text-xs mt-3">${date} • ${time}</p>
+                                <p class="font-bold">${homeName} vs ${awayName}</p>
+                                <p class="text-white/60 text-xs">${date} • ${time} • ${league.flag} ${league.name}</p>
                             </div>
-                            <div class="flex justify-center gap-3 mt-4 pt-4 border-t border-white/20">
-                                <span class="text-xs bg-white/20 px-3 py-1 rounded-full">🧠 AI Analysis</span>
-                                <span class="text-xs bg-white/20 px-3 py-1 rounded-full">📊 ${a.dataQuality.homeMatches + a.dataQuality.awayMatches} partite</span>
-                            </div>
-                        </div>
-
-                        <!-- STATS SUMMARY -->
-                        <div class="bg-white rounded-2xl p-4 shadow-md mb-4">
-                            <div class="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                    <p class="font-bold text-gray-900 mb-2">${homeName}</p>
-                                    <div class="space-y-1 text-gray-600">
-                                        <p>⚽ ${a.homeStats.avgGoalsFor.toFixed(2)} gol/p</p>
-                                        <p>🛡️ ${a.homeStats.avgGoalsAgainst.toFixed(2)} subiti/p</p>
-                                        <p>📈 Forma: ${a.homeStats.wins}V ${a.homeStats.draws}P ${a.homeStats.losses}S</p>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p class="font-bold text-gray-900 mb-2">${awayName}</p>
-                                    <div class="space-y-1 text-gray-600">
-                                        <p>⚽ ${a.awayStats.avgGoalsFor.toFixed(2)} gol/p</p>
-                                        <p>🛡️ ${a.awayStats.avgGoalsAgainst.toFixed(2)} subiti/p</p>
-                                        <p>📈 Forma: ${a.awayStats.wins}V ${a.awayStats.draws}P ${a.awayStats.losses}S</p>
-                                    </div>
-                                </div>
+                            <div class="grid grid-cols-3 gap-2 mt-3 text-center text-sm">
+                                <div class="bg-white/10 rounded-lg p-2"><p class="text-white/60 text-xs">xG Casa</p><p class="font-bold text-lg">${a.markets.xG.home.toFixed(2)}</p></div>
+                                <div class="bg-white/10 rounded-lg p-2"><p class="text-white/60 text-xs">Totale</p><p class="font-bold text-lg text-green-400">${a.markets.xG.total.toFixed(2)}</p></div>
+                                <div class="bg-white/10 rounded-lg p-2"><p class="text-white/60 text-xs">xG Trasf</p><p class="font-bold text-lg">${a.markets.xG.away.toFixed(2)}</p></div>
                             </div>
                         </div>
 
-                        <!-- XG BOX -->
-                        <div class="bg-white rounded-2xl p-4 shadow-md mb-4">
-                            <h4 class="font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                <span class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">⚽</span>
-                                Expected Goals (xG)
-                            </h4>
-                            <div class="grid grid-cols-3 gap-3 text-center">
-                                <div class="bg-blue-50 rounded-xl p-3">
-                                    <p class="text-xs text-blue-600 font-medium">${homeName}</p>
-                                    <p class="text-3xl font-black text-blue-700">${a.goals.homeXG.toFixed(2)}</p>
-                                </div>
-                                <div class="bg-purple-100 rounded-xl p-3">
-                                    <p class="text-xs text-purple-600 font-medium">TOTALE</p>
-                                    <p class="text-3xl font-black text-purple-700">${a.goals.totalXG.toFixed(2)}</p>
-                                </div>
-                                <div class="bg-red-50 rounded-xl p-3">
-                                    <p class="text-xs text-red-600 font-medium">${awayName}</p>
-                                    <p class="text-3xl font-black text-red-700">${a.goals.awayXG.toFixed(2)}</p>
-                                </div>
+                        <button onclick="toggleExternalInput()" class="w-full mb-4 py-2.5 ${state.showExternalInput ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-white border-gray-200 text-gray-700'} border-2 rounded-xl font-bold text-sm">
+                            📊 ${state.showExternalInput ? 'Chiudi' : '+'} Dati Esterni
+                        </button>
+
+                        ${extPanel}
+
+                        <div class="bg-white rounded-xl p-3 mb-4 flex items-center justify-between">
+                            <span class="text-sm font-medium">🎚️ Min:</span>
+                            <div class="flex items-center gap-2">
+                                <input type="range" min="40" max="80" value="${state.minConfidence}" onchange="setMinConfidence(this.value)" class="w-24"/>
+                                <span class="font-bold text-green-600 w-10">${state.minConfidence}%</span>
                             </div>
                         </div>
 
-                        <!-- GG/NG -->
-                        <div class="bg-white rounded-2xl shadow-md mb-4 overflow-hidden">
-                            <div class="px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500">
-                                <h3 class="font-bold text-white">🟢 GG / NG</h3>
+                        <div class="bg-white rounded-2xl shadow-lg overflow-hidden mb-4">
+                            <div class="px-4 py-2.5 bg-gradient-to-r from-green-500 to-emerald-500 flex justify-between items-center">
+                                <span class="font-bold text-white text-sm">🎯 Pronostici (${filteredPreds.length})</span>
+                                <span class="text-white/80 text-xs">${a.markets.dataSource === 'external' ? '✓ Dati ext' : 'Algo'}</span>
                             </div>
-                            <div class="p-4">
-                                <div class="grid grid-cols-2 gap-3 mb-4">
-                                    <div class="rounded-xl p-4 text-center border-2 ${a.btts.prediction === 'GG' ? 'bg-green-50 border-green-400 shadow' : 'bg-gray-50 border-gray-200'}">
-                                        <p class="text-4xl font-black text-green-600">${a.btts.ggProbability.toFixed(0)}%</p>
-                                        <p class="font-bold text-gray-700">GG</p>
-                                    </div>
-                                    <div class="rounded-xl p-4 text-center border-2 ${a.btts.prediction === 'NG' ? 'bg-red-50 border-red-400 shadow' : 'bg-gray-50 border-gray-200'}">
-                                        <p class="text-4xl font-black text-red-600">${a.btts.ngProbability.toFixed(0)}%</p>
-                                        <p class="font-bold text-gray-700">NG</p>
-                                    </div>
-                                </div>
-                                
-                                <div class="space-y-2 mb-4">
-                                    <div>
-                                        <div class="flex justify-between text-sm mb-1">
-                                            <span class="text-gray-600">${homeName} segna</span>
-                                            <span class="font-bold">${a.btts.homeScoringProb.toFixed(0)}%</span>
-                                        </div>
-                                        ${probBar(a.btts.homeScoringProb, 'green')}
-                                    </div>
-                                    <div>
-                                        <div class="flex justify-between text-sm mb-1">
-                                            <span class="text-gray-600">${awayName} segna</span>
-                                            <span class="font-bold">${a.btts.awayScoringProb.toFixed(0)}%</span>
-                                        </div>
-                                        ${probBar(a.btts.awayScoringProb, 'red')}
-                                    </div>
-                                </div>
-                                
-                                <div class="rounded-xl p-4 border-2 ${a.btts.prediction === 'GG' ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'} flex justify-between items-center">
-                                    <div>
-                                        <p class="text-xs text-gray-500">PRONOSTICO</p>
-                                        <p class="text-2xl font-black">${a.btts.prediction}</p>
-                                    </div>
-                                    ${badge(a.btts.confidence, 'full')}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- OVER 2.5 -->
-                        <div class="bg-white rounded-2xl shadow-md mb-4 overflow-hidden">
-                            <div class="px-4 py-3 bg-gradient-to-r from-purple-500 to-indigo-500">
-                                <h3 class="font-bold text-white">🔮 Over / Under</h3>
-                            </div>
-                            <div class="p-4">
-                                <div class="space-y-2 mb-4">
-                                    ${a.goals.predictions.map(p => `
-                                        <div class="flex items-center justify-between px-4 py-3 rounded-xl ${p.line === 2.5 ? 'bg-purple-50 border-2 border-purple-300' : 'bg-gray-50'}">
-                                            <div>
-                                                <span class="font-bold text-gray-800">${p.prediction} ${p.line}</span>
-                                                <span class="text-gray-500 text-sm ml-2">(${p.probability.toFixed(0)}%)</span>
+                            <div class="divide-y max-h-[350px] overflow-y-auto">
+                                ${filteredPreds.length === 0 ? '<p class="p-4 text-center text-gray-500 text-sm">Nessun pronostico</p>' : ''}
+                                ${filteredPreds.map((p, i) => {
+                                    const isSelected = a.selectedPredictions.some(sp => sp.market === p.market);
+                                    const isHot = p.confidence >= 70;
+                                    return `
+                                        <div class="px-3 py-2.5 flex items-center gap-2 cursor-pointer hover:bg-gray-50 ${isSelected ? 'bg-green-50' : ''} ${isHot ? 'hot' : ''}" onclick="togglePrediction(state.analysisData.predictions[${a.predictions.indexOf(p)}])">
+                                            <div class="w-7 h-7 rounded-lg ${isSelected ? 'bg-green-500 text-white' : 'bg-gray-100'} flex items-center justify-center text-sm">
+                                                ${isSelected ? '✓' : categoryIcon(p.category)}
                                             </div>
-                                            ${badge(50 + Math.abs(p.probability - 50) * 0.6)}
+                                            <div class="flex-1 min-w-0">
+                                                <p class="font-semibold text-gray-900 text-sm truncate">${p.label}</p>
+                                                <p class="text-xs text-gray-500 truncate">${p.market}</p>
+                                            </div>
+                                            ${badge(p.confidence, 'lg')}
                                         </div>
-                                    `).join('')}
-                                </div>
-                                
-                                <div class="rounded-xl p-4 border-2 ${a.goals.mainPrediction.includes('OVER') ? 'bg-purple-50 border-purple-400' : 'bg-gray-100 border-gray-300'} flex justify-between items-center">
-                                    <div>
-                                        <p class="text-xs text-gray-500">PRONOSTICO</p>
-                                        <p class="text-2xl font-black">${a.goals.mainPrediction}</p>
-                                    </div>
-                                    ${badge(a.goals.confidence, 'full')}
-                                </div>
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
 
-                        <!-- CORNER -->
-                        <div class="bg-white rounded-2xl shadow-md mb-4 overflow-hidden">
-                            <div class="px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500">
-                                <h3 class="font-bold text-white">🚩 Corner Totali</h3>
-                            </div>
-                            <div class="p-4">
-                                <div class="grid grid-cols-3 gap-3 mb-4 text-center">
-                                    <div class="bg-blue-50 rounded-xl p-3">
-                                        <p class="text-xs text-blue-600">${homeName}</p>
-                                        <p class="text-2xl font-black text-blue-700">${a.corners.homeExpected.toFixed(1)}</p>
-                                    </div>
-                                    <div class="bg-blue-100 rounded-xl p-3">
-                                        <p class="text-xs text-blue-700">TOTALE</p>
-                                        <p class="text-2xl font-black text-blue-800">${a.corners.totalExpected.toFixed(1)}</p>
-                                    </div>
-                                    <div class="bg-blue-50 rounded-xl p-3">
-                                        <p class="text-xs text-blue-600">${awayName}</p>
-                                        <p class="text-2xl font-black text-blue-700">${a.corners.awayExpected.toFixed(1)}</p>
-                                    </div>
-                                </div>
-                                
-                                <div class="space-y-2 mb-4">
-                                    ${a.corners.predictions.map(p => `
-                                        <div class="flex items-center justify-between px-4 py-2.5 rounded-xl ${p === a.corners.bestBet ? 'bg-green-50 border-2 border-green-400' : 'bg-gray-50'}">
-                                            <span class="font-medium text-gray-800">${p === a.corners.bestBet ? '⭐ ' : ''}${p.prediction} ${p.line}</span>
-                                            ${badge(p.confidence)}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                                
-                                <div class="bg-green-50 border-2 border-green-400 rounded-xl p-4 flex justify-between items-center">
-                                    <div>
-                                        <p class="text-xs text-gray-500">BEST BET</p>
-                                        <p class="text-2xl font-black text-green-700">${a.corners.bestBet.prediction} ${a.corners.bestBet.line}</p>
-                                    </div>
-                                    ${badge(a.corners.bestBet.confidence, 'full')}
-                                </div>
-                            </div>
-                        </div>
+                        ${a.selectedPredictions.length > 0 ? `
+                            <button onclick="savePredictions()" class="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-bold shadow-lg mb-4">
+                                💾 SALVA ${a.selectedPredictions.length} PRONOSTICI
+                            </button>
+                        ` : ''}
 
-                        <!-- CARDS -->
-                        <div class="bg-white rounded-2xl shadow-md mb-4 overflow-hidden">
-                            <div class="px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500">
-                                <h3 class="font-bold text-white">🟨 Cartellini Totali</h3>
-                            </div>
-                            <div class="p-4">
-                                <div class="grid grid-cols-3 gap-3 mb-4 text-center">
-                                    <div class="bg-amber-50 rounded-xl p-3">
-                                        <p class="text-xs text-amber-600">${homeName}</p>
-                                        <p class="text-2xl font-black text-amber-700">${a.cards.homeExpected.toFixed(1)}</p>
-                                    </div>
-                                    <div class="bg-amber-100 rounded-xl p-3">
-                                        <p class="text-xs text-amber-700">TOTALE</p>
-                                        <p class="text-2xl font-black text-amber-800">${a.cards.totalExpected.toFixed(1)}</p>
-                                    </div>
-                                    <div class="bg-amber-50 rounded-xl p-3">
-                                        <p class="text-xs text-amber-600">${awayName}</p>
-                                        <p class="text-2xl font-black text-amber-700">${a.cards.awayExpected.toFixed(1)}</p>
-                                    </div>
-                                </div>
-                                
-                                <div class="space-y-2 mb-4">
-                                    ${a.cards.predictions.map(p => `
-                                        <div class="flex items-center justify-between px-4 py-2.5 rounded-xl ${p === a.cards.bestBet ? 'bg-green-50 border-2 border-green-400' : 'bg-gray-50'}">
-                                            <span class="font-medium text-gray-800">${p === a.cards.bestBet ? '⭐ ' : ''}${p.prediction} ${p.line}</span>
-                                            ${badge(p.confidence)}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                                
-                                <div class="bg-green-50 border-2 border-green-400 rounded-xl p-4 flex justify-between items-center">
-                                    <div>
-                                        <p class="text-xs text-gray-500">BEST BET</p>
-                                        <p class="text-2xl font-black text-green-700">${a.cards.bestBet.prediction} ${a.cards.bestBet.line}</p>
-                                    </div>
-                                    ${badge(a.cards.bestBet.confidence, 'full')}
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-white rounded-xl p-3">
+                                <p class="text-xs text-gray-500 mb-1">1X2</p>
+                                <div class="flex justify-between text-xs font-bold">
+                                    <span>1: ${a.markets.result1X2.home.toFixed(0)}%</span>
+                                    <span>X: ${a.markets.result1X2.draw.toFixed(0)}%</span>
+                                    <span>2: ${a.markets.result1X2.away.toFixed(0)}%</span>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- SUMMARY -->
-                        <div class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl p-5 text-white shadow-xl">
-                            <h3 class="font-bold text-center text-lg mb-4">🏆 PRONOSTICI FINALI</h3>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
-                                    <p class="text-white/60 text-xs mb-1">GG/NG</p>
-                                    <p class="text-3xl font-black">${a.btts.prediction}</p>
-                                    <p class="text-green-400 text-sm font-medium">${a.btts.confidence.toFixed(0)}%</p>
+                            <div class="bg-white rounded-xl p-3">
+                                <p class="text-xs text-gray-500 mb-1">GG/NG</p>
+                                <div class="flex justify-between text-xs font-bold">
+                                    <span>GG: ${a.markets.btts.gg.toFixed(0)}%</span>
+                                    <span>NG: ${a.markets.btts.ng.toFixed(0)}%</span>
                                 </div>
-                                <div class="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
-                                    <p class="text-white/60 text-xs mb-1">GOAL</p>
-                                    <p class="text-3xl font-black">${a.goals.mainPrediction.replace('OVER ', 'O').replace('UNDER ', 'U')}</p>
-                                    <p class="text-purple-400 text-sm font-medium">${a.goals.confidence.toFixed(0)}%</p>
-                                </div>
-                                <div class="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
-                                    <p class="text-white/60 text-xs mb-1">CORNER</p>
-                                    <p class="text-3xl font-black">${a.corners.bestBet.prediction.charAt(0)} ${a.corners.bestBet.line}</p>
-                                    <p class="text-blue-400 text-sm font-medium">${a.corners.bestBet.confidence.toFixed(0)}%</p>
-                                </div>
-                                <div class="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
-                                    <p class="text-white/60 text-xs mb-1">CARDS</p>
-                                    <p class="text-3xl font-black">${a.cards.bestBet.prediction.charAt(0)} ${a.cards.bestBet.line}</p>
-                                    <p class="text-amber-400 text-sm font-medium">${a.cards.bestBet.confidence.toFixed(0)}%</p>
-                                </div>
+                            </div>
+                            <div class="bg-white rounded-xl p-3">
+                                <p class="text-xs text-gray-500 mb-1">🚩 Corner: ${a.markets.corners.total.toFixed(1)}</p>
+                                <div class="flex justify-between text-xs">${homeName}: ${a.markets.corners.home.toFixed(1)} | ${awayName}: ${a.markets.corners.away.toFixed(1)}</div>
+                            </div>
+                            <div class="bg-white rounded-xl p-3">
+                                <p class="text-xs text-gray-500 mb-1">🟨 Cards: ${a.markets.cards.total.toFixed(1)}</p>
+                                <div class="flex justify-between text-xs">${homeName}: ${a.markets.cards.home.toFixed(1)} | ${awayName}: ${a.markets.cards.away.toFixed(1)}</div>
                             </div>
                         </div>
                     `;
                 }
             }
 
+            // HISTORY TAB
+            if (state.activeTab === 'history') {
+                const stats = getHistoryStats();
+                const filtered = state.historyFilter === 'all' ? state.history : state.history.filter(e => e.status === state.historyFilter);
+
+                content = `
+                    <div class="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-4 text-white mb-4">
+                        <h3 class="font-bold mb-3 text-center text-sm">📊 Statistiche</h3>
+                        <div class="grid grid-cols-4 gap-2 text-center mb-3">
+                            <div class="bg-white/10 rounded-lg p-2"><p class="text-xl font-black">${stats.total}</p><p class="text-xs text-white/60">Tot</p></div>
+                            <div class="bg-green-500/30 rounded-lg p-2"><p class="text-xl font-black text-green-400">${stats.won}</p><p class="text-xs text-white/60">Vinti</p></div>
+                            <div class="bg-amber-500/30 rounded-lg p-2"><p class="text-xl font-black text-amber-400">${stats.partial}</p><p class="text-xs text-white/60">Parz</p></div>
+                            <div class="bg-red-500/30 rounded-lg p-2"><p class="text-xl font-black text-red-400">${stats.lost}</p><p class="text-xs text-white/60">Persi</p></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-white/10 rounded-lg p-2 text-center"><p class="text-2xl font-black text-green-400">${stats.winRate}%</p><p class="text-xs text-white/60">Win Rate</p></div>
+                            <div class="bg-white/10 rounded-lg p-2 text-center"><p class="text-2xl font-black text-blue-400">${stats.predHitRate}%</p><p class="text-xs text-white/60">Hit Rate (${stats.predWon}/${stats.predTotal})</p></div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
+                        ${['all', 'pending', 'won', 'partial', 'lost'].map(f => `
+                            <button onclick="setHistoryFilter('${f}')" class="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap ${state.historyFilter === f ? 'bg-green-500 text-white' : 'bg-white text-gray-600'}">
+                                ${f === 'all' ? 'Tutti' : f === 'pending' ? '⏳' : f === 'won' ? '✅' : f === 'partial' ? '🟡' : '❌'}
+                            </button>
+                        `).join('')}
+                    </div>
+
+                    <div class="space-y-3">
+                        ${filtered.length === 0 ? '<div class="bg-white rounded-2xl p-8 text-center"><p class="text-gray-500">Nessun pronostico</p></div>' : ''}
+                        ${filtered.map(entry => {
+                            const { date, time } = formatDate(entry.date);
+                            const statusColors = { pending: 'border-gray-300', won: 'border-green-400 bg-green-50', partial: 'border-amber-400 bg-amber-50', lost: 'border-red-400 bg-red-50' };
+                            const statusIcons = { pending: '⏳', won: '✅', partial: '🟡', lost: '❌' };
+                            const leagueInfo = LEAGUES[entry.league];
+                            
+                            return `
+                                <div class="bg-white rounded-2xl shadow-md overflow-hidden border-2 ${statusColors[entry.status]}">
+                                    <div class="px-4 py-2.5 border-b flex justify-between items-center">
+                                        <div>
+                                            <p class="font-bold text-gray-900 text-sm">${entry.homeTeam} vs ${entry.awayTeam}</p>
+                                            <p class="text-xs text-gray-500">${date} • ${leagueInfo?.flag || ''} ${leagueInfo?.name || ''}</p>
+                                        </div>
+                                        <span class="text-xl">${statusIcons[entry.status]}</span>
+                                    </div>
+                                    <div class="p-3 space-y-2">
+                                        ${entry.predictions.map((p, pIdx) => `
+                                            <div class="flex items-center justify-between py-1.5 px-2.5 rounded-lg ${p.result === 'won' ? 'bg-green-100' : p.result === 'lost' ? 'bg-red-100' : 'bg-gray-50'}">
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="font-medium text-sm truncate">${p.selection}</p>
+                                                    <p class="text-xs text-gray-500">${p.confidence.toFixed(0)}%</p>
+                                                </div>
+                                                ${p.result === null ? `
+                                                    <div class="flex gap-1">
+                                                        <button onclick="updateHistoryResult(${entry.id}, ${pIdx}, true)" class="px-2.5 py-1 bg-green-500 text-white rounded text-xs font-bold">✓</button>
+                                                        <button onclick="updateHistoryResult(${entry.id}, ${pIdx}, false)" class="px-2.5 py-1 bg-red-500 text-white rounded text-xs font-bold">✗</button>
+                                                    </div>
+                                                ` : `<span class="text-lg">${p.result === 'won' ? '✅' : '❌'}</span>`}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    ${state.history.length > 0 ? `<button onclick="clearHistory()" class="w-full mt-4 py-2.5 bg-red-100 text-red-600 rounded-xl font-bold text-sm">🗑️ Cancella Storico</button>` : ''}
+                `;
+            }
+
+            // League selector HTML
+            const leagueSelector = `
+                <div class="flex gap-1 overflow-x-auto pb-1 mb-1">
+                    ${Object.entries(CATEGORIES).map(([catKey, cat]) => `
+                        <button onclick="changeCategory('${catKey}')" class="px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${state.selectedCategory === catKey ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-600'}">
+                            ${cat.name}
+                        </button>
+                    `).join('')}
+                </div>
+                <select onchange="changeLeague(this.value)" class="w-full px-3 py-2 bg-gray-100 rounded-xl text-sm font-bold">
+                    ${CATEGORIES[state.selectedCategory].leagues.map(code => {
+                        const l = LEAGUES[code];
+                        return `<option value="${code}" ${code === state.selectedLeague ? 'selected' : ''}>${l.flag} ${l.name} (${l.country})</option>`;
+                    }).join('')}
+                </select>
+            `;
+
             root.innerHTML = `
                 <div class="max-w-lg mx-auto min-h-screen flex flex-col">
                     <header class="bg-white shadow-md sticky top-0 z-40">
-                        <div class="px-4 py-3 flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <span class="text-3xl">🎯</span>
-                                <div>
-                                    <h1 class="font-black text-gray-900">ULTIMATE</h1>
-                                    <p class="text-xs text-green-600 font-medium">AI Betting Predictor</p>
+                        <div class="px-4 py-2">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-2xl">🎯</span>
+                                    <div><h1 class="font-black text-gray-900 text-sm">PRO BETTING V2</h1></div>
                                 </div>
+                                <span class="text-xs text-green-600 font-bold">12 Leghe</span>
                             </div>
-                            <select onchange="changeLeague(this.value)" class="px-3 py-2 bg-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-green-500">
-                                ${Object.entries(LEAGUE_DATA).map(([code, l]) => `
-                                    <option value="${code}" ${code === state.selectedLeague ? 'selected' : ''}>${l.flag} ${l.name}</option>
-                                `).join('')}
-                            </select>
+                            ${leagueSelector}
                         </div>
-                        <div class="flex">
-                            <button onclick="setTab('matches')" class="flex-1 py-3 text-sm font-bold border-b-3 transition-all ${state.activeTab === 'matches' ? 'border-green-500 text-green-600 bg-green-50' : 'border-transparent text-gray-500'}">
-                                📅 Partite
-                            </button>
-                            <button onclick="setTab('analysis')" class="flex-1 py-3 text-sm font-bold border-b-3 transition-all ${state.activeTab === 'analysis' ? 'border-green-500 text-green-600 bg-green-50' : 'border-transparent text-gray-500'}">
-                                🎯 Analisi
-                            </button>
+                        <div class="flex border-t">
+                            <button onclick="setTab('matches')" class="flex-1 py-2.5 text-xs font-bold ${state.activeTab === 'matches' ? 'tab-active' : 'text-gray-500'}">📅 Partite</button>
+                            <button onclick="setTab('analysis')" class="flex-1 py-2.5 text-xs font-bold ${state.activeTab === 'analysis' ? 'tab-active' : 'text-gray-500'}">🎯 Analisi</button>
+                            <button onclick="setTab('history')" class="flex-1 py-2.5 text-xs font-bold ${state.activeTab === 'history' ? 'tab-active' : 'text-gray-500'}">📊 Storico</button>
                         </div>
                     </header>
-                    <main class="flex-1 p-4 pb-20">${content}</main>
-                    <footer class="fixed bottom-0 left-0 right-0 bg-white border-t p-3 flex justify-between items-center text-xs text-gray-500 max-w-lg mx-auto">
-                        <span>🧠 Poisson + xG + Correlations</span>
+                    <main class="flex-1 p-4 pb-16">${content}</main>
+                    <footer class="fixed bottom-0 left-0 right-0 bg-white border-t p-2 flex justify-between items-center text-xs text-gray-500 max-w-lg mx-auto">
+                        <span>🧠 AI System</span>
                         <button onclick="resetApp()" class="text-red-500 font-medium">Reset</button>
                     </footer>
                 </div>
