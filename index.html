@@ -3064,7 +3064,7 @@
     // === FIREBASE SCHEDINA ===
     async function loadSlipFromFirebase() {
       try {
-        const res = await fetch(`${CONFIG.FIREBASE.url}/slips/${USER_ID}.json`);
+        const res = await fetch(`${CONFIG.FIREBASE.url}/slips2/${USER_ID}.json`);
         const data = await res.json();
         if (data && Array.isArray(data.items)) {
           state.slip = data.items;
@@ -3077,7 +3077,7 @@
 
     async function saveSlipToFirebase() {
       try {
-        await fetch(`${CONFIG.FIREBASE.url}/slips/${USER_ID}.json`, {
+        await fetch(`${CONFIG.FIREBASE.url}/slips2/${USER_ID}.json`, {
           method: 'PUT',
           body: JSON.stringify({ items: state.slip, updated: Date.now() })
         });
@@ -4981,7 +4981,7 @@
     
     async function saveTrackingToFirebase() {
       try {
-        await fetch(`${CONFIG.FIREBASE.url}/tracking/${USER_ID}.json`, {
+        await fetch(`${CONFIG.FIREBASE.url}/tracking2/${USER_ID}.json`, {
           method: 'PUT',
           body: JSON.stringify(state.trackedBets)
         });
@@ -4992,7 +4992,7 @@
     
     async function loadTrackingFromFirebase() {
       try {
-        const res = await fetch(`${CONFIG.FIREBASE.url}/tracking/${USER_ID}.json`);
+        const res = await fetch(`${CONFIG.FIREBASE.url}/tracking2/${USER_ID}.json`);
         const data = await res.json();
         if (data && Array.isArray(data)) {
           state.trackedBets = data;
