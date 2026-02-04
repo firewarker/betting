@@ -2107,8 +2107,130 @@
       margin-left: 10px;
     }
     
+    /* === STORICO VARIAZIONI PRONOSTICI === */
+    .history-section {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.08));
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
+    .history-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .history-icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--accent-purple), #3b82f6);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+    }
+    .history-title h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-white);
+    }
+    .history-title p {
+      font-size: 0.7rem;
+      color: var(--text-dark);
+    }
+    .history-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .history-item.current {
+      border-color: var(--accent-gold);
+      background: rgba(245, 158, 11, 0.08);
+    }
+    .history-item.significant {
+      border-color: var(--accent-yellow);
+      background: rgba(251, 191, 36, 0.08);
+    }
+    .history-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--text-dark);
+      min-width: 50px;
+    }
+    .history-pick {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .history-pick-value {
+      font-weight: 700;
+      color: var(--accent-gold);
+      font-size: 0.85rem;
+    }
+    .history-pick-prob {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-green);
+      border-radius: 4px;
+    }
+    .history-change {
+      font-size: 0.65rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .history-change.first { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+    .history-change.minor { background: rgba(100, 116, 139, 0.2); color: var(--text-gray); }
+    .history-change.significant { background: rgba(251, 191, 36, 0.2); color: var(--accent-yellow); }
+    .history-change.major { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+    .history-empty {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-dark);
+      font-size: 0.85rem;
+    }
+    .history-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .history-stat {
+      text-align: center;
+    }
+    .history-stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent-purple);
+    }
+    .history-stat-label {
+      font-size: 0.6rem;
+      color: var(--text-dark);
+      text-transform: uppercase;
+    }
+    
     @media (max-width: 600px) {
       .stats-overview { grid-template-columns: repeat(2, 1fr); }
+      .history-stats { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
@@ -2211,37 +2333,150 @@
         raddoppio: [],
         singole: []
       },
-      // Cache pronostici (6 ore)
-      analysisCache: new Map()
+      // STORICO VARIAZIONI PRONOSTICI
+      predictionHistory: JSON.parse(localStorage.getItem('bp_prediction_history') || '{}')
     };
 
-    // Load analysis cache from localStorage
-    try {
-      const cachedAnalysis = localStorage.getItem('bp_analysis_cache');
-      if (cachedAnalysis) {
-        const parsed = JSON.parse(cachedAnalysis);
-        Object.entries(parsed).forEach(([key, value]) => {
-          state.analysisCache.set(key, value);
-        });
+    // === FUNZIONI STORICO VARIAZIONI ===
+    
+    function savePredictionToHistory(matchId, matchName, prediction) {
+      const key = String(matchId);
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+      const fullTimestamp = now.getTime();
+      
+      if (!state.predictionHistory[key]) {
+        state.predictionHistory[key] = {
+          matchName: matchName,
+          date: getDateString(state.selectedDate),
+          predictions: []
+        };
       }
-    } catch(e) { console.warn('Cache load error:', e); }
-
-    // Cache helper functions
-    const CACHE_HOURS = 6;
-    function isCacheValid(cachedTime) {
-      if (!cachedTime) return false;
-      const cacheAge = (Date.now() - cachedTime) / (1000 * 60 * 60);
-      return cacheAge < CACHE_HOURS;
+      
+      const history = state.predictionHistory[key].predictions;
+      const lastPred = history.length > 0 ? history[history.length - 1] : null;
+      
+      let changeType = 'first';
+      if (lastPred) {
+        const pickChanged = lastPred.pick !== prediction.pick;
+        const probDiff = Math.abs(prediction.prob - lastPred.prob);
+        
+        if (pickChanged) {
+          changeType = 'major';
+        } else if (probDiff >= 15) {
+          changeType = 'significant';
+        } else if (probDiff >= 5) {
+          changeType = 'minor';
+        } else {
+          return; // Nessun cambiamento rilevante
+        }
+      }
+      
+      history.push({
+        time: timestamp,
+        fullTime: fullTimestamp,
+        pick: prediction.pick,
+        prob: prediction.prob,
+        changeType: changeType
+      });
+      
+      if (history.length > 10) {
+        state.predictionHistory[key].predictions = history.slice(-10);
+      }
+      
+      savePredictionHistory();
+      console.log('📜 Storico:', matchName, changeType, prediction.pick, prediction.prob + '%');
     }
-    function saveAnalysisCache() {
+    
+    function savePredictionHistory() {
       try {
-        const cacheObj = {};
-        state.analysisCache.forEach((value, key) => { cacheObj[key] = value; });
-        localStorage.setItem('bp_analysis_cache', JSON.stringify(cacheObj));
-      } catch(e) { console.warn('Cache save error:', e); }
+        const twoDaysAgo = new Date();
+        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        const cutoffDate = twoDaysAgo.toISOString().split('T')[0];
+        
+        Object.keys(state.predictionHistory).forEach(key => {
+          if (state.predictionHistory[key].date < cutoffDate) {
+            delete state.predictionHistory[key];
+          }
+        });
+        
+        localStorage.setItem('bp_prediction_history', JSON.stringify(state.predictionHistory));
+      } catch(e) { console.warn('Errore salvataggio storico:', e); }
     }
-    function getCacheKey(matchId, date) {
-      return `${matchId}_${date}`;
+    
+    function getPredictionHistory(matchId) {
+      return state.predictionHistory[String(matchId)]?.predictions || [];
+    }
+    
+    function getHistoryStats(matchId) {
+      const history = getPredictionHistory(matchId);
+      if (history.length === 0) return null;
+      
+      return {
+        totalChanges: history.length - 1,
+        majorChanges: history.filter(h => h.changeType === 'major').length,
+        significantChanges: history.filter(h => h.changeType === 'significant').length,
+        pickChanged: history.length > 1 ? history[0].pick !== history[history.length - 1].pick : false
+      };
+    }
+    
+    function renderHistorySection(matchId) {
+      const history = getPredictionHistory(matchId);
+      const stats = getHistoryStats(matchId);
+      
+      if (!history || history.length === 0) {
+        return '<div class="history-section">' +
+          '<div class="history-header">' +
+            '<div class="history-icon">📜</div>' +
+            '<div class="history-title">' +
+              '<h3>Storico Variazioni</h3>' +
+              '<p>Traccia le variazioni dei pronostici nel tempo</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="history-empty">' +
+            '📊 Prima analisi. Riapri la partita più tardi per vedere le variazioni.' +
+          '</div>' +
+        '</div>';
+      }
+      
+      let historyHtml = '';
+      history.forEach(function(item, index) {
+        const isLast = index === history.length - 1;
+        const itemClass = isLast ? 'current' : (item.changeType === 'major' || item.changeType === 'significant' ? 'significant' : '');
+        
+        let changeLabel = '', changeClass = '';
+        if (item.changeType === 'first') { changeLabel = '1° ANALISI'; changeClass = 'first'; }
+        else if (item.changeType === 'minor') { changeLabel = '↕ Minore'; changeClass = 'minor'; }
+        else if (item.changeType === 'significant') { changeLabel = '⚠️ VARIAZIONE'; changeClass = 'significant'; }
+        else if (item.changeType === 'major') { changeLabel = '🔄 CAMBIO'; changeClass = 'major'; }
+        
+        historyHtml += '<div class="history-item ' + itemClass + '">' +
+          '<span class="history-time">🕐 ' + item.time + '</span>' +
+          '<div class="history-pick">' +
+            '<span class="history-pick-value">' + item.pick + '</span>' +
+            '<span class="history-pick-prob">' + item.prob.toFixed(0) + '%</span>' +
+          '</div>' +
+          '<span class="history-change ' + changeClass + '">' + changeLabel + '</span>' +
+        '</div>';
+      });
+      
+      let statsHtml = '';
+      if (stats && stats.totalChanges > 0) {
+        statsHtml = '<div class="history-stats">' +
+          '<div class="history-stat"><div class="history-stat-value">' + stats.totalChanges + '</div><div class="history-stat-label">Variazioni</div></div>' +
+          '<div class="history-stat"><div class="history-stat-value">' + stats.majorChanges + '</div><div class="history-stat-label">Cambi Mercato</div></div>' +
+          '<div class="history-stat"><div class="history-stat-value">' + (stats.pickChanged ? '⚠️' : '✅') + '</div><div class="history-stat-label">' + (stats.pickChanged ? 'Pick Cambiato' : 'Pick Stabile') + '</div></div>' +
+        '</div>';
+      }
+      
+      return '<div class="history-section">' +
+        '<div class="history-header">' +
+          '<div class="history-icon">📜</div>' +
+          '<div class="history-title"><h3>Storico Variazioni</h3><p>Traccia le variazioni dei pronostici</p></div>' +
+        '</div>' +
+        '<div class="history-timeline">' + historyHtml + '</div>' +
+        statsHtml +
+      '</div>';
     }
 
     // === UTILITIES ===
@@ -3295,21 +3530,6 @@
     async function analyzeMatch(match) {
       state.selectedMatch = match;
       state.view = 'analysis';
-      
-      // Check cache first
-      const cacheKey = getCacheKey(match.id, getDateString(state.selectedDate));
-      const cached = state.analysisCache.get(cacheKey);
-      
-      if (cached && isCacheValid(cached.timestamp)) {
-        console.log('📦 Using cached analysis for', match.home.name, 'vs', match.away.name);
-        state.analysis = cached.data;
-        state.analysis.cached = true;
-        state.analysis.cachedTime = new Date(cached.timestamp).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-        state.loading = false;
-        render();
-        return;
-      }
-      
       state.loading = true;
       state.analysis = null;
       render();
@@ -3394,16 +3614,15 @@
         homePosition, awayPosition, homeInjuries, awayInjuries, homeInjuryImpact, awayInjuryImpact
       });
       
-      // Add cache info
-      state.analysis.cached = false;
-      state.analysis.cachedTime = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-      
-      // Save to cache
-      state.analysisCache.set(cacheKey, {
-        data: state.analysis,
-        timestamp: Date.now()
-      });
-      saveAnalysisCache();
+      // SALVA NELLO STORICO VARIAZIONI
+      if (state.analysis) {
+        const ai = generateAIAdvice(match, state.analysis);
+        const matchName = match.home.name + ' vs ' + match.away.name;
+        savePredictionToHistory(match.id, matchName, {
+          pick: ai.pick,
+          prob: ai.prob
+        });
+      }
       
       state.loading = false;
       render();
@@ -4223,11 +4442,6 @@
       
       const stars = Math.min(5, Math.floor(bestProb / 18));
       
-      let cacheInfo = '';
-      if (d.cached) {
-        cacheInfo = '<div class="verdict-suggestion" style="margin-top: 10px;"><span class="verdict-suggestion-icon">📦</span><span class="verdict-suggestion-text">Cache: ' + d.cachedTime + ' (valida 6h)</span></div>';
-      }
-      
       let warningHtml = '';
       if (histMatch.rate < 75) {
         warningHtml = '<div class="verdict-warning"><span class="verdict-warning-icon">⚠️</span><span class="verdict-warning-text"><strong>Attenzione:</strong> Questo mercato ha uno storico sotto il 75%. Evita di usarlo nei raddoppi.</span></div>';
@@ -4254,7 +4468,7 @@
             '<div class="verdict-box-title">📊 Win Rate Storico</div>' +
             '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">📈</span><span class="verdict-suggestion-text">Mercato <strong>' + histMatch.market + '</strong>: <strong>' + histMatch.rate + '%</strong> win rate</span></div>' +
             '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">📝</span><span class="verdict-suggestion-text">' + histMatch.note + '</span></div>' +
-            warningHtml + cacheInfo +
+            warningHtml +
           '</div>' +
         '</div>' +
       '</div>';
@@ -5530,7 +5744,7 @@
         <div class="back-btn" id="backToMatches">← Partite</div>
         
         <div class="analysis-hero">
-          <div class="hero-league">${esc(m.league.country)} • ${esc(m.league.name)} • ${formatDateFull(m.date)} ${formatTime(m.date)}${d.cached ? `<span class="cache-indicator">📦 Cache ${d.cachedTime}</span>` : `<span class="cache-indicator">🔄 ${d.cachedTime || ''}</span>`}</div>
+          <div class="hero-league">${esc(m.league.country)} • ${esc(m.league.name)} • ${formatDateFull(m.date)} ${formatTime(m.date)}</div>
           <div class="hero-match">
             <div class="hero-team">
               ${m.home.logo ? `<img src="${m.home.logo}" class="hero-team-logo" onerror="this.style.display='none'">` : `<div class="hero-team-logo-fallback">${getInitials(m.home.name)}</div>`}
@@ -5649,6 +5863,9 @@
       
       <!-- TRADER VERDICT -->
       ${renderTraderVerdict(ai, stat, d)}
+      
+      <!-- STORICO VARIAZIONI -->
+      ${renderHistorySection(m.id)}
       
         <div class="combo-panel">
           <div class="combo-title">🔥 Combo Suggerite</div>
