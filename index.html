@@ -2286,12 +2286,12 @@
       dailyPicks: { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [] },
       // Money Management - Sistema Obiettivo
       money: {
-        bankroll: parseFloat(localStorage.getItem('bp_bankroll')) || 100,
-        target: parseFloat(localStorage.getItem('bp_target')) || 500,
-        totalBets: parseInt(localStorage.getItem('bp_totalbets')) || 10,
-        currentBet: parseInt(localStorage.getItem('bp_currentbet')) || 1,
-        currentOdds: parseFloat(localStorage.getItem('bp_odds')) || 1.80,
-        history: JSON.parse(localStorage.getItem('bp_history') || '[]')
+        bankroll: parseFloat(localStorage.getItem('bp2_bankroll')) || 100,
+        target: parseFloat(localStorage.getItem('bp2_target')) || 500,
+        totalBets: parseInt(localStorage.getItem('bp2_totalbets')) || 10,
+        currentBet: parseInt(localStorage.getItem('bp2_currentbet')) || 1,
+        currentOdds: parseFloat(localStorage.getItem('bp2_odds')) || 1.80,
+        history: JSON.parse(localStorage.getItem('bp2_history') || '[]')
       },
       // LIVE Betting
       liveMode: false,
@@ -2303,12 +2303,12 @@
       countdownInterval: null,
       liveCountdown: 60,
       // Tracking Pronostici
-      trackedBets: JSON.parse(localStorage.getItem('bp_tracked') || '[]'),
+      trackedBets: JSON.parse(localStorage.getItem('bp2_tracked') || '[]'),
       // NUOVO: Cache Classifica e Infortunati
       standingsCache: new Map(),
       injuriesCache: new Map(),
       // NUOVO: Impostazioni soglie configurabili
-      settings: JSON.parse(localStorage.getItem('bp_settings') || JSON.stringify({
+      settings: JSON.parse(localStorage.getItem('bp2_settings') || JSON.stringify({
         thresholds: {
           '1': 50,
           'X': 28,
@@ -2334,7 +2334,7 @@
         singole: []
       },
       // STORICO VARIAZIONI PRONOSTICI
-      predictionHistory: JSON.parse(localStorage.getItem('bp_prediction_history') || '{}')
+      predictionHistory: JSON.parse(localStorage.getItem('bp2_prediction_history') || '{}')
     };
 
     // === FUNZIONI STORICO VARIAZIONI ===
@@ -2400,7 +2400,7 @@
           }
         });
         
-        localStorage.setItem('bp_prediction_history', JSON.stringify(state.predictionHistory));
+        localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
       } catch(e) { console.warn('Errore salvataggio storico:', e); }
     }
     
@@ -2954,12 +2954,12 @@
     // === MONEY MANAGEMENT - SISTEMA OBIETTIVO ===
     
     function saveMoney() {
-      localStorage.setItem('bp_bankroll', state.money.bankroll);
-      localStorage.setItem('bp_target', state.money.target);
-      localStorage.setItem('bp_totalbets', state.money.totalBets);
-      localStorage.setItem('bp_currentbet', state.money.currentBet);
-      localStorage.setItem('bp_odds', state.money.currentOdds);
-      localStorage.setItem('bp_history', JSON.stringify(state.money.history.slice(-30)));
+      localStorage.setItem('bp2_bankroll', state.money.bankroll);
+      localStorage.setItem('bp2_target', state.money.target);
+      localStorage.setItem('bp2_totalbets', state.money.totalBets);
+      localStorage.setItem('bp2_currentbet', state.money.currentBet);
+      localStorage.setItem('bp2_odds', state.money.currentOdds);
+      localStorage.setItem('bp2_history', JSON.stringify(state.money.history.slice(-30)));
     }
     
     // Calcola quanto puntare per raggiungere l'obiettivo
@@ -3375,7 +3375,7 @@
     
     // === SALVA IMPOSTAZIONI ===
     function saveSettings() {
-      localStorage.setItem('bp_settings', JSON.stringify(state.settings));
+      localStorage.setItem('bp2_settings', JSON.stringify(state.settings));
     }
     
     function updateThreshold(type, value) {
@@ -4976,7 +4976,7 @@
     }
     
     function saveTrackedBets() {
-      localStorage.setItem('bp_tracked', JSON.stringify(state.trackedBets));
+      localStorage.setItem('bp2_tracked', JSON.stringify(state.trackedBets));
     }
     
     async function saveTrackingToFirebase() {
@@ -5304,11 +5304,11 @@
     
     function resetAllData() {
       if (confirm('Sei sicuro di voler cancellare TUTTI i dati? (pronostici, impostazioni, statistiche)')) {
-        localStorage.removeItem('bp_tracked');
-        localStorage.removeItem('bp_settings');
-        localStorage.removeItem('bp_history');
-        localStorage.removeItem('bp_bankroll');
-        localStorage.removeItem('bp_slip');
+        localStorage.removeItem('bp2_tracked');
+        localStorage.removeItem('bp2_settings');
+        localStorage.removeItem('bp2_history');
+        localStorage.removeItem('bp2_bankroll');
+        localStorage.removeItem('bp2_slip');
         state.trackedBets = [];
         state.slip = [];
         state.settings = {
