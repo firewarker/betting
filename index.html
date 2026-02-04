@@ -2228,9 +2228,100 @@
       text-transform: uppercase;
     }
     
+    /* Box Confronto Prima vs Ora */
+    .history-compare {
+      background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(16,185,129,0.15));
+      border: 2px solid rgba(245,158,11,0.4);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .history-compare-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .history-compare-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+    .history-compare-box {
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .history-compare-box.first {
+      border: 1px solid var(--text-dark);
+    }
+    .history-compare-box.current {
+      border: 2px solid var(--accent-gold);
+    }
+    .history-compare-label {
+      font-size: 0.65rem;
+      color: var(--text-dark);
+      margin-bottom: 4px;
+    }
+    .history-compare-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--text-gray);
+      margin-bottom: 6px;
+    }
+    .history-compare-pick {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+      margin-bottom: 4px;
+    }
+    .history-compare-prob {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--accent-emerald);
+    }
+    .history-compare-arrow {
+      font-size: 1.5rem;
+      color: var(--text-dark);
+    }
+    .history-compare-arrow.changed {
+      color: var(--accent-red);
+    }
+    .history-compare-arrow.stable {
+      color: var(--accent-green);
+    }
+    .history-compare-verdict {
+      text-align: center;
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .history-compare-verdict.changed {
+      background: rgba(239,68,68,0.15);
+      color: var(--accent-red);
+    }
+    .history-compare-verdict.stable {
+      background: rgba(34,197,94,0.15);
+      color: var(--accent-green);
+    }
+    .history-compare-diff {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      margin-top: 4px;
+    }
+    
     @media (max-width: 600px) {
       .stats-overview { grid-template-columns: repeat(2, 1fr); }
       .history-stats { grid-template-columns: repeat(2, 1fr); }
+      .history-compare-grid { grid-template-columns: 1fr; gap: 8px; }
+      .history-compare-arrow { transform: rotate(90deg); }
     }
   </style>
 </head>
@@ -2363,12 +2454,12 @@
         
         if (pickChanged) {
           changeType = 'major';
-        } else if (probDiff >= 15) {
+        } else if (probDiff >= 10) {
           changeType = 'significant';
-        } else if (probDiff >= 5) {
+        } else if (probDiff >= 3) {
           changeType = 'minor';
         } else {
-          return; // Nessun cambiamento rilevante
+          return; // Nessun cambiamento rilevante (< 3%)
         }
       }
       
@@ -2424,6 +2515,7 @@
       const history = getPredictionHistory(matchId);
       const stats = getHistoryStats(matchId);
       
+      // Caso: Prima analisi
       if (!history || history.length === 0) {
         return '<div class="history-section">' +
           '<div class="history-header">' +
@@ -2434,47 +2526,117 @@
             '</div>' +
           '</div>' +
           '<div class="history-empty">' +
-            '📊 Prima analisi. Riapri la partita più tardi per vedere le variazioni.' +
+            '📊 <strong>Prima analisi registrata!</strong><br>' +
+            '<span style="font-size:0.75rem;color:var(--text-dark);">Riapri questa partita tra qualche ora per vedere eventuali variazioni del pronostico.</span>' +
           '</div>' +
         '</div>';
       }
       
-      let historyHtml = '';
-      history.forEach(function(item, index) {
-        const isLast = index === history.length - 1;
-        const itemClass = isLast ? 'current' : (item.changeType === 'major' || item.changeType === 'significant' ? 'significant' : '');
-        
-        let changeLabel = '', changeClass = '';
-        if (item.changeType === 'first') { changeLabel = '1° ANALISI'; changeClass = 'first'; }
-        else if (item.changeType === 'minor') { changeLabel = '↕ Minore'; changeClass = 'minor'; }
-        else if (item.changeType === 'significant') { changeLabel = '⚠️ VARIAZIONE'; changeClass = 'significant'; }
-        else if (item.changeType === 'major') { changeLabel = '🔄 CAMBIO'; changeClass = 'major'; }
-        
-        historyHtml += '<div class="history-item ' + itemClass + '">' +
-          '<span class="history-time">🕐 ' + item.time + '</span>' +
-          '<div class="history-pick">' +
-            '<span class="history-pick-value">' + item.pick + '</span>' +
-            '<span class="history-pick-prob">' + item.prob.toFixed(0) + '%</span>' +
-          '</div>' +
-          '<span class="history-change ' + changeClass + '">' + changeLabel + '</span>' +
-        '</div>';
-      });
+      // Box CONFRONTO PRIMA vs ORA (solo se ci sono almeno 2 registrazioni o 1 con cambio)
+      let compareHtml = '';
+      const first = history[0];
+      const last = history[history.length - 1];
       
+      if (history.length >= 1) {
+        const pickChanged = first.pick !== last.pick;
+        const probDiff = last.prob - first.prob;
+        const probDiffAbs = Math.abs(probDiff);
+        const hasChanges = history.length > 1;
+        
+        let arrowClass = 'stable';
+        let verdictClass = 'stable';
+        let verdictText = '✅ Pronostico stabile - Nessuna variazione rilevata';
+        
+        if (pickChanged) {
+          arrowClass = 'changed';
+          verdictClass = 'changed';
+          verdictText = '⚠️ ATTENZIONE: Il pronostico è cambiato!';
+        } else if (hasChanges && probDiffAbs >= 10) {
+          arrowClass = 'changed';
+          verdictClass = 'changed';
+          verdictText = '⚠️ Variazione significativa della probabilità';
+        } else if (hasChanges) {
+          verdictText = '✅ Pronostico confermato con piccole variazioni';
+        }
+        
+        let diffText = '';
+        if (hasChanges) {
+          if (probDiff > 0) {
+            diffText = '<span style="color:var(--accent-green);">+' + probDiff.toFixed(0) + '%</span>';
+          } else if (probDiff < 0) {
+            diffText = '<span style="color:var(--accent-red);">' + probDiff.toFixed(0) + '%</span>';
+          } else {
+            diffText = '<span style="color:var(--text-gray);">±0%</span>';
+          }
+        }
+        
+        compareHtml = '<div class="history-compare">' +
+          '<div class="history-compare-title">📊 CONFRONTO PRONOSTICI</div>' +
+          '<div class="history-compare-grid">' +
+            '<div class="history-compare-box first">' +
+              '<div class="history-compare-label">PRIMA ANALISI</div>' +
+              '<div class="history-compare-time">🕐 ' + first.time + '</div>' +
+              '<div class="history-compare-pick">' + first.pick + '</div>' +
+              '<div class="history-compare-prob">' + first.prob.toFixed(0) + '%</div>' +
+            '</div>' +
+            '<div class="history-compare-arrow ' + arrowClass + '">' + (hasChanges ? '→' : '•') + '</div>' +
+            '<div class="history-compare-box current">' +
+              '<div class="history-compare-label">ORA</div>' +
+              '<div class="history-compare-time">🕐 ' + last.time + '</div>' +
+              '<div class="history-compare-pick">' + last.pick + '</div>' +
+              '<div class="history-compare-prob">' + last.prob.toFixed(0) + '%</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="history-compare-verdict ' + verdictClass + '">' +
+            verdictText +
+            (hasChanges ? '<div class="history-compare-diff">Differenza: ' + diffText + '</div>' : '') +
+          '</div>' +
+        '</div>';
+      }
+      
+      // Timeline dettagliata (solo se più di 1 registrazione)
+      let historyHtml = '';
+      if (history.length > 1) {
+        historyHtml = '<div style="font-size:0.75rem;color:var(--text-dark);margin-bottom:10px;font-weight:600;">📜 CRONOLOGIA COMPLETA</div>';
+        history.forEach(function(item, index) {
+          const isLast = index === history.length - 1;
+          const isFirst = index === 0;
+          const itemClass = isLast ? 'current' : (item.changeType === 'major' || item.changeType === 'significant' ? 'significant' : '');
+          
+          let changeLabel = '', changeClass = '';
+          if (item.changeType === 'first') { changeLabel = '1° ANALISI'; changeClass = 'first'; }
+          else if (item.changeType === 'minor') { changeLabel = '↕ ±3-9%'; changeClass = 'minor'; }
+          else if (item.changeType === 'significant') { changeLabel = '⚠️ ±10%+'; changeClass = 'significant'; }
+          else if (item.changeType === 'major') { changeLabel = '🔄 CAMBIO!'; changeClass = 'major'; }
+          
+          historyHtml += '<div class="history-item ' + itemClass + '">' +
+            '<span class="history-time">🕐 ' + item.time + '</span>' +
+            '<div class="history-pick">' +
+              '<span class="history-pick-value">' + item.pick + '</span>' +
+              '<span class="history-pick-prob">' + item.prob.toFixed(0) + '%</span>' +
+            '</div>' +
+            '<span class="history-change ' + changeClass + '">' + changeLabel + '</span>' +
+          '</div>';
+        });
+      }
+      
+      // Statistiche
       let statsHtml = '';
       if (stats && stats.totalChanges > 0) {
         statsHtml = '<div class="history-stats">' +
           '<div class="history-stat"><div class="history-stat-value">' + stats.totalChanges + '</div><div class="history-stat-label">Variazioni</div></div>' +
-          '<div class="history-stat"><div class="history-stat-value">' + stats.majorChanges + '</div><div class="history-stat-label">Cambi Mercato</div></div>' +
-          '<div class="history-stat"><div class="history-stat-value">' + (stats.pickChanged ? '⚠️' : '✅') + '</div><div class="history-stat-label">' + (stats.pickChanged ? 'Pick Cambiato' : 'Pick Stabile') + '</div></div>' +
+          '<div class="history-stat"><div class="history-stat-value">' + stats.majorChanges + '</div><div class="history-stat-label">Cambi Pick</div></div>' +
+          '<div class="history-stat"><div class="history-stat-value">' + (stats.pickChanged ? '⚠️' : '✅') + '</div><div class="history-stat-label">' + (stats.pickChanged ? 'Cambiato' : 'Stabile') + '</div></div>' +
         '</div>';
       }
       
       return '<div class="history-section">' +
         '<div class="history-header">' +
           '<div class="history-icon">📜</div>' +
-          '<div class="history-title"><h3>Storico Variazioni</h3><p>Traccia le variazioni dei pronostici</p></div>' +
+          '<div class="history-title"><h3>Storico Variazioni</h3><p>Monitora i cambiamenti del pronostico</p></div>' +
         '</div>' +
-        '<div class="history-timeline">' + historyHtml + '</div>' +
+        compareHtml +
+        (history.length > 1 ? '<div class="history-timeline">' + historyHtml + '</div>' : '') +
         statsHtml +
       '</div>';
     }
