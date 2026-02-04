@@ -4677,6 +4677,75 @@
     function calculateLiveAlerts() {
       const alerts = [];
       
+      // ============================================
+      // === CONFIGURAZIONE CAMPIONATI AD ALTA MEDIA GOL ===
+      // ============================================
+      const HIGH_SCORING_LEAGUES = {
+        // Top 5 Europei
+        88: { name: 'Eredivisie', avgGoals: 3.2, boost: 12 },
+        78: { name: 'Bundesliga', avgGoals: 3.1, boost: 10 },
+        144: { name: 'Jupiler Pro', avgGoals: 3.0, boost: 10 },
+        218: { name: 'Bundesliga Austria', avgGoals: 3.0, boost: 10 },
+        179: { name: 'Premiership Scozia', avgGoals: 2.9, boost: 8 },
+        // Serie A e altri
+        135: { name: 'Serie A', avgGoals: 2.8, boost: 6 },
+        39: { name: 'Premier League', avgGoals: 2.8, boost: 6 },
+        140: { name: 'La Liga', avgGoals: 2.6, boost: 4 },
+        61: { name: 'Ligue 1', avgGoals: 2.7, boost: 5 },
+        // Leghe minori ad alto punteggio
+        203: { name: 'Super Lig Turchia', avgGoals: 2.9, boost: 8 },
+        94: { name: 'Primeira Liga Portogallo', avgGoals: 2.7, boost: 5 },
+        // Sudamerica (tanti gol)
+        71: { name: 'Serie A Brasile', avgGoals: 2.6, boost: 5 },
+        128: { name: 'Liga Argentina', avgGoals: 2.5, boost: 4 }
+      };
+      
+      // ============================================
+      // === MOMENTI CALDI (statisticamente più gol) ===
+      // ============================================
+      const getHotMomentBoost = (elapsed, isFirstHalf) => {
+        if (isFirstHalf) {
+          if (elapsed >= 43 && elapsed <= 45) return 15; // Fine 1T - squadre spingono
+          if (elapsed >= 40 && elapsed <= 42) return 8;  // Pre-fine 1T
+          if (elapsed >= 35 && elapsed <= 39) return 5;  // Fase calda 1T
+        } else {
+          if (elapsed >= 85) return 18;                  // Ultimi minuti - disperazione
+          if (elapsed >= 80 && elapsed <= 84) return 14; // Forcing finale
+          if (elapsed >= 75 && elapsed <= 79) return 10; // Ultimi 15 min
+          if (elapsed >= 55 && elapsed <= 60) return 8;  // Inizio 2T - cambi tattici
+        }
+        return 0;
+      };
+      
+      // ============================================
+      // === FATTORE SVANTAGGIO (squadra sotto attacca) ===
+      // ============================================
+      const getDisadvantageBoost = (homeGoals, awayGoals, elapsed) => {
+        const diff = Math.abs(homeGoals - awayGoals);
+        if (diff === 0) return 0; // Pareggio
+        
+        // Squadra sotto di 1 gol
+        if (diff === 1) {
+          if (elapsed >= 75) return 18; // Ultimi 15 min, spinta massima
+          if (elapsed >= 65) return 12;
+          if (elapsed >= 55) return 8;
+          return 4;
+        }
+        
+        // Squadra sotto di 2 gol
+        if (diff === 2) {
+          if (elapsed >= 70) return 10; // Ancora possibile rimonta
+          if (elapsed >= 60) return 5;
+          return 0; // Troppo presto o partita chiusa
+        }
+        
+        return 0; // 3+ gol di differenza = partita chiusa
+      };
+      
+      // ============================================
+      // === ANALISI PARTITE ===
+      // ============================================
+      
       state.liveMatches.forEach(match => {
         const elapsed = match.elapsed || 0;
         const homeGoals = match.goals?.home || 0;
@@ -4686,7 +4755,16 @@
         const isSecondHalf = match.status === '2H';
         const isHalfTime = match.status === 'HT';
         
-        // Estrai statistiche (se disponibili)
+        // Estrai ID campionato
+        const leagueId = match.league?.id || 0;
+        const leagueInfo = HIGH_SCORING_LEAGUES[leagueId];
+        const leagueBoost = leagueInfo ? leagueInfo.boost : 0;
+        
+        // Calcola boost dinamici
+        const hotMomentBoost = getHotMomentBoost(elapsed, isFirstHalf);
+        const disadvantageBoost = getDisadvantageBoost(homeGoals, awayGoals, elapsed);
+        
+        // Estrai statistiche
         let stats = { 
           shotsHome: 0, shotsAway: 0, shots: 0,
           shotsOnHome: 0, shotsOnAway: 0, shotsOn: 0,
@@ -4719,222 +4797,293 @@
           stats.hasStats = (stats.shots >= 1) || (stats.corners >= 1);
         }
         
+        // === CALCOLO PRESSIONE OFFENSIVA ===
+        // Più alto = più probabilità di gol
+        const pressure = stats.hasStats 
+          ? (stats.shotsOn * 3) + (stats.shots * 1) + (stats.corners * 1.5)
+          : 0;
+        const pressureBoost = Math.min(20, pressure * 0.8);
+        
         // ============================================
-        // === ALERT SECONDO TEMPO ===
+        // === 🔥 ALERT SECONDO TEMPO 🔥 ===
         // ============================================
         
         // 🎯 OVER 0.5 - Partita 0-0 (dal 50')
         if (isSecondHalf && totalGoals === 0 && elapsed >= 50) {
-          let prob = 50 + (elapsed - 45) * 1.0;
-          if (elapsed >= 60) prob += 8;
-          if (elapsed >= 70) prob += 10;
-          if (elapsed >= 78) prob += 8;
-          if (stats.hasStats && stats.shotsOn >= 2) prob += 8;
-          if (stats.hasStats && stats.shotsOn >= 4) prob += 8;
-          prob = Math.min(92, prob);
+          let prob = 45;
           
-          if (prob >= 55) {
+          // Base: tempo trascorso
+          prob += (elapsed - 45) * 0.8;
+          
+          // Boost dinamici
+          prob += hotMomentBoost;
+          prob += leagueBoost;
+          prob += pressureBoost;
+          
+          // 0-0 tardi = alta pressione
+          if (elapsed >= 70) prob += 12;
+          if (elapsed >= 80) prob += 10;
+          
+          prob = Math.min(94, prob);
+          
+          if (prob >= 58) {
+            const leagueTag = leagueInfo ? ` [${leagueInfo.name}]` : '';
             alerts.push({
               match, type: 'over05',
-              level: prob >= 75 ? 'high' : prob >= 65 ? 'medium' : 'low',
+              level: prob >= 78 ? 'high' : prob >= 65 ? 'medium' : 'low',
               pick: '⚽ Over 0.5',
               prob: prob.toFixed(0),
               quota: (100 / prob).toFixed(2),
-              reason: stats.hasStats 
-                ? `0-0 al ${elapsed}'! ${stats.shotsOn} tiri in porta`
-                : `0-0 al ${elapsed}'! Pressione per sbloccare`,
-              stats
+              reason: `0-0 al ${elapsed}'${leagueTag}${stats.hasStats ? ` | ${stats.shotsOn} tiri in porta` : ''}`,
+              stats, leagueBoost, hotMomentBoost
             });
           }
         }
         
         // 🎯 OVER 1.5 - Partita con 0-1 gol (dal 50')
         if (isSecondHalf && totalGoals <= 1 && elapsed >= 50 && elapsed <= 85) {
-          let prob = 38 + (elapsed - 45) * 0.7;
-          if (totalGoals === 1) prob += 15;
-          if (elapsed >= 60) prob += 6;
-          if (elapsed >= 70) prob += 6;
-          if (stats.hasStats && stats.shotsOn >= 3) prob += 10;
-          prob = Math.min(85, prob);
+          let prob = 35;
           
-          if (prob >= 50) {
+          prob += (elapsed - 45) * 0.6;
+          prob += hotMomentBoost;
+          prob += leagueBoost;
+          prob += disadvantageBoost;
+          prob += pressureBoost * 0.8;
+          
+          if (totalGoals === 1) prob += 15;
+          if (elapsed >= 65) prob += 6;
+          if (elapsed >= 75) prob += 6;
+          
+          // 1-1 apertissima
+          if (homeGoals === 1 && awayGoals === 0 && elapsed >= 70) prob += 8;
+          if (homeGoals === 0 && awayGoals === 1 && elapsed >= 70) prob += 8;
+          
+          prob = Math.min(88, prob);
+          
+          if (prob >= 52) {
             alerts.push({
               match, type: 'over15',
-              level: prob >= 70 ? 'high' : prob >= 58 ? 'medium' : 'low',
+              level: prob >= 72 ? 'high' : prob >= 60 ? 'medium' : 'low',
               pick: '⚽⚽ Over 1.5',
               prob: prob.toFixed(0),
               quota: (100 / prob).toFixed(2),
-              reason: totalGoals === 1 
-                ? `${homeGoals}-${awayGoals} al ${elapsed}' - altro gol probabile!`
-                : `0-0 al ${elapsed}' - si sbloccherà!`,
-              stats
+              reason: `${homeGoals}-${awayGoals} al ${elapsed}'${disadvantageBoost > 0 ? ' | Squadra sotto spinge!' : ''}`,
+              stats, leagueBoost, hotMomentBoost, disadvantageBoost
             });
           }
         }
         
-        // 🎯 OVER 2.5 - Partita già con gol (dal 48')
-        if (isSecondHalf && totalGoals >= 1 && totalGoals <= 2 && elapsed >= 48 && elapsed <= 82) {
-          let prob = 32 + (totalGoals * 12);
-          if (homeGoals === 1 && awayGoals === 1) prob += 18;
-          if (homeGoals === 2 || awayGoals === 2) prob += 8;
-          if (totalGoals === 1 && elapsed >= 60) prob += 10;
-          if (elapsed >= 55) prob += 5;
-          if (elapsed >= 65) prob += 5;
-          if (stats.hasStats && stats.shotsOn >= 4) prob += 8;
-          prob = Math.min(82, prob);
+        // 🎯 OVER 2.5 - Partita con gol (dal 48')
+        if (isSecondHalf && totalGoals >= 1 && totalGoals <= 2 && elapsed >= 48 && elapsed <= 83) {
+          let prob = 30;
           
-          if (prob >= 48) {
+          prob += totalGoals * 10;
+          prob += hotMomentBoost;
+          prob += leagueBoost;
+          prob += disadvantageBoost;
+          prob += pressureBoost * 0.7;
+          
+          // Situazioni specifiche
+          if (homeGoals === 1 && awayGoals === 1) prob += 18; // 1-1 = APERTA
+          if (homeGoals === 2 && awayGoals === 0) prob += 10; // 2-0 = ospite spingerà
+          if (homeGoals === 0 && awayGoals === 2) prob += 10; // 0-2 = casa spingerà
+          if (homeGoals === 2 && awayGoals === 1) prob += 12; // 2-1 vivace
+          if (homeGoals === 1 && awayGoals === 2) prob += 12; // 1-2 vivace
+          
+          if (elapsed >= 60) prob += 5;
+          if (elapsed >= 70) prob += 5;
+          
+          prob = Math.min(85, prob);
+          
+          if (prob >= 50) {
+            const situation = (homeGoals === 1 && awayGoals === 1) ? '🔥 Partita APERTA!' : 
+                             (Math.abs(homeGoals - awayGoals) >= 1) ? '⚡ Squadra sotto attacca!' : '';
             alerts.push({
               match, type: 'over25',
-              level: prob >= 68 ? 'high' : prob >= 55 ? 'medium' : 'low',
+              level: prob >= 70 ? 'high' : prob >= 58 ? 'medium' : 'low',
               pick: '⚽⚽⚽ Over 2.5',
               prob: prob.toFixed(0),
               quota: (100 / prob).toFixed(2),
-              reason: `${homeGoals}-${awayGoals} al ${elapsed}' - partita aperta!`,
-              stats
+              reason: `${homeGoals}-${awayGoals} al ${elapsed}' ${situation}`,
+              stats, leagueBoost, hotMomentBoost, disadvantageBoost
             });
           }
         }
         
-        // 🎯 OVER 3.5 - Partita già ricca di gol (dal 50')
-        if (isSecondHalf && totalGoals >= 2 && totalGoals <= 3 && elapsed >= 50 && elapsed <= 80) {
-          let prob = 32 + (totalGoals * 10);
+        // 🎯 OVER 3.5 - Partita ricca di gol (dal 50')
+        if (isSecondHalf && totalGoals >= 2 && totalGoals <= 3 && elapsed >= 50 && elapsed <= 82) {
+          let prob = 28;
+          
+          prob += totalGoals * 10;
+          prob += hotMomentBoost;
+          prob += leagueBoost;
+          prob += pressureBoost * 0.6;
+          
           if ((homeGoals === 2 && awayGoals === 1) || (homeGoals === 1 && awayGoals === 2)) prob += 15;
           if (homeGoals === 2 && awayGoals === 2) prob += 12;
-          if (elapsed >= 60) prob += 5;
-          if (stats.hasStats && stats.shotsOn >= 5) prob += 8;
-          prob = Math.min(78, prob);
+          if (totalGoals === 3 && elapsed >= 60) prob += 8;
           
-          if (prob >= 48) {
+          prob = Math.min(80, prob);
+          
+          if (prob >= 50) {
             alerts.push({
               match, type: 'over35',
-              level: prob >= 65 ? 'high' : prob >= 55 ? 'medium' : 'low',
+              level: prob >= 68 ? 'high' : prob >= 55 ? 'medium' : 'low',
               pick: '⚽⚽⚽⚽ Over 3.5',
               prob: prob.toFixed(0),
               quota: (100 / prob).toFixed(2),
-              reason: `Già ${totalGoals} gol! ${homeGoals}-${awayGoals} al ${elapsed}'`,
-              stats
+              reason: `🔥 Già ${totalGoals} gol! ${homeGoals}-${awayGoals} al ${elapsed}'`,
+              stats, leagueBoost, hotMomentBoost
             });
           }
         }
         
         // 🎯 GOL 2° TEMPO (all'intervallo)
         if (isHalfTime) {
-          let prob = 55;
-          if (totalGoals === 0) prob += 15;
-          if (totalGoals === 1) prob += 10;
-          if (stats.hasStats && stats.shotsOn >= 2) prob += 10;
-          if (stats.hasStats && stats.shotsOn >= 4) prob += 8;
+          let prob = 52;
+          
+          prob += leagueBoost;
+          prob += pressureBoost;
+          
+          if (totalGoals === 0) prob += 18; // 0-0 = pressione massima
+          if (totalGoals === 1) prob += 12;
+          if (stats.hasStats && stats.shotsOn >= 3) prob += 10;
+          if (stats.hasStats && stats.shotsOn >= 5) prob += 8;
+          if (stats.hasStats && stats.corners >= 5) prob += 5;
+          
+          prob = Math.min(90, prob);
+          
+          if (prob >= 58) {
+            alerts.push({
+              match, type: 'goal2T',
+              level: prob >= 78 ? 'high' : prob >= 65 ? 'medium' : 'low',
+              pick: totalGoals === 0 ? '⚽ Gol 2°T' : '⚽ Altro Gol',
+              prob: prob.toFixed(0),
+              quota: (100 / prob).toFixed(2),
+              reason: `${homeGoals}-${awayGoals} HT${stats.hasStats ? ` | ${stats.shotsOn} tiri, ${stats.corners} corner` : ''}`,
+              stats, leagueBoost
+            });
+          }
+        }
+        
+        // ============================================
+        // === 🔥 ALERT PRIMO TEMPO 🔥 ===
+        // ============================================
+        
+        // 🎯 OVER 0.5 1°T (dal 25')
+        if (isFirstHalf && totalGoals === 0 && elapsed >= 25 && elapsed <= 45) {
+          let prob = 38;
+          
+          prob += (elapsed - 20) * 1.5;
+          prob += hotMomentBoost;
+          prob += leagueBoost;
+          prob += pressureBoost;
+          
+          // Fine primo tempo = boost extra
+          if (elapsed >= 40) prob += 8;
+          if (elapsed >= 43) prob += 10;
+          
           prob = Math.min(88, prob);
           
           if (prob >= 55) {
             alerts.push({
-              match, type: 'goal2T',
-              level: prob >= 75 ? 'high' : 'medium',
-              pick: totalGoals === 0 ? '⚽ Gol 2°T' : '⚽ Altro Gol 2°T',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: stats.hasStats 
-                ? `${stats.shotsOn} tiri in porta nel 1°T`
-                : `${homeGoals}-${awayGoals} - il 2°T sarà decisivo`,
-              stats
-            });
-          }
-        }
-        
-        // ============================================
-        // === ALERT PRIMO TEMPO ===
-        // ============================================
-        
-        // 🎯 OVER 0.5 1°T - (dal 25')
-        if (isFirstHalf && totalGoals === 0 && elapsed >= 25 && elapsed <= 44) {
-          let prob = 40 + (elapsed - 20) * 1.8;
-          if (stats.hasStats && stats.shotsOn >= 2) prob += 12;
-          if (stats.hasStats && stats.shotsOn >= 4) prob += 10;
-          if (stats.hasStats && stats.corners >= 3) prob += 5;
-          prob = Math.min(85, prob);
-          
-          if (prob >= 52) {
-            alerts.push({
               match, type: 'over05_1T',
-              level: prob >= 70 ? 'high' : prob >= 58 ? 'medium' : 'low',
+              level: prob >= 72 ? 'high' : prob >= 60 ? 'medium' : 'low',
               pick: '⚽ Over 0.5 1°T',
               prob: prob.toFixed(0),
               quota: (100 / prob).toFixed(2),
-              reason: stats.hasStats 
-                ? `${stats.shotsOn} tiri in porta in ${elapsed}'`
-                : `0-0 al ${elapsed}' del 1°T`,
-              stats
+              reason: `0-0 al ${elapsed}'${elapsed >= 40 ? ' ⏰ Fine 1T vicina!' : ''}${stats.hasStats ? ` | ${stats.shotsOn} tiri` : ''}`,
+              stats, leagueBoost, hotMomentBoost
             });
           }
         }
         
-        // 🎯 OVER 1.5 1°T - Solo se già 1 gol (dal 25')
-        if (isFirstHalf && totalGoals === 1 && elapsed >= 25 && elapsed <= 44) {
-          let prob = 38 + (elapsed - 20) * 1.5;
-          if (stats.hasStats && stats.shotsOn >= 3) prob += 15;
-          if (stats.hasStats && stats.shotsOn >= 5) prob += 10;
-          prob = Math.min(80, prob);
+        // 🎯 OVER 1.5 1°T - Se già 1 gol (dal 20')
+        if (isFirstHalf && totalGoals === 1 && elapsed >= 20 && elapsed <= 45) {
+          let prob = 35;
           
-          if (prob >= 48) {
+          prob += (elapsed - 15) * 1.2;
+          prob += hotMomentBoost;
+          prob += leagueBoost;
+          prob += pressureBoost * 0.8;
+          prob += disadvantageBoost;
+          
+          if (elapsed >= 35) prob += 8;
+          if (elapsed >= 42) prob += 10;
+          
+          prob = Math.min(82, prob);
+          
+          if (prob >= 50) {
             alerts.push({
               match, type: 'over15_1T',
-              level: prob >= 65 ? 'high' : prob >= 55 ? 'medium' : 'low',
+              level: prob >= 68 ? 'high' : prob >= 55 ? 'medium' : 'low',
               pick: '⚽⚽ Over 1.5 1°T',
               prob: prob.toFixed(0),
               quota: (100 / prob).toFixed(2),
-              reason: `Già ${homeGoals}-${awayGoals} al ${elapsed}'`,
-              stats
+              reason: `${homeGoals}-${awayGoals} al ${elapsed}'${elapsed >= 40 ? ' ⏰ Fine 1T!' : ''}`,
+              stats, leagueBoost, hotMomentBoost, disadvantageBoost
             });
           }
         }
         
         // ============================================
-        // === ALERT CON STATISTICHE ===
+        // === 🏠✈️ SQUADRA SEGNA (con stats) ===
         // ============================================
         
         if (stats.hasStats && elapsed >= 20) {
           // 🏠 Casa domina
           if (stats.shotsOnHome >= 3 && stats.shotsOnHome > stats.shotsOnAway * 1.5 && homeGoals === 0) {
-            let prob = 48 + (stats.shotsOnHome * 5);
-            if (elapsed >= 45) prob += 8;
-            if (elapsed >= 60) prob += 8;
-            prob = Math.min(85, prob);
+            let prob = 45;
+            prob += stats.shotsOnHome * 5;
+            prob += leagueBoost;
+            prob += hotMomentBoost;
+            if (elapsed >= 50) prob += 10;
+            if (elapsed >= 70) prob += 10;
+            if (stats.cornersHome >= 4) prob += 5;
+            prob = Math.min(88, prob);
             
-            if (prob >= 55) {
+            if (prob >= 58) {
               alerts.push({
                 match, type: 'homeScores',
-                level: prob >= 72 ? 'high' : 'medium',
+                level: prob >= 75 ? 'high' : prob >= 62 ? 'medium' : 'low',
                 pick: `🏠 ${match.home.name.substring(0,12)} Segna`,
                 prob: prob.toFixed(0),
                 quota: (100 / prob).toFixed(2),
                 reason: `Dominio: ${stats.shotsOnHome} tiri in porta vs ${stats.shotsOnAway}`,
-                stats
+                stats, leagueBoost, hotMomentBoost
               });
             }
           }
           
           // ✈️ Ospite domina
           if (stats.shotsOnAway >= 3 && stats.shotsOnAway > stats.shotsOnHome * 1.5 && awayGoals === 0) {
-            let prob = 45 + (stats.shotsOnAway * 5);
-            if (elapsed >= 45) prob += 8;
-            if (elapsed >= 60) prob += 8;
-            prob = Math.min(82, prob);
+            let prob = 42;
+            prob += stats.shotsOnAway * 5;
+            prob += leagueBoost;
+            prob += hotMomentBoost;
+            if (elapsed >= 50) prob += 10;
+            if (elapsed >= 70) prob += 10;
+            if (stats.cornersAway >= 4) prob += 5;
+            prob = Math.min(85, prob);
             
-            if (prob >= 52) {
+            if (prob >= 55) {
               alerts.push({
                 match, type: 'awayScores',
-                level: prob >= 70 ? 'high' : 'medium',
+                level: prob >= 72 ? 'high' : prob >= 60 ? 'medium' : 'low',
                 pick: `✈️ ${match.away.name.substring(0,12)} Segna`,
                 prob: prob.toFixed(0),
                 quota: (100 / prob).toFixed(2),
                 reason: `Dominio: ${stats.shotsOnAway} tiri in porta vs ${stats.shotsOnHome}`,
-                stats
+                stats, leagueBoost, hotMomentBoost
               });
             }
           }
         }
       });
+      
+      // ============================================
+      // === ORDINAMENTO E FILTRO FINALE ===
+      // ============================================
       
       // Ordina: HIGH prima, poi per probabilità
       alerts.sort((a, b) => {
@@ -4945,7 +5094,7 @@
         return parseFloat(b.prob) - parseFloat(a.prob);
       });
       
-      // Max 2 alert per partita
+      // Max 2 alert per partita (i migliori)
       const alertsFiltered = [];
       const matchAlertCount = {};
       alerts.forEach(alert => {
