@@ -7,31 +7,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #0a0e17;
+      --bg-dark: #0c1222;
       --bg-card: #141d2f;
       --bg-card-light: #1a2642;
       --bg-input: #0f172a;
-      --accent-cyan: #f59e0b;
-      --accent-blue: #10b981;
-      --accent-green: #22c55e;
+      --accent-cyan: #22d3ee;
+      --accent-blue: #3b82f6;
+      --accent-green: #10b981;
       --accent-yellow: #fbbf24;
       --accent-red: #ef4444;
-      --accent-purple: #8b5cf6;
-      --accent-gold: #f59e0b;
-      --accent-emerald: #10b981;
+      --accent-purple: #a855f7;
       --text-white: #ffffff;
       --text-gray: #94a3b8;
       --text-dark: #64748b;
       --border: rgba(255,255,255,0.08);
-      --glow-cyan: 0 0 20px rgba(245, 158, 11, 0.3);
-      --glow-gold: 0 0 25px rgba(245, 158, 11, 0.4);
+      --glow-cyan: 0 0 20px rgba(34, 211, 238, 0.3);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, sans-serif;
       background: var(--bg-dark);
-      background-image: radial-gradient(ellipse at top, rgba(245,158,11,0.05) 0%, transparent 50%),
-                        radial-gradient(ellipse at bottom right, rgba(16,185,129,0.05) 0%, transparent 50%);
+      background-image: radial-gradient(ellipse at top, rgba(34,211,238,0.05) 0%, transparent 50%),
+                        radial-gradient(ellipse at bottom right, rgba(59,130,246,0.05) 0%, transparent 50%);
       color: var(--text-white);
       min-height: 100vh;
       padding-bottom: 100px;
@@ -85,6 +82,61 @@
       cursor: pointer;
     }
     .slip-badge:hover { transform: scale(1.05); }
+    .stats-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+      border-radius: 20px;
+      font-size: 0.8rem; font-weight: 700;
+      cursor: pointer;
+    }
+    .stats-badge:hover { transform: scale(1.05); }
+    .stats-modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 2000; padding: 20px;
+    }
+    .stats-modal-content {
+      background: var(--bg-card);
+      border-radius: 20px;
+      width: 100%; max-width: 600px;
+      max-height: 90vh; overflow-y: auto;
+      border: 1px solid var(--border);
+    }
+    .stats-modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px; border-bottom: 1px solid var(--border);
+    }
+    .stats-modal-title { font-size: 1.2rem; font-weight: 800; color: var(--accent-purple); }
+    .stats-modal-close { background: none; border: none; color: var(--text-gray); font-size: 1.5rem; cursor: pointer; }
+    .stats-modal-body { padding: 20px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .stats-grid-item { background: var(--bg-input); padding: 16px; border-radius: 12px; text-align: center; }
+    .stats-grid-value { font-size: 1.5rem; font-weight: 800; }
+    .stats-grid-value.green { color: var(--accent-green); }
+    .stats-grid-value.red { color: var(--accent-red); }
+    .stats-grid-value.yellow { color: var(--accent-yellow); }
+    .stats-grid-value.purple { color: var(--accent-purple); }
+    .stats-grid-label { font-size: 0.7rem; color: var(--text-gray); margin-top: 4px; }
+    .stats-winrate-box { background: var(--bg-input); border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 20px; }
+    .stats-winrate-big { font-size: 3rem; font-weight: 800; }
+    .stats-winrate-big.good { color: var(--accent-green); }
+    .stats-winrate-big.medium { color: var(--accent-yellow); }
+    .stats-winrate-big.bad { color: var(--accent-red); }
+    .stats-winrate-label { font-size: 0.9rem; color: var(--text-gray); }
+    .stats-by-pick { margin-top: 20px; }
+    .stats-pick-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; color: var(--text-white); }
+    .stats-pick-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg-input); border-radius: 8px; margin-bottom: 8px; }
+    .stats-pick-name { font-size: 0.85rem; color: var(--text-gray); }
+    .stats-pick-rate { font-size: 0.85rem; font-weight: 700; }
+    .stats-pick-rate.good { color: var(--accent-green); }
+    .stats-pick-rate.medium { color: var(--accent-yellow); }
+    .stats-pick-rate.bad { color: var(--accent-red); }
+    .stats-buttons { display: flex; gap: 10px; margin-top: 20px; }
+    .stats-btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; }
+    .stats-btn-check { background: var(--accent-cyan); color: var(--bg-dark); }
+    .stats-btn-reset { background: var(--accent-red); color: white; }
     .main { max-width: 1400px; margin: 0 auto; padding: 24px; }
     .date-tabs {
       display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
@@ -256,6 +308,60 @@
     .stat-box-label { font-size: 0.65rem; color: var(--text-dark); margin-bottom: 4px; text-transform: uppercase; }
     .stat-box-value { font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 700; color: var(--accent-cyan); }
     .stat-box-sub { font-size: 0.6rem; color: var(--text-dark); margin-top: 2px; }
+    
+    /* CORNER & CARTELLINI POTENZIATI */
+    .corner-cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .corner-section, .cards-section {
+      background: var(--bg-input);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .corner-header, .cards-header {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .corner-pick, .cards-pick {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-card);
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+    }
+    .corner-pick-value, .cards-pick-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-white);
+    }
+    .corner-pick-prob, .cards-pick-prob {
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .corner-pick-prob.high, .cards-pick-prob.high { background: var(--accent-green); color: var(--bg-dark); }
+    .corner-pick-prob.medium, .cards-pick-prob.medium { background: var(--accent-yellow); color: var(--bg-dark); }
+    .corner-stats, .cards-stats { display: flex; flex-direction: column; gap: 6px; }
+    .corner-stat, .cards-stat {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-gray);
+    }
+    .corner-stat strong, .cards-stat strong { color: var(--text-white); }
+    .corner-stat.total, .cards-stat.total {
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+    }
+    .corner-stat.total strong { color: var(--accent-cyan); }
+    .cards-stat.total strong { color: var(--accent-yellow); }
     .scores-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 8px; }
     .score-box {
       background: var(--bg-card-light);
@@ -294,418 +400,43 @@
     .combo-prob { color: var(--accent-cyan); }
     .combo-odds { color: var(--accent-green); }
     
-    /* MULTIGOAL GRID */
-    .multigoal-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-      gap: 10px;
-    }
-    .multigoal-box {
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 8px;
-      text-align: center;
-      transition: all 0.2s;
-    }
-    .multigoal-box.best {
-      border-color: var(--accent-green);
-      background: rgba(16,185,129,0.1);
-    }
-    .multigoal-range {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-    .multigoal-prob {
-      font-size: 0.9rem;
-      color: var(--accent-cyan);
-      font-weight: 600;
-    }
-    .multigoal-quota {
-      font-size: 0.75rem;
-      color: var(--accent-green);
-      margin-top: 2px;
-    }
-    
-    /* TEMPO GOL */
-    .tempo-highlight {
-      background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.1));
-      border: 1px solid var(--accent-purple);
-      border-radius: 10px;
-      padding: 12px;
-      margin-top: 12px;
-      text-align: center;
-      font-size: 0.85rem;
-    }
-    .tempo-highlight strong {
-      color: var(--accent-cyan);
-      margin: 0 6px;
-    }
-    .tempo-prob {
-      color: var(--accent-green);
-      font-weight: 600;
-    }
-    
-    /* FORM DISPLAY */
-    .form-display {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .form-team {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .form-team:last-child { border-bottom: none; }
-    .form-team-name {
-      font-weight: 600;
-      font-size: 0.85rem;
-    }
-    .form-string {
-      display: flex;
-      gap: 4px;
-    }
-    .form-w, .form-d, .form-l {
-      width: 24px;
-      height: 24px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-      font-weight: 700;
-    }
-    .form-w { background: var(--accent-green); color: white; }
-    .form-d { background: var(--accent-yellow); color: #1a1a2e; }
-    .form-l { background: var(--accent-red); color: white; }
-    
-    /* CLASSIFICA E MOTIVAZIONE */
-    .standings-card {
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 8px;
-    }
-    .standings-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .standings-position {
-      font-size: 1.5rem;
-      font-weight: 800;
-      color: var(--accent-cyan);
-    }
-    .standings-position sup {
-      font-size: 0.7rem;
-      color: var(--text-dark);
-    }
-    .motivation-badge {
-      padding: 4px 10px;
+    /* CONFRONTO PRONOSTICI */
+    .comparison-panel {
+      background: linear-gradient(135deg, var(--bg-card), var(--bg-card-light));
+      border: 2px solid var(--accent-cyan);
       border-radius: 20px;
-      font-size: 0.7rem;
-      font-weight: 600;
+      padding: 24px;
+      margin-bottom: 20px;
     }
-    .motivation-badge.gold { background: rgba(255,215,0,0.2); color: gold; border: 1px solid gold; }
-    .motivation-badge.cyan { background: rgba(6,182,212,0.2); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); }
-    .motivation-badge.blue { background: rgba(59,130,246,0.2); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
-    .motivation-badge.red { background: rgba(239,68,68,0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
-    .motivation-badge.orange { background: rgba(249,115,22,0.2); color: #f97316; border: 1px solid #f97316; }
-    .motivation-badge.gray { background: rgba(156,163,175,0.2); color: var(--text-dark); border: 1px solid var(--border); }
-    .standings-stats {
-      display: flex;
-      gap: 12px;
-      font-size: 0.75rem;
-      color: var(--text-dark);
-    }
-    .standings-stat {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    
-    /* INFORTUNATI */
-    .injuries-card {
-      background: rgba(239,68,68,0.05);
-      border: 1px solid rgba(239,68,68,0.3);
-      border-radius: 12px;
-      padding: 12px;
-    }
-    .injuries-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-      font-weight: 600;
-      color: var(--accent-red);
-    }
-    .injuries-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .injury-chip {
-      background: rgba(239,68,68,0.1);
-      border: 1px solid rgba(239,68,68,0.3);
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 0.7rem;
-      color: var(--text);
-    }
-    .no-injuries {
-      color: var(--accent-green);
-      font-size: 0.8rem;
-    }
-    
-    /* PANNELLO IMPOSTAZIONI */
-    .settings-panel {
-      position: fixed;
-      top: 0;
-      right: 0;
-      width: 320px;
-      height: 100vh;
-      background: var(--bg-card);
-      border-left: 1px solid var(--border);
+    .comparison-title { font-size: 1.1rem; font-weight: 700; color: var(--accent-cyan); margin-bottom: 16px; text-align: center; }
+    .comparison-grid { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
+    .comparison-box {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 16px;
       padding: 20px;
-      z-index: 1000;
-      overflow-y: auto;
-      transform: translateX(100%);
-      transition: transform 0.3s ease;
-    }
-    .settings-panel.open { transform: translateX(0); }
-    .settings-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      z-index: 999;
-      display: none;
-    }
-    .settings-overlay.open { display: block; }
-    .settings-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 15px;
-      border-bottom: 1px solid var(--border);
-    }
-    .settings-title {
-      font-size: 1.2rem;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .settings-close {
-      background: none;
-      border: none;
-      color: var(--text-dark);
-      font-size: 1.5rem;
-      cursor: pointer;
-    }
-    .settings-section {
-      margin-bottom: 20px;
-    }
-    .settings-section-title {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--accent-cyan);
-      margin-bottom: 12px;
-    }
-    .settings-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    .settings-label {
-      font-size: 0.85rem;
-      color: var(--text);
-    }
-    .settings-input {
-      width: 70px;
-      padding: 6px 10px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
       text-align: center;
-    }
-    .settings-toggle {
-      position: relative;
-      width: 44px;
-      height: 24px;
-      background: var(--bg-input);
-      border-radius: 12px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    .settings-toggle.active { background: var(--accent-green); }
-    .settings-toggle::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 20px;
-      height: 20px;
-      background: white;
-      border-radius: 50%;
-      transition: transform 0.3s;
-    }
-    .settings-toggle.active::after { transform: translateX(20px); }
-    
-    /* STORICO WIN RATE */
-    .history-chart {
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-      margin-top: 12px;
-    }
-    .history-bars {
-      display: flex;
-      align-items: flex-end;
-      gap: 4px;
-      height: 80px;
-      margin-bottom: 8px;
-    }
-    .history-bar {
       flex: 1;
-      background: var(--accent-cyan);
-      border-radius: 4px 4px 0 0;
-      min-height: 4px;
-      position: relative;
+      min-width: 140px;
+      max-width: 200px;
     }
-    .history-bar.won { background: var(--accent-green); }
-    .history-bar.lost { background: var(--accent-red); }
-    .history-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.65rem;
-      color: var(--text-dark);
-    }
-    
-    /* WIN RATE PER SEGNO */
-    .winrate-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .winrate-item {
+    .comparison-box.ai { border-color: var(--accent-purple); }
+    .comparison-box.stats { border-color: var(--accent-green); }
+    .comparison-box-header { font-size: 0.7rem; font-weight: 700; color: var(--text-dark); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+    .comparison-box.ai .comparison-box-header { color: var(--accent-purple); }
+    .comparison-box.stats .comparison-box-header { color: var(--accent-green); }
+    .comparison-box-pick { font-size: 1.2rem; font-weight: 800; color: var(--text-white); margin-bottom: 4px; }
+    .comparison-box-prob { font-size: 1.5rem; font-weight: 800; color: var(--accent-cyan); margin-bottom: 8px; }
+    .comparison-box-basis { font-size: 0.65rem; color: var(--text-dark); line-height: 1.3; }
+    .comparison-vs { font-size: 1rem; font-weight: 800; color: var(--text-dark); }
+    .comparison-verdict {
+      margin-top: 16px;
+      padding: 12px 16px;
       background: var(--bg-input);
-      border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 12px;
-    }
-    .winrate-label {
-      font-weight: 700;
+      text-align: center;
       font-size: 0.85rem;
-      color: var(--text-white);
-      margin-bottom: 6px;
-    }
-    .winrate-stats {
-      display: flex;
-      gap: 12px;
-      font-size: 0.75rem;
       color: var(--text-gray);
-      margin-bottom: 8px;
-    }
-    .winrate-won { color: var(--accent-green); }
-    .winrate-lost { color: var(--accent-red); }
-    .winrate-bar {
-      height: 8px;
-      background: var(--bg-dark);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 4px;
-    }
-    .winrate-bar-fill {
-      height: 100%;
-      border-radius: 4px;
-      transition: width 0.3s;
-    }
-    .winrate-bar-fill.good { background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan)); }
-    .winrate-bar-fill.bad { background: linear-gradient(90deg, var(--accent-red), var(--accent-yellow)); }
-    .winrate-percent {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--accent-cyan);
-      text-align: right;
-    }
-    .winrate-summary {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      padding: 12px;
-      background: var(--bg-card);
-      border-radius: 10px;
-      border: 1px solid var(--border);
-    }
-    .winrate-summary-item {
-      text-align: center;
-    }
-    .winrate-summary-item span {
-      display: block;
-      font-size: 0.65rem;
-      color: var(--text-dark);
-      margin-bottom: 2px;
-    }
-    .winrate-summary-item strong {
-      font-size: 1rem;
-      font-weight: 700;
-    }
-    
-    /* SETTINGS BUTTON */
-    .settings-btn {
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 12px;
-      color: var(--text);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.85rem;
-      transition: all 0.2s;
-    }
-    .settings-btn:hover {
-      border-color: var(--accent-cyan);
-      background: rgba(6,182,212,0.1);
-    }
-    
-    /* MG PROBABILE BOX */
-    .mg-best-box {
-      background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.1));
-      border: 1px solid var(--accent-purple);
-      border-radius: 10px;
-      padding: 10px 12px;
-      margin-top: 10px;
-      text-align: center;
-    }
-    .mg-best-label {
-      font-size: 0.7rem;
-      color: var(--text-dark);
-      margin-bottom: 4px;
-    }
-    .mg-best-value {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--accent-cyan);
-    }
-    .mg-best-prob {
-      font-size: 0.75rem;
-      color: var(--accent-green);
     }
     
     /* PRONOSTICI AI */
@@ -884,6 +615,7 @@
     .ai-reason-icon { font-size: 1rem; }
     .ai-reason.positive { color: var(--accent-green); }
     .ai-reason.negative { color: var(--accent-red); }
+    .ai-reason.warning { color: var(--accent-yellow); }
     .ai-reason.neutral { color: var(--accent-yellow); }
     .ai-alternatives {
       margin-top: 16px;
@@ -1093,176 +825,6 @@
       color: var(--accent-cyan);
     }
     .ai-alt-chip span { color: var(--accent-green); margin-left: 6px; }
-
-    /* DUAL ADVICE LAYOUT */
-    .dual-advice-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-    @media (max-width: 968px) {
-      .dual-advice-container { grid-template-columns: 1fr; }
-    }
-
-    /* STATISTICAL ADVICE */
-    .statistical-advice {
-      background: linear-gradient(135deg, rgba(34,211,238,0.15), rgba(16,185,129,0.15));
-      border: 2px solid var(--accent-cyan);
-      border-radius: 20px;
-      padding: 24px;
-      position: relative;
-      overflow: hidden;
-    }
-    .statistical-advice::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green), var(--accent-yellow));
-    }
-
-    /* SMART FILTERS */
-    .smart-filters-section {
-      background: linear-gradient(145deg, rgba(168,85,247,0.08), rgba(34,211,238,0.08));
-      border: 1px solid rgba(168,85,247,0.3);
-      border-radius: 20px;
-      padding: 20px;
-      margin-bottom: 20px;
-      position: relative;
-    }
-    .smart-filters-section::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan), var(--accent-green));
-    }
-    .filters-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .filters-title {
-      font-size: 1.1rem;
-      font-weight: 800;
-      color: var(--accent-purple);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .filters-count {
-      padding: 4px 12px;
-      background: var(--bg-input);
-      border-radius: 12px;
-      font-size: 0.75rem;
-      color: var(--text-gray);
-    }
-    .filter-buttons {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 16px;
-    }
-    .filter-btn {
-      padding: 10px 20px;
-      background: var(--bg-input);
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      color: var(--text-gray);
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .filter-btn:hover {
-      border-color: var(--accent-cyan);
-      color: var(--text-white);
-      transform: translateY(-2px);
-    }
-    .filter-btn.active {
-      background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
-      border-color: var(--accent-purple);
-      color: white;
-      box-shadow: 0 4px 15px rgba(168,85,247,0.4);
-    }
-    .filtered-picks {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 500px;
-      overflow-y: auto;
-    }
-    .filtered-pick-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .filtered-pick-card:hover {
-      border-color: var(--accent-cyan);
-      transform: translateX(4px);
-    }
-    .filtered-pick-rank {
-      width: 28px;
-      height: 28px;
-      background: var(--bg-input);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--text-gray);
-      flex-shrink: 0;
-    }
-    .filtered-pick-left {
-      flex: 1;
-      min-width: 0;
-    }
-    .filtered-pick-match {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-white);
-      margin-bottom: 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .filtered-pick-league {
-      font-size: 0.7rem;
-      color: var(--text-dark);
-    }
-    .filtered-pick-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-    .filtered-pick-bet {
-      padding: 6px 14px;
-      background: var(--accent-purple);
-      border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: white;
-    }
-    .filtered-pick-prob {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.1rem;
-      font-weight: 800;
-      color: var(--accent-green);
-      min-width: 55px;
-      text-align: right;
-    }
     .picks-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
     .picks-title { display: flex; align-items: center; gap: 10px; font-size: 1rem; font-weight: 700; }
     .picks-title-icon { font-size: 1.3rem; }
@@ -1631,7 +1193,7 @@
       .main { padding: 16px; }
       .header { padding: 10px 16px; }
       .brand-name { font-size: 1.1rem; }
-      .status-bar { font-size: 0.65rem; }
+      .status-bar { display: none; }
       .hero-match { gap: 16px; }
       .hero-team-logo, .hero-team-logo-fallback { width: 50px; height: 50px; }
       .hero-score-box { width: 40px; height: 40px; font-size: 1.2rem; }
@@ -1639,6 +1201,10 @@
       .predictions-grid { grid-template-columns: repeat(2, 1fr); }
       .stat-grid { grid-template-columns: repeat(3, 1fr); }
       .combo-grid { grid-template-columns: repeat(2, 1fr); }
+      .corner-cards-grid { grid-template-columns: 1fr; }
+      .comparison-grid { flex-direction: column; }
+      .comparison-box { max-width: 100%; }
+      .comparison-vs { display: none; }
       .slip-floating { flex-wrap: wrap; gap: 10px; padding: 10px 16px; }
     }
     
@@ -1788,540 +1354,8 @@
     .live-track-btn:hover { transform: scale(1.02); }
     .live-track-btn.tracked { background: var(--text-dark); }
     
-    /* === TRADER SECTION === */
-    .trader-section {
-      background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(16,185,129,0.08));
-      border: 1px solid rgba(245,158,11,0.25);
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    .trader-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    .trader-title {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .trader-icon {
-      width: 44px;
-      height: 44px;
-      background: linear-gradient(135deg, var(--accent-gold), var(--accent-emerald));
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
-      box-shadow: var(--glow-gold);
-    }
-    .trader-title-text h3 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent-gold), var(--accent-emerald));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .trader-title-text p {
-      font-size: 0.7rem;
-      color: var(--text-dark);
-    }
-    .trader-stats {
-      display: flex;
-      gap: 16px;
-    }
-    .trader-stat {
-      text-align: center;
-    }
-    .trader-stat-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.3rem;
-      font-weight: 800;
-      color: var(--accent-gold);
-    }
-    .trader-stat-label {
-      font-size: 0.6rem;
-      color: var(--text-dark);
-      text-transform: uppercase;
-    }
-    .trader-content {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    @media (max-width: 768px) {
-      .trader-content { grid-template-columns: 1fr; }
-    }
-    .trader-box {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .trader-box-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--accent-gold);
-    }
-    .trader-picks {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .trader-pick {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 12px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .trader-pick:hover {
-      border-color: var(--accent-gold);
-      transform: translateX(4px);
-    }
-    .trader-pick-info {
-      flex: 1;
-      min-width: 0;
-    }
-    .trader-pick-match {
-      font-size: 0.8rem;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .trader-pick-league {
-      font-size: 0.65rem;
-      color: var(--text-dark);
-    }
-    .trader-pick-bet {
-      text-align: right;
-    }
-    .trader-pick-value {
-      font-weight: 700;
-      color: var(--accent-gold);
-      font-size: 0.9rem;
-    }
-    .trader-pick-prob {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.75rem;
-      color: var(--accent-emerald);
-    }
-    .trader-combined {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px;
-      background: linear-gradient(135deg, var(--accent-gold), var(--accent-emerald));
-      border-radius: 10px;
-      margin-top: 12px;
-    }
-    .trader-combined-label {
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-    .trader-combined-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.2rem;
-      font-weight: 800;
-    }
-    .trader-strategy {
-      font-size: 0.7rem;
-      color: var(--text-gray);
-      background: var(--bg-input);
-      padding: 10px;
-      border-radius: 8px;
-      margin-top: 10px;
-      line-height: 1.5;
-    }
-    .trader-strategy strong {
-      color: var(--accent-gold);
-    }
-    
-    /* === TRADER VERDICT (Analysis Page) === */
-    .trader-verdict {
-      background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(16,185,129,0.1));
-      border: 2px solid rgba(245,158,11,0.3);
-      border-radius: 16px;
-      padding: 20px;
-      margin-top: 20px;
-      margin-bottom: 20px;
-    }
-    .verdict-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .verdict-icon {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, var(--accent-gold), var(--accent-emerald));
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      box-shadow: var(--glow-gold);
-    }
-    .verdict-title {
-      flex: 1;
-    }
-    .verdict-title h3 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent-gold), var(--accent-emerald));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .verdict-title p {
-      font-size: 0.7rem;
-      color: var(--text-dark);
-    }
-    .verdict-badge {
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-weight: 700;
-      font-size: 0.85rem;
-    }
-    .verdict-badge.play { background: rgba(34,197,94,0.2); color: #22c55e; }
-    .verdict-badge.caution { background: rgba(234,179,8,0.2); color: #eab308; }
-    .verdict-badge.avoid { background: rgba(239,68,68,0.2); color: #ef4444; }
-    .verdict-content {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    @media (max-width: 768px) {
-      .verdict-content { grid-template-columns: 1fr; }
-    }
-    .verdict-box {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .verdict-box-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--accent-gold);
-    }
-    .verdict-main-pick {
-      text-align: center;
-      padding: 16px;
-      background: var(--bg-input);
-      border-radius: 10px;
-      margin-bottom: 12px;
-    }
-    .verdict-main-pick-label {
-      font-size: 0.65rem;
-      color: var(--text-dark);
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-    .verdict-main-pick-value {
-      font-size: 1.5rem;
-      font-weight: 800;
-      color: var(--accent-gold);
-      margin-bottom: 4px;
-    }
-    .verdict-main-pick-prob {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.1rem;
-      color: var(--accent-emerald);
-    }
-    .verdict-stars {
-      color: var(--accent-gold);
-      font-size: 0.9rem;
-      margin-top: 6px;
-    }
-    .verdict-suggestion {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      background: var(--bg-input);
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-    .verdict-suggestion-icon {
-      font-size: 1rem;
-    }
-    .verdict-suggestion-text {
-      font-size: 0.8rem;
-      color: var(--text-gray);
-    }
-    .verdict-suggestion-text strong {
-      color: var(--text-white);
-    }
-    .verdict-warning {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 10px 12px;
-      background: rgba(239,68,68,0.1);
-      border: 1px solid rgba(239,68,68,0.2);
-      border-radius: 8px;
-      margin-top: 12px;
-    }
-    .verdict-warning-icon {
-      font-size: 1rem;
-      color: var(--accent-red);
-    }
-    .verdict-warning-text {
-      font-size: 0.75rem;
-      color: var(--text-gray);
-      line-height: 1.4;
-    }
-    .verdict-warning-text strong {
-      color: var(--accent-red);
-    }
-    
-    /* Cache indicator */
-    .cache-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 10px;
-      background: rgba(245,158,11,0.1);
-      border-radius: 6px;
-      font-size: 0.65rem;
-      color: var(--accent-gold);
-      margin-left: 10px;
-    }
-    
-    /* === STORICO VARIAZIONI PRONOSTICI === */
-    .history-section {
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.08));
-      border: 1px solid rgba(139, 92, 246, 0.25);
-      border-radius: 16px;
-      padding: 20px;
-      margin-top: 20px;
-      margin-bottom: 20px;
-    }
-    .history-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .history-icon {
-      width: 44px;
-      height: 44px;
-      background: linear-gradient(135deg, var(--accent-purple), #3b82f6);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.3rem;
-    }
-    .history-title h3 {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--text-white);
-    }
-    .history-title p {
-      font-size: 0.7rem;
-      color: var(--text-dark);
-    }
-    .history-timeline {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .history-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-    }
-    .history-item.current {
-      border-color: var(--accent-gold);
-      background: rgba(245, 158, 11, 0.08);
-    }
-    .history-item.significant {
-      border-color: var(--accent-yellow);
-      background: rgba(251, 191, 36, 0.08);
-    }
-    .history-time {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
-      color: var(--text-dark);
-      min-width: 50px;
-    }
-    .history-pick {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .history-pick-value {
-      font-weight: 700;
-      color: var(--accent-gold);
-      font-size: 0.85rem;
-    }
-    .history-pick-prob {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      background: rgba(16, 185, 129, 0.2);
-      color: var(--accent-green);
-      border-radius: 4px;
-    }
-    .history-change {
-      font-size: 0.65rem;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-    .history-change.first { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
-    .history-change.minor { background: rgba(100, 116, 139, 0.2); color: var(--text-gray); }
-    .history-change.significant { background: rgba(251, 191, 36, 0.2); color: var(--accent-yellow); }
-    .history-change.major { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-    .history-empty {
-      text-align: center;
-      padding: 20px;
-      color: var(--text-dark);
-      font-size: 0.85rem;
-    }
-    .history-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border);
-    }
-    .history-stat {
-      text-align: center;
-    }
-    .history-stat-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--accent-purple);
-    }
-    .history-stat-label {
-      font-size: 0.6rem;
-      color: var(--text-dark);
-      text-transform: uppercase;
-    }
-    
-    /* Box Confronto Prima vs Ora */
-    .history-compare {
-      background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(16,185,129,0.15));
-      border: 2px solid rgba(245,158,11,0.4);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .history-compare-title {
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--accent-gold);
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .history-compare-grid {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      gap: 12px;
-      align-items: center;
-    }
-    .history-compare-box {
-      background: var(--bg-card);
-      border-radius: 10px;
-      padding: 12px;
-      text-align: center;
-    }
-    .history-compare-box.first {
-      border: 1px solid var(--text-dark);
-    }
-    .history-compare-box.current {
-      border: 2px solid var(--accent-gold);
-    }
-    .history-compare-label {
-      font-size: 0.65rem;
-      color: var(--text-dark);
-      margin-bottom: 4px;
-    }
-    .history-compare-time {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
-      color: var(--text-gray);
-      margin-bottom: 6px;
-    }
-    .history-compare-pick {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--accent-gold);
-      margin-bottom: 4px;
-    }
-    .history-compare-prob {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.9rem;
-      color: var(--accent-emerald);
-    }
-    .history-compare-arrow {
-      font-size: 1.5rem;
-      color: var(--text-dark);
-    }
-    .history-compare-arrow.changed {
-      color: var(--accent-red);
-    }
-    .history-compare-arrow.stable {
-      color: var(--accent-green);
-    }
-    .history-compare-verdict {
-      text-align: center;
-      margin-top: 12px;
-      padding: 10px;
-      border-radius: 8px;
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-    .history-compare-verdict.changed {
-      background: rgba(239,68,68,0.15);
-      color: var(--accent-red);
-    }
-    .history-compare-verdict.stable {
-      background: rgba(34,197,94,0.15);
-      color: var(--accent-green);
-    }
-    .history-compare-diff {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.75rem;
-      margin-top: 4px;
-    }
-    
     @media (max-width: 600px) {
       .stats-overview { grid-template-columns: repeat(2, 1fr); }
-      .history-stats { grid-template-columns: repeat(2, 1fr); }
-      .history-compare-grid { grid-template-columns: 1fr; gap: 8px; }
-      .history-compare-arrow { transform: rotate(90deg); }
     }
   </style>
 </head>
@@ -2366,10 +1400,7 @@
       selectedMatch: null,
       analysis: null,
       loading: false,
-      api: { 
-        football: localStorage.getItem('api_football_status') || 'offline', 
-        footystats: localStorage.getItem('api_footystats_status') || 'offline'
-      },
+      api: { football: 'offline', footystats: 'offline' },
       fsData: new Map(),
       slip: [], // Schedina
       slipModal: false,
@@ -2377,12 +1408,12 @@
       dailyPicks: { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [] },
       // Money Management - Sistema Obiettivo
       money: {
-        bankroll: parseFloat(localStorage.getItem('bp2_bankroll')) || 100,
-        target: parseFloat(localStorage.getItem('bp2_target')) || 500,
-        totalBets: parseInt(localStorage.getItem('bp2_totalbets')) || 10,
-        currentBet: parseInt(localStorage.getItem('bp2_currentbet')) || 1,
-        currentOdds: parseFloat(localStorage.getItem('bp2_odds')) || 1.80,
-        history: JSON.parse(localStorage.getItem('bp2_history') || '[]')
+        bankroll: parseFloat(localStorage.getItem('bp_bankroll')) || 100,
+        target: parseFloat(localStorage.getItem('bp_target')) || 500,
+        totalBets: parseInt(localStorage.getItem('bp_totalbets')) || 10,
+        currentBet: parseInt(localStorage.getItem('bp_currentbet')) || 1,
+        currentOdds: parseFloat(localStorage.getItem('bp_odds')) || 1.80,
+        history: JSON.parse(localStorage.getItem('bp_history') || '[]')
       },
       // LIVE Betting
       liveMode: false,
@@ -2394,252 +1425,10 @@
       countdownInterval: null,
       liveCountdown: 60,
       // Tracking Pronostici
-      trackedBets: JSON.parse(localStorage.getItem('bp2_tracked') || '[]'),
-      // NUOVO: Cache Classifica e Infortunati
-      standingsCache: new Map(),
-      injuriesCache: new Map(),
-      // NUOVO: Impostazioni soglie configurabili
-      settings: JSON.parse(localStorage.getItem('bp2_settings') || JSON.stringify({
-        thresholds: {
-          '1': 50,
-          'X': 28,
-          '2': 50,
-          'GG': 55,
-          'Over 2.5': 50,
-          'Over 1.5': 65
-        },
-        showInjuries: true,
-        showStandings: true,
-        autoRefresh: true
-      })),
-      settingsOpen: false,
-
-  smartFilters: {
-    active: '1',
-    results: []
-  },
+      trackedBets: JSON.parse(localStorage.getItem('bp_tracked') || '[]'),
       statsView: false,
-      // TRADER Section
-      traderPicks: {
-        raddoppio: [],
-        singole: []
-      },
-      // STORICO VARIAZIONI PRONOSTICI
-      predictionHistory: JSON.parse(localStorage.getItem('bp2_prediction_history') || '{}')
+      statsModal: false
     };
-
-    // === FUNZIONI STORICO VARIAZIONI ===
-    
-    function savePredictionToHistory(matchId, matchName, prediction) {
-      const key = String(matchId);
-      const now = new Date();
-      const timestamp = now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-      const fullTimestamp = now.getTime();
-      
-      if (!state.predictionHistory[key]) {
-        state.predictionHistory[key] = {
-          matchName: matchName,
-          date: getDateString(state.selectedDate),
-          predictions: []
-        };
-      }
-      
-      const history = state.predictionHistory[key].predictions;
-      const lastPred = history.length > 0 ? history[history.length - 1] : null;
-      
-      let changeType = 'first';
-      if (lastPred) {
-        const pickChanged = lastPred.pick !== prediction.pick;
-        const probDiff = Math.abs(prediction.prob - lastPred.prob);
-        
-        if (pickChanged) {
-          changeType = 'major';
-        } else if (probDiff >= 10) {
-          changeType = 'significant';
-        } else if (probDiff >= 3) {
-          changeType = 'minor';
-        } else {
-          return; // Nessun cambiamento rilevante (< 3%)
-        }
-      }
-      
-      history.push({
-        time: timestamp,
-        fullTime: fullTimestamp,
-        pick: prediction.pick,
-        prob: prediction.prob,
-        changeType: changeType
-      });
-      
-      if (history.length > 10) {
-        state.predictionHistory[key].predictions = history.slice(-10);
-      }
-      
-      savePredictionHistory();
-      console.log('📜 Storico:', matchName, changeType, prediction.pick, prediction.prob + '%');
-    }
-    
-    function savePredictionHistory() {
-      try {
-        const twoDaysAgo = new Date();
-        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-        const cutoffDate = twoDaysAgo.toISOString().split('T')[0];
-        
-        Object.keys(state.predictionHistory).forEach(key => {
-          if (state.predictionHistory[key].date < cutoffDate) {
-            delete state.predictionHistory[key];
-          }
-        });
-        
-        localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
-      } catch(e) { console.warn('Errore salvataggio storico:', e); }
-    }
-    
-    function getPredictionHistory(matchId) {
-      return state.predictionHistory[String(matchId)]?.predictions || [];
-    }
-    
-    function getHistoryStats(matchId) {
-      const history = getPredictionHistory(matchId);
-      if (history.length === 0) return null;
-      
-      return {
-        totalChanges: history.length - 1,
-        majorChanges: history.filter(h => h.changeType === 'major').length,
-        significantChanges: history.filter(h => h.changeType === 'significant').length,
-        pickChanged: history.length > 1 ? history[0].pick !== history[history.length - 1].pick : false
-      };
-    }
-    
-    function renderHistorySection(matchId) {
-      const history = getPredictionHistory(matchId);
-      const stats = getHistoryStats(matchId);
-      
-      // Caso: Prima analisi
-      if (!history || history.length === 0) {
-        return '<div class="history-section">' +
-          '<div class="history-header">' +
-            '<div class="history-icon">📜</div>' +
-            '<div class="history-title">' +
-              '<h3>Storico Variazioni</h3>' +
-              '<p>Traccia le variazioni dei pronostici nel tempo</p>' +
-            '</div>' +
-          '</div>' +
-          '<div class="history-empty">' +
-            '📊 <strong>Prima analisi registrata!</strong><br>' +
-            '<span style="font-size:0.75rem;color:var(--text-dark);">Riapri questa partita tra qualche ora per vedere eventuali variazioni del pronostico.</span>' +
-          '</div>' +
-        '</div>';
-      }
-      
-      // Box CONFRONTO PRIMA vs ORA (solo se ci sono almeno 2 registrazioni o 1 con cambio)
-      let compareHtml = '';
-      const first = history[0];
-      const last = history[history.length - 1];
-      
-      if (history.length >= 1) {
-        const pickChanged = first.pick !== last.pick;
-        const probDiff = last.prob - first.prob;
-        const probDiffAbs = Math.abs(probDiff);
-        const hasChanges = history.length > 1;
-        
-        let arrowClass = 'stable';
-        let verdictClass = 'stable';
-        let verdictText = '✅ Pronostico stabile - Nessuna variazione rilevata';
-        
-        if (pickChanged) {
-          arrowClass = 'changed';
-          verdictClass = 'changed';
-          verdictText = '⚠️ ATTENZIONE: Il pronostico è cambiato!';
-        } else if (hasChanges && probDiffAbs >= 10) {
-          arrowClass = 'changed';
-          verdictClass = 'changed';
-          verdictText = '⚠️ Variazione significativa della probabilità';
-        } else if (hasChanges) {
-          verdictText = '✅ Pronostico confermato con piccole variazioni';
-        }
-        
-        let diffText = '';
-        if (hasChanges) {
-          if (probDiff > 0) {
-            diffText = '<span style="color:var(--accent-green);">+' + probDiff.toFixed(0) + '%</span>';
-          } else if (probDiff < 0) {
-            diffText = '<span style="color:var(--accent-red);">' + probDiff.toFixed(0) + '%</span>';
-          } else {
-            diffText = '<span style="color:var(--text-gray);">±0%</span>';
-          }
-        }
-        
-        compareHtml = '<div class="history-compare">' +
-          '<div class="history-compare-title">📊 CONFRONTO PRONOSTICI</div>' +
-          '<div class="history-compare-grid">' +
-            '<div class="history-compare-box first">' +
-              '<div class="history-compare-label">PRIMA ANALISI</div>' +
-              '<div class="history-compare-time">🕐 ' + first.time + '</div>' +
-              '<div class="history-compare-pick">' + first.pick + '</div>' +
-              '<div class="history-compare-prob">' + first.prob.toFixed(0) + '%</div>' +
-            '</div>' +
-            '<div class="history-compare-arrow ' + arrowClass + '">' + (hasChanges ? '→' : '•') + '</div>' +
-            '<div class="history-compare-box current">' +
-              '<div class="history-compare-label">ORA</div>' +
-              '<div class="history-compare-time">🕐 ' + last.time + '</div>' +
-              '<div class="history-compare-pick">' + last.pick + '</div>' +
-              '<div class="history-compare-prob">' + last.prob.toFixed(0) + '%</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="history-compare-verdict ' + verdictClass + '">' +
-            verdictText +
-            (hasChanges ? '<div class="history-compare-diff">Differenza: ' + diffText + '</div>' : '') +
-          '</div>' +
-        '</div>';
-      }
-      
-      // Timeline dettagliata (solo se più di 1 registrazione)
-      let historyHtml = '';
-      if (history.length > 1) {
-        historyHtml = '<div style="font-size:0.75rem;color:var(--text-dark);margin-bottom:10px;font-weight:600;">📜 CRONOLOGIA COMPLETA</div>';
-        history.forEach(function(item, index) {
-          const isLast = index === history.length - 1;
-          const isFirst = index === 0;
-          const itemClass = isLast ? 'current' : (item.changeType === 'major' || item.changeType === 'significant' ? 'significant' : '');
-          
-          let changeLabel = '', changeClass = '';
-          if (item.changeType === 'first') { changeLabel = '1° ANALISI'; changeClass = 'first'; }
-          else if (item.changeType === 'minor') { changeLabel = '↕ ±3-9%'; changeClass = 'minor'; }
-          else if (item.changeType === 'significant') { changeLabel = '⚠️ ±10%+'; changeClass = 'significant'; }
-          else if (item.changeType === 'major') { changeLabel = '🔄 CAMBIO!'; changeClass = 'major'; }
-          
-          historyHtml += '<div class="history-item ' + itemClass + '">' +
-            '<span class="history-time">🕐 ' + item.time + '</span>' +
-            '<div class="history-pick">' +
-              '<span class="history-pick-value">' + item.pick + '</span>' +
-              '<span class="history-pick-prob">' + item.prob.toFixed(0) + '%</span>' +
-            '</div>' +
-            '<span class="history-change ' + changeClass + '">' + changeLabel + '</span>' +
-          '</div>';
-        });
-      }
-      
-      // Statistiche
-      let statsHtml = '';
-      if (stats && stats.totalChanges > 0) {
-        statsHtml = '<div class="history-stats">' +
-          '<div class="history-stat"><div class="history-stat-value">' + stats.totalChanges + '</div><div class="history-stat-label">Variazioni</div></div>' +
-          '<div class="history-stat"><div class="history-stat-value">' + stats.majorChanges + '</div><div class="history-stat-label">Cambi Pick</div></div>' +
-          '<div class="history-stat"><div class="history-stat-value">' + (stats.pickChanged ? '⚠️' : '✅') + '</div><div class="history-stat-label">' + (stats.pickChanged ? 'Cambiato' : 'Stabile') + '</div></div>' +
-        '</div>';
-      }
-      
-      return '<div class="history-section">' +
-        '<div class="history-header">' +
-          '<div class="history-icon">📜</div>' +
-          '<div class="history-title"><h3>Storico Variazioni</h3><p>Monitora i cambiamenti del pronostico</p></div>' +
-        '</div>' +
-        compareHtml +
-        (history.length > 1 ? '<div class="history-timeline">' + historyHtml + '</div>' : '') +
-        statsHtml +
-      '</div>';
-    }
 
     // === UTILITIES ===
     const esc = t => String(t || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
@@ -2666,118 +1455,6 @@
     // Poisson
     const factorial = n => { let r = 1; for (let i = 2; i <= n; i++) r *= i; return r; };
     const poisson = (l, k) => l <= 0 ? (k === 0 ? 1 : 0) : (Math.pow(l, k) * Math.exp(-l)) / factorial(k);
-
-    // === SMART FILTERS - Filtri intelligenti con prob combinata AI + Statistica ===
-    function calculateSmartFilters(filterType) {
-      if (state.matches.length === 0) return [];
-      const results = [];
-
-      state.matches.forEach(match => {
-        if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
-
-        // xG variabili basati su campionato (stima)
-        let homeXG = 1.50, awayXG = 1.15;
-        
-        // Boost per campionati offensivi noti
-        const offensiveLeagues = [39, 140, 135, 78, 61, 88, 94]; // PL, LaLiga, SerieA, Bundesliga, L1, Eredivisie, Primeira
-        if (offensiveLeagues.includes(match.league.id)) {
-          homeXG = 1.60;
-          awayXG = 1.25;
-        }
-        
-        // FootyStats data
-        const fsKeys = [
-          `${match.home.name.toLowerCase()}${match.away.name.toLowerCase()}`,
-          `${match.home.name.toLowerCase().replace(/\s/g, '')}${match.away.name.toLowerCase().replace(/\s/g, '')}`
-        ];
-        let fsMatch = null;
-        for (const k of fsKeys) {
-          if (state.fsData.has(k)) {
-            fsMatch = state.fsData.get(k);
-            break;
-          }
-        }
-
-        if (fsMatch) {
-          if (fsMatch.homexg) homeXG = fsMatch.homexg;
-          else if (fsMatch.homeppg) homeXG = fsMatch.homeppg * 0.85;
-          else if (fsMatch.avggoalshome) homeXG = fsMatch.avggoalshome;
-
-          if (fsMatch.awayxg) awayXG = fsMatch.awayxg;
-          else if (fsMatch.awayppg) awayXG = fsMatch.awayppg * 0.75;
-          else if (fsMatch.avggoalsaway) awayXG = fsMatch.avggoalsaway;
-        }
-
-        // Home advantage
-        homeXG *= 1.12;
-        awayXG *= 0.92;
-        homeXG = clamp(0.4, homeXG, 3.5);
-        awayXG = clamp(0.25, awayXG, 3.0);
-
-        const p1X2 = quickCalc1X2(homeXG, awayXG);
-        const pGG = quickCalcBTTS(homeXG, awayXG);
-        const pNG = 100 - pGG; // No Goal = 100% - GG
-        const pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
-        const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
-        const pUnder25 = 100 - pOver25; // Under = 100% - Over
-
-        let prob = 0, pick = '';
-
-        if (filterType === '1') {
-          prob = p1X2.home;
-          pick = '1';
-        } else if (filterType === 'X') {
-          prob = p1X2.draw;
-          pick = 'X';
-        } else if (filterType === '2') {
-          prob = p1X2.away;
-          pick = '2';
-        } else if (filterType === 'GG') {
-          prob = pGG;
-          pick = 'GG';
-        } else if (filterType === 'NG') {
-          prob = pNG;
-          pick = 'NG';
-        } else if (filterType === 'Over 2.5') {
-          prob = pOver25;
-          pick = 'O 2.5';
-        } else if (filterType === 'Under 2.5') {
-          prob = pUnder25;
-          pick = 'U 2.5';
-        } else if (filterType === 'Over 1.5') {
-          prob = pOver15;
-          pick = 'O 1.5';
-        }
-
-        // Aggiungi TUTTE le partite (nessuna soglia)
-        results.push({
-          match,
-          pick,
-          prob: prob.toFixed(1),
-          time: formatTime(match.date),
-          league: `${match.league.country} - ${match.league.name}`
-        });
-      });
-
-      // Ordina per probabilità decrescente e prendi le prime 40
-      return results.sort((a, b) => parseFloat(b.prob) - parseFloat(a.prob)).slice(0, 40);
-    }
-
-    function setSmartFilter(type) {
-      state.smartFilters.active = type;
-      state.smartFilters.results = calculateSmartFilters(type);
-      render();
-    }
-    
-    // Seleziona una partita dal filtro e avvia l'analisi
-    function selectMatch(matchId) {
-      const match = state.matches.find(m => m.id === matchId);
-      if (match) {
-        analyzeMatch(match);
-      } else {
-        console.warn('Partita non trovata:', matchId);
-      }
-    }
 
     // === DAILY PICKS - Analisi rapida di tutte le partite ===
     
@@ -3031,97 +1708,16 @@
       return clamp(15, (1 - poisson(lH, 0)) * (1 - poisson(lA, 0)) * 100, 85);
     }
     
-    // === TRADER PICKS ===
-    // Calcola i migliori picks per il trader con strategia
-    function calculateTraderPicks() {
-      if (state.matches.length === 0) return;
-      
-      const MIN_PROB_RADDOPPIO = 82;
-      const MIN_PROB_SINGOLA = 70;
-      
-      const raddoppioPicks = [];
-      const singolePicks = [];
-      
-      // Win rate storici dai tuoi dati (per warning)
-      const HISTORICAL_WINRATES = {
-        'Under': 100, 'GG': 100, '1': 91.7, '2': 88.9, '1X': 88.9, 'X': 88.9,
-        'Over 1.5': 80, 'Over 2.5': 69
-      };
-      
-      state.matches.forEach(match => {
-        if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
-        
-        // Stima xG
-        let homeXG = 1.45, awayXG = 1.15;
-        const fsKey = `${match.home.name.toLowerCase()}_${match.away.name.toLowerCase()}`.replace(/\s+/g, '');
-        const fsMatch = state.fsData.get(fsKey);
-        
-        if (fsMatch) {
-          if (fsMatch.home_xg > 0) homeXG = fsMatch.home_xg;
-          else if (fsMatch.home_ppg > 0) homeXG = fsMatch.home_ppg * 0.85;
-          if (fsMatch.away_xg > 0) awayXG = fsMatch.away_xg;
-          else if (fsMatch.away_ppg > 0) awayXG = fsMatch.away_ppg * 0.75;
-        }
-        
-        homeXG *= 1.10;
-        awayXG *= 0.92;
-        homeXG = clamp(0.4, homeXG, 3.2);
-        awayXG = clamp(0.25, awayXG, 2.8);
-        
-        const p1X2 = quickCalc1X2(homeXG, awayXG);
-        const pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
-        const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
-        const pUnder25 = 100 - pOver25;
-        const pBTTS = quickCalcBTTS(homeXG, awayXG);
-        
-        // Trova il miglior pronostico
-        const bets = [
-          { market: '1', value: '1 Casa', prob: p1X2.home, winRate: HISTORICAL_WINRATES['1'] },
-          { market: '1X', value: '1X', prob: p1X2.home + p1X2.draw, winRate: HISTORICAL_WINRATES['1X'] },
-          { market: 'X2', value: 'X2', prob: p1X2.draw + p1X2.away, winRate: HISTORICAL_WINRATES['X'] },
-          { market: '2', value: '2 Ospite', prob: p1X2.away, winRate: HISTORICAL_WINRATES['2'] },
-          { market: 'Over 1.5', value: 'Over 1.5', prob: pOver15, winRate: HISTORICAL_WINRATES['Over 1.5'] },
-          { market: 'Under 2.5', value: 'Under 2.5', prob: pUnder25, winRate: HISTORICAL_WINRATES['Under'] },
-          { market: 'GG', value: 'GG', prob: pBTTS, winRate: HISTORICAL_WINRATES['GG'] },
-          { market: 'NG', value: 'No Gol', prob: 100 - pBTTS, winRate: 100 - HISTORICAL_WINRATES['GG'] }
-        ];
-        
-        const bestBet = bets.reduce((best, b) => b.prob > best.prob ? b : best, bets[0]);
-        
-        const pick = {
-          match,
-          bet: bestBet,
-          xG: { home: homeXG, away: awayXG, total: homeXG + awayXG },
-          time: formatTime(match.date),
-          league: `${match.league.country} - ${match.league.name}`
-        };
-        
-        if (bestBet.prob >= MIN_PROB_RADDOPPIO) {
-          raddoppioPicks.push(pick);
-        } else if (bestBet.prob >= MIN_PROB_SINGOLA) {
-          singolePicks.push(pick);
-        }
-      });
-      
-      // Ordina e seleziona i migliori
-      state.traderPicks.raddoppio = raddoppioPicks.sort((a, b) => b.bet.prob - a.bet.prob).slice(0, 4);
-      state.traderPicks.singole = singolePicks.sort((a, b) => b.bet.prob - a.bet.prob).slice(0, 6);
-      
-      console.log('💰 Trader picks:', 
-        `Raddoppio: ${state.traderPicks.raddoppio.length}`,
-        `Singole: ${state.traderPicks.singole.length}`);
-    }
-
     // === MONEY MANAGEMENT ===
     // === MONEY MANAGEMENT - SISTEMA OBIETTIVO ===
     
     function saveMoney() {
-      localStorage.setItem('bp2_bankroll', state.money.bankroll);
-      localStorage.setItem('bp2_target', state.money.target);
-      localStorage.setItem('bp2_totalbets', state.money.totalBets);
-      localStorage.setItem('bp2_currentbet', state.money.currentBet);
-      localStorage.setItem('bp2_odds', state.money.currentOdds);
-      localStorage.setItem('bp2_history', JSON.stringify(state.money.history.slice(-30)));
+      localStorage.setItem('bp_bankroll', state.money.bankroll);
+      localStorage.setItem('bp_target', state.money.target);
+      localStorage.setItem('bp_totalbets', state.money.totalBets);
+      localStorage.setItem('bp_currentbet', state.money.currentBet);
+      localStorage.setItem('bp_odds', state.money.currentOdds);
+      localStorage.setItem('bp_history', JSON.stringify(state.money.history.slice(-30)));
     }
     
     // Calcola quanto puntare per raggiungere l'obiettivo
@@ -3226,7 +1822,7 @@
     // === FIREBASE SCHEDINA ===
     async function loadSlipFromFirebase() {
       try {
-        const res = await fetch(`${CONFIG.FIREBASE.url}/slips2/${USER_ID}.json`);
+        const res = await fetch(`${CONFIG.FIREBASE.url}/slips/${USER_ID}.json`);
         const data = await res.json();
         if (data && Array.isArray(data.items)) {
           state.slip = data.items;
@@ -3239,7 +1835,7 @@
 
     async function saveSlipToFirebase() {
       try {
-        await fetch(`${CONFIG.FIREBASE.url}/slips2/${USER_ID}.json`, {
+        await fetch(`${CONFIG.FIREBASE.url}/slips/${USER_ID}.json`, {
           method: 'PUT',
           body: JSON.stringify({ items: state.slip, updated: Date.now() })
         });
@@ -3285,83 +1881,12 @@
       return state.slip.some(s => s.key === `${matchId}_${market}`);
     }
 
-    // === API STATUS CHECK ===
-    async function checkAPIStatus() {
-      console.log('🔍 Controllo stato API...');
-      
-      // Check API-Football
-      try {
-        const testUrl = `${CONFIG.API_FOOTBALL.baseURL}/status`;
-        const res = await fetch(testUrl, {
-          headers: {
-            'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
-            'x-rapidapi-host': 'v3.football.api-sports.io'
-          }
-        });
-        
-        if (res.ok) {
-          state.api.football = 'online';
-          localStorage.setItem('api_football_status', 'online');
-          console.log('✅ API-Football: ONLINE');
-        } else {
-          throw new Error('API-Football non disponibile');
-        }
-      } catch (e) {
-        state.api.football = 'offline';
-        localStorage.setItem('api_football_status', 'offline');
-        console.warn('❌ API-Football: OFFLINE', e.message);
-      }
-      
-      // Check FootyStats
-      try {
-        // Prova prima senza proxy
-        try {
-          const testUrl = `${CONFIG.FOOTYSTATS.baseURL}/test?key=${CONFIG.FOOTYSTATS.key}`;
-          const directRes = await fetch(testUrl);
-          if (directRes.ok || directRes.status === 404) {
-            state.api.footystats = 'online';
-            localStorage.setItem('api_footystats_status', 'online');
-            console.log('✅ FootyStats: ONLINE (direct)');
-            return;
-          }
-        } catch (e) {
-          // Ignora errori CORS, proviamo con i proxy
-        }
-        
-        const testUrl = `${CONFIG.FOOTYSTATS.baseURL}/test?key=${CONFIG.FOOTYSTATS.key}`;
-        const proxies = [
-          'https://api.allorigins.win/raw?url=',
-          'https://corsproxy.io/?',
-          'https://api.codetabs.com/v1/proxy?quest='
-        ];
-        
-        for (const proxy of proxies) {
-          try {
-            const proxyUrl = proxy + encodeURIComponent(testUrl);
-            const res = await fetch(proxyUrl);
-            if (res.ok || res.status === 404) {
-              state.api.footystats = 'online';
-              localStorage.setItem('api_footystats_status', 'online');
-              console.log(`✅ FootyStats: ONLINE (proxy: ${proxy})`);
-              return;
-            }
-          } catch (e) {
-            continue;
-          }
-        }
-        
-        throw new Error('FootyStats non disponibile con nessun proxy');
-      } catch (e) {
-        state.api.footystats = 'offline';
-        localStorage.setItem('api_footystats_status', 'offline');
-        console.warn('❌ FootyStats: OFFLINE', e.message);
-      }
-    }
-
     // === API CALLS ===
     async function callAPIFootball(endpoint, params = {}) {
       const url = new URL(CONFIG.API_FOOTBALL.baseURL + endpoint);
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
+      
+      state.api.football = 'loading';
       
       try {
         const res = await fetch(url.toString(), {
@@ -3372,184 +1897,13 @@
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        
-        // Aggiorna lo stato SOLO se era offline
-        if (state.api.football !== 'online') {
-          state.api.football = 'online';
-          localStorage.setItem('api_football_status', 'online');
-          render();
-        }
-        
+        state.api.football = 'online';
         return data;
       } catch (e) {
         console.error('API Football error:', e);
-        
-        // Aggiorna lo stato SOLO se era online
-        if (state.api.football !== 'offline') {
-          state.api.football = 'offline';
-          localStorage.setItem('api_football_status', 'offline');
-          render();
-        }
-        
+        state.api.football = 'offline';
         return null;
       }
-    }
-    
-    // === CLASSIFICA E POSIZIONE ===
-    async function getStandings(leagueId, season) {
-      const cacheKey = `${leagueId}_${season}`;
-      if (state.standingsCache.has(cacheKey)) {
-        return state.standingsCache.get(cacheKey);
-      }
-      
-      try {
-        const data = await callAPIFootball('/standings', { league: leagueId, season: season || 2024 });
-        if (data?.response?.[0]?.league?.standings?.[0]) {
-          const standings = data.response[0].league.standings[0];
-          state.standingsCache.set(cacheKey, standings);
-          return standings;
-        }
-      } catch (e) {
-        console.warn('Standings error:', e);
-      }
-      return null;
-    }
-    
-    function getTeamPosition(standings, teamId) {
-      if (!standings) return null;
-      const team = standings.find(s => s.team.id === teamId);
-      if (!team) return null;
-      
-      const totalTeams = standings.length;
-      const position = team.rank;
-      
-      // Calcola motivazione
-      let motivation = 'normale';
-      let motivationText = '';
-      let motivationColor = 'gray';
-      
-      if (position <= 1) {
-        motivation = 'alta';
-        motivationText = '🏆 Lotta Scudetto';
-        motivationColor = 'gold';
-      } else if (position <= 4) {
-        motivation = 'alta';
-        motivationText = '⭐ Zona Champions';
-        motivationColor = 'cyan';
-      } else if (position <= 6) {
-        motivation = 'media-alta';
-        motivationText = '🌟 Zona Europa';
-        motivationColor = 'blue';
-      } else if (position >= totalTeams - 2) {
-        motivation = 'altissima';
-        motivationText = '🔥 Zona Retrocessione';
-        motivationColor = 'red';
-      } else if (position >= totalTeams - 5) {
-        motivation = 'alta';
-        motivationText = '⚠️ Rischio Retrocessione';
-        motivationColor = 'orange';
-      } else {
-        motivation = 'normale';
-        motivationText = '➖ Metà Classifica';
-        motivationColor = 'gray';
-      }
-      
-      return {
-        position,
-        totalTeams,
-        points: team.points,
-        form: team.form,
-        played: team.all.played,
-        won: team.all.win,
-        draw: team.all.draw,
-        lost: team.all.lose,
-        goalsFor: team.all.goals.for,
-        goalsAgainst: team.all.goals.against,
-        goalDiff: team.goalsDiff,
-        motivation,
-        motivationText,
-        motivationColor
-      };
-    }
-    
-    // === INFORTUNATI ===
-    async function getInjuries(teamId, season) {
-      const cacheKey = `injuries_${teamId}_${season}`;
-      if (state.injuriesCache.has(cacheKey)) {
-        return state.injuriesCache.get(cacheKey);
-      }
-      
-      try {
-        const data = await callAPIFootball('/injuries', { team: teamId, season: season || 2024 });
-        if (data?.response) {
-          // Filtra solo infortuni attivi (ultimi 30 giorni)
-          const now = new Date();
-          const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
-          
-          const injuries = data.response.filter(inj => {
-            const injDate = new Date(inj.fixture.date);
-            return injDate >= thirtyDaysAgo;
-          }).map(inj => ({
-            player: inj.player.name,
-            type: inj.player.type || 'Infortunio',
-            reason: inj.player.reason || 'Non specificato'
-          }));
-          
-          // Rimuovi duplicati
-          const uniqueInjuries = injuries.filter((inj, idx, arr) => 
-            arr.findIndex(i => i.player === inj.player) === idx
-          );
-          
-          state.injuriesCache.set(cacheKey, uniqueInjuries);
-          return uniqueInjuries;
-        }
-      } catch (e) {
-        console.warn('Injuries error:', e);
-      }
-      return [];
-    }
-    
-    // Calcola impatto infortunati sull'attacco/difesa
-    function calculateInjuryImpact(injuries) {
-      if (!injuries || injuries.length === 0) return { attack: 1.0, defense: 1.0, text: '' };
-      
-      let attackImpact = 1.0;
-      let defenseImpact = 1.0;
-      const keyPlayers = [];
-      
-      injuries.forEach(inj => {
-        // Stima impatto base: -3% per ogni infortunato
-        attackImpact *= 0.97;
-        defenseImpact *= 0.98;
-        keyPlayers.push(inj.player);
-      });
-      
-      // Limita l'impatto massimo
-      attackImpact = Math.max(0.75, attackImpact);
-      defenseImpact = Math.max(0.80, defenseImpact);
-      
-      const text = injuries.length > 0 
-        ? `${injuries.length} assenti: ${keyPlayers.slice(0, 3).join(', ')}${injuries.length > 3 ? '...' : ''}`
-        : '';
-      
-      return { attack: attackImpact, defense: defenseImpact, text };
-    }
-    
-    // === SALVA IMPOSTAZIONI ===
-    function saveSettings() {
-      localStorage.setItem('bp2_settings', JSON.stringify(state.settings));
-    }
-    
-    function updateThreshold(type, value) {
-      state.settings.thresholds[type] = parseInt(value);
-      saveSettings();
-      setSmartFilter(state.smartFilters.active);
-      render();
-    }
-    
-    function toggleSettingsPanel() {
-      state.settingsOpen = !state.settingsOpen;
-      render();
     }
 
     async function callFootyStats(endpoint, params = {}) {
@@ -3557,67 +1911,40 @@
       url.searchParams.append('key', CONFIG.FOOTYSTATS.key);
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
       
-      try {
-        // Prova prima senza proxy (potrebbe funzionare)
+      state.api.footystats = 'loading';
+      
+      // Lista proxy CORS con fallback automatico
+      const proxies = [
+        'https://api.allorigins.win/raw?url=',
+        'https://corsproxy.org/?',
+        'https://cors-anywhere.herokuapp.com/'
+      ];
+      
+      for (const proxy of proxies) {
         try {
-          const directRes = await fetch(url.toString());
-          if (directRes.ok) {
-            const data = await directRes.json();
-            
-            if (state.api.footystats !== 'online') {
-              state.api.footystats = 'online';
-              localStorage.setItem('api_footystats_status', 'online');
-              render();
-            }
-            
-            return data;
-          }
+          const proxyUrl = proxy + encodeURIComponent(url.toString());
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000);
+          
+          const res = await fetch(proxyUrl, { signal: controller.signal });
+          clearTimeout(timeout);
+          
+          if (!res.ok) continue; // Prova prossimo proxy
+          
+          const data = await res.json();
+          state.api.footystats = 'online';
+          console.log('✅ FootyStats OK via:', proxy.split('/')[2]);
+          return data;
         } catch (e) {
-          // Ignora errori CORS, proviamo con i proxy
+          console.warn('Proxy failed:', proxy.split('/')[2], e.message);
+          continue; // Prova prossimo proxy
         }
-        
-        // Lista di proxy CORS alternativi
-        const proxies = [
-          'https://api.allorigins.win/raw?url=',
-          'https://corsproxy.io/?',
-          'https://api.codetabs.com/v1/proxy?quest='
-        ];
-        
-        // Prova ogni proxy in sequenza
-        for (const proxy of proxies) {
-          try {
-            const proxyUrl = proxy + encodeURIComponent(url.toString());
-            const res = await fetch(proxyUrl);
-            if (res.ok) {
-              const data = await res.json();
-              
-              if (state.api.footystats !== 'online') {
-                state.api.footystats = 'online';
-                localStorage.setItem('api_footystats_status', 'online');
-                render();
-              }
-              
-              console.log(`✅ FootyStats funziona con proxy: ${proxy}`);
-              return data;
-            }
-          } catch (e) {
-            console.log(`❌ Proxy ${proxy} fallito, provo il prossimo...`);
-            continue;
-          }
-        }
-        
-        throw new Error('Tutti i proxy CORS hanno fallito');
-      } catch (e) {
-        console.error('FootyStats error:', e);
-        
-        if (state.api.footystats !== 'offline') {
-          state.api.footystats = 'offline';
-          localStorage.setItem('api_footystats_status', 'offline');
-          render();
-        }
-        
-        return null;
       }
+      
+      // Tutti i proxy falliti
+      console.error('FootyStats: tutti i proxy falliti');
+      state.api.footystats = 'offline';
+      return null;
     }
 
     // === DATA LOADING ===
@@ -3682,7 +2009,6 @@
       
       // Calcola i picks del giorno
       calculateDailyPicks();
-      calculateTraderPicks();
       
       state.loading = false;
       render();
@@ -3698,7 +2024,6 @@
       
       let homeStats = null, awayStats = null, h2h = [], apiPred = null;
       let homeLastMatches = [], awayLastMatches = [];
-      let standings = null, homeInjuries = [], awayInjuries = [];
       
       try {
         const [hs, as] = await Promise.all([
@@ -3709,7 +2034,7 @@
         awayStats = as?.response;
       } catch (e) {}
       
-      // Ottieni ultime 5 partite per calcolare form REALE
+      // NUOVO: Ottieni ultime 5 partite per calcolare form REALE
       try {
         const [homeLastRes, awayLastRes] = await Promise.all([
           callAPIFootball('/fixtures', { team: match.home.id, last: 5 }),
@@ -3729,25 +2054,6 @@
         apiPred = predRes?.response?.[0];
       } catch (e) {}
       
-      // NUOVO: Ottieni classifica
-      if (state.settings.showStandings) {
-        try {
-          standings = await getStandings(match.league.id, match.league.season || 2024);
-        } catch (e) {}
-      }
-      
-      // NUOVO: Ottieni infortunati
-      if (state.settings.showInjuries) {
-        try {
-          const [homeInj, awayInj] = await Promise.all([
-            getInjuries(match.home.id, match.league.season || 2024),
-            getInjuries(match.away.id, match.league.season || 2024)
-          ]);
-          homeInjuries = homeInj || [];
-          awayInjuries = awayInj || [];
-        } catch (e) {}
-      }
-      
       let fsMatch = null;
       const fsKeys = [
         `${match.home.name.toLowerCase()}_${match.away.name.toLowerCase()}`,
@@ -3764,33 +2070,12 @@
       const homeForm = calculateRealForm(homeLastMatches, match.home.id);
       const awayForm = calculateRealForm(awayLastMatches, match.away.id);
       
-      // NUOVO: Calcola posizione e motivazione
-      const homePosition = getTeamPosition(standings, match.home.id);
-      const awayPosition = getTeamPosition(standings, match.away.id);
-      
-      // NUOVO: Calcola impatto infortunati
-      const homeInjuryImpact = calculateInjuryImpact(homeInjuries);
-      const awayInjuryImpact = calculateInjuryImpact(awayInjuries);
-      
-      state.analysis = buildAnalysis(match, homeStats, awayStats, h2h, apiPred, fsMatch, homeForm, awayForm, {
-        homePosition, awayPosition, homeInjuries, awayInjuries, homeInjuryImpact, awayInjuryImpact
-      });
-      
-      // SALVA NELLO STORICO VARIAZIONI
-      if (state.analysis) {
-        const ai = generateAIAdvice(match, state.analysis);
-        const matchName = match.home.name + ' vs ' + match.away.name;
-        savePredictionToHistory(match.id, matchName, {
-          pick: ai.pick,
-          prob: ai.prob
-        });
-      }
-      
+      state.analysis = buildAnalysis(match, homeStats, awayStats, h2h, apiPred, fsMatch, homeForm, awayForm);
       state.loading = false;
       render();
     }
     
-    // Calcola form reale dalle ultime partite
+    // NUOVO: Calcola form reale dalle ultime partite
     function calculateRealForm(matches, teamId) {
       if (!matches || matches.length === 0) return 'DDDDD';
       
@@ -3815,13 +2100,14 @@
     }
 
     // === ALGORITMO AVANZATO ===
-    function buildAnalysis(match, homeStats, awayStats, h2h, apiPred, fsMatch, homeForm, awayForm, extraData = {}) {
+    function buildAnalysis(match, homeStats, awayStats, h2h, apiPred, fsMatch, homeForm, awayForm) {
       // Extract real data
       const homeData = extractTeamData(homeStats, 'home');
       const awayData = extractTeamData(awayStats, 'away');
       
-      // Estrai dati extra
-      const { homePosition, awayPosition, homeInjuries, awayInjuries, homeInjuryImpact, awayInjuryImpact } = extraData;
+      // NUOVO: Usa form reale calcolata dalle ultime partite
+      if (homeForm && homeForm !== 'DDDDD') homeData.form = homeForm;
+      if (awayForm && awayForm !== 'DDDDD') awayData.form = awayForm;
       
       // Calculate xG
       let homeXG = calculateXG(homeData, awayData, 'home', apiPred, fsMatch);
@@ -3833,26 +2119,6 @@
         homeXG *= adj.homeMultiplier;
         awayXG *= adj.awayMultiplier;
       }
-      
-      // Form adjustment (ultime 5 partite)
-      if (homeForm && awayForm) {
-        const homeWins = (homeForm.match(/W/g) || []).length;
-        const homeLosses = (homeForm.match(/L/g) || []).length;
-        const awayWins = (awayForm.match(/W/g) || []).length;
-        const awayLosses = (awayForm.match(/L/g) || []).length;
-        
-        // Aggiusta xG in base al form recente
-        if (homeWins >= 4) homeXG *= 1.08; // Ottima forma casa
-        else if (homeWins >= 3) homeXG *= 1.04;
-        else if (homeLosses >= 3) homeXG *= 0.92; // Pessima forma casa
-        
-        if (awayWins >= 4) awayXG *= 1.08; // Ottima forma ospite
-        else if (awayWins >= 3) awayXG *= 1.04;
-        else if (awayLosses >= 3) awayXG *= 0.92; // Pessima forma ospite
-      }
-      
-      // NOTA: Classifica e Infortuni sono mostrati come INFO ma NON modificano i calcoli
-      // per mantenere coerenza con i pronostici storici
       
       // Home advantage (casa gioca meglio, trasferta peggio)
       homeXG *= 1.10;  // +10% vantaggio casa
@@ -3895,25 +2161,9 @@
       // H2H info
       const h2hInfo = summarizeH2H(h2h, match.home.id);
       
-      // Multigoal analysis (tutti i range)
-      const multigoal = calcAllMultigol(homeXG, awayXG);
-      
-      // Distribuzione temporale gol
-      const temporalDistribution = calcTemporalDistribution(homeXG, awayXG);
-      
-      // Multigoal squadra
-      const multigoalHome = [
-        { range: '1+', prob: calcTeamMultigol(homeXG, 1, 6) },
-        { range: '2+', prob: calcTeamMultigol(homeXG, 2, 6) },
-        { range: '1-2', prob: calcTeamMultigol(homeXG, 1, 2) },
-        { range: '1-3', prob: calcTeamMultigol(homeXG, 1, 3) }
-      ];
-      const multigoalAway = [
-        { range: '1+', prob: calcTeamMultigol(awayXG, 1, 6) },
-        { range: '2+', prob: calcTeamMultigol(awayXG, 2, 6) },
-        { range: '1-2', prob: calcTeamMultigol(awayXG, 1, 2) },
-        { range: '1-3', prob: calcTeamMultigol(awayXG, 1, 3) }
-      ];
+      // NUOVO: Calcola momentum per entrambe le squadre
+      const homeMomentum = calculateMomentum(homeData.form);
+      const awayMomentum = calculateMomentum(awayData.form);
       
       return {
         match,
@@ -3924,17 +2174,7 @@
         h2h: h2hInfo,
         predictions,
         combos,
-        multigoal,
-        temporalDistribution,
-        multigoalHome,
-        multigoalAway,
-        homeForm: homeForm || 'N/A',
-        awayForm: awayForm || 'N/A',
-        // NUOVO: Classifica e Infortunati
-        homePosition,
-        awayPosition,
-        homeInjuries: homeInjuries || [],
-        awayInjuries: awayInjuries || [],
+        homeMomentum, awayMomentum,
         quality: (homeStats || awayStats) ? 'enhanced' : 'base'
       };
     }
@@ -3985,9 +2225,13 @@
       
       let xg = 1.25 * attackStrength * defenseWeakness; // Expected goals base
       
-      // Fattore forma recente (peso 20%)
+      // Fattore forma recente (peso aumentato al 30%)
       const formMultiplier = calculateFormMultiplier(teamData.form);
-      xg = xg * 0.80 + xg * formMultiplier * 0.20;
+      xg = xg * 0.70 + xg * formMultiplier * 0.30;
+      
+      // NUOVO: Fattore momentum (trend recente - crisi o forma top)
+      const momentum = calculateMomentum(teamData.form);
+      xg = xg * momentum.multiplier;
       
       // Fattore win rate (squadre che vincono spesso segnano di più)
       if (teamData.winRate > 60) xg *= 1.08;
@@ -4049,6 +2293,53 @@
       // Score 0.5 (medio) -> 1.00
       // Score 1 (tutte vittorie) -> 1.20
       return 0.80 + (avgScore * 0.40);
+    }
+    
+    // NUOVO: Calcola momentum (trend recente) - rileva crisi e momenti top
+    function calculateMomentum(form) {
+      if (!form || form.length < 3) return { multiplier: 1.0, status: 'normal', message: '' };
+      
+      const recent = form.slice(0, 5).toUpperCase();
+      const wins = (recent.match(/W/g) || []).length;
+      const losses = (recent.match(/L/g) || []).length;
+      const draws = (recent.match(/D/g) || []).length;
+      
+      let multiplier = 1.0;
+      let status = 'normal';
+      let message = '';
+      
+      // CRISI: 3+ sconfitte nelle ultime 5
+      if (losses >= 3) {
+        multiplier = 0.85; // -15%
+        status = 'crisis';
+        message = `In crisi (${wins}V-${draws}P-${losses}S)`;
+      }
+      // CRISI LIEVE: 0 vittorie nelle ultime 5
+      else if (wins === 0 && recent.length >= 4) {
+        multiplier = 0.90; // -10%
+        status = 'crisis';
+        message = `Senza vittorie (${wins}V-${draws}P-${losses}S)`;
+      }
+      // ON FIRE: 4+ vittorie nelle ultime 5
+      else if (wins >= 4) {
+        multiplier = 1.10; // +10%
+        status = 'hot';
+        message = `In grande forma (${wins}V-${draws}P-${losses}S)`;
+      }
+      // BUONA FORMA: 3 vittorie nelle ultime 5
+      else if (wins === 3 && losses <= 1) {
+        multiplier = 1.05; // +5%
+        status = 'good';
+        message = `In buona forma (${wins}V-${draws}P-${losses}S)`;
+      }
+      // FORMA NEGATIVA: 2+ sconfitte, 0-1 vittorie
+      else if (losses >= 2 && wins <= 1) {
+        multiplier = 0.93; // -7%
+        status = 'poor';
+        message = `Forma negativa (${wins}V-${draws}P-${losses}S)`;
+      }
+      
+      return { multiplier, status, message, wins, draws, losses };
     }
 
     function analyzeH2H(h2h, homeId) {
@@ -4229,65 +2520,6 @@
       }
       return prob * 100;
     }
-    
-    // Calcola TUTTI i range multigoal
-    function calcAllMultigol(homeXG, awayXG) {
-      const ranges = [
-        { name: '0-2', min: 0, max: 2 },
-        { name: '0-3', min: 0, max: 3 },
-        { name: '1-3', min: 1, max: 3 },
-        { name: '1-4', min: 1, max: 4 },
-        { name: '2-4', min: 2, max: 4 },
-        { name: '2-5', min: 2, max: 5 },
-        { name: '3-5', min: 3, max: 5 },
-        { name: '3-6', min: 3, max: 6 }
-      ];
-      
-      return ranges.map(r => ({
-        range: r.name,
-        prob: calcMultigol(homeXG, awayXG, r.min, r.max),
-        quota: (100 / calcMultigol(homeXG, awayXG, r.min, r.max)).toFixed(2)
-      })).sort((a, b) => b.prob - a.prob);
-    }
-    
-    // Calcola distribuzione gol per tempo
-    function calcTemporalDistribution(homeXG, awayXG) {
-      // Statisticamente: ~42% gol nel 1T, ~58% nel 2T
-      const homeXG_1T = homeXG * 0.42;
-      const homeXG_2T = homeXG * 0.58;
-      const awayXG_1T = awayXG * 0.42;
-      const awayXG_2T = awayXG * 0.58;
-      
-      const totXG_1T = homeXG_1T + awayXG_1T;
-      const totXG_2T = homeXG_2T + awayXG_2T;
-      
-      // Calcola over/under per tempo
-      const over05_1T = calcMultigol(homeXG_1T, awayXG_1T, 1, 6);
-      const over15_1T = calcMultigol(homeXG_1T, awayXG_1T, 2, 6);
-      const over05_2T = calcMultigol(homeXG_2T, awayXG_2T, 1, 6);
-      const over15_2T = calcMultigol(homeXG_2T, awayXG_2T, 2, 6);
-      
-      // Tempo con più gol
-      const piuGol1T = totXG_1T > totXG_2T;
-      const probPiuGol = piuGol1T ? 
-        (totXG_1T / (totXG_1T + totXG_2T)) * 100 :
-        (totXG_2T / (totXG_1T + totXG_2T)) * 100;
-      
-      return {
-        primoTempo: {
-          xG: totXG_1T,
-          over05: over05_1T,
-          over15: over15_1T
-        },
-        secondoTempo: {
-          xG: totXG_2T,
-          over05: over05_2T,
-          over15: over15_2T
-        },
-        tempoConPiuGol: piuGol1T ? '1° Tempo' : '2° Tempo',
-        probTempoConPiuGol: probPiuGol
-      };
-    }
 
     function calcTeamMultigol(l, min, max) {
       let prob = 0;
@@ -4392,29 +2624,6 @@
       return combos.sort((a, b) => b.prob - a.prob);
     }
     
-    // === STATISTICAL ADVICE - Pronostico basato SOLO sulla probabilità più alta ===
-    function generateStatisticalAdvice(match, analysis) {
-      const { predictions } = analysis;
-      const bestPrediction = predictions.reduce((best, current) => {
-        return current.prob > best.prob ? current : best;
-      }, predictions[0]);
-      let confidence = 'medium';
-      if (bestPrediction.prob >= 70) confidence = 'high';
-      else if (bestPrediction.prob < 55) confidence = 'low';
-      const alternatives = predictions
-        .filter(p => p.market !== bestPrediction.market)
-        .sort((a, b) => b.prob - a.prob)
-        .slice(0, 3)
-        .map(p => ({ pick: p.value, prob: p.prob.toFixed(0) }));
-      return {
-        pick: bestPrediction.value,
-        market: bestPrediction.market,
-        prob: bestPrediction.prob,
-        confidence,
-        alternatives
-      };
-    }
-
     // === AI ADVICE - Genera il consiglio intelligente ===
     function generateAIAdvice(match, analysis) {
       const { xG, p1X2, pOU, pBTTS, exactScores } = analysis;
@@ -4539,6 +2748,27 @@
         if (advice.confidence === 'high') advice.confidence = 'medium';
       }
       
+      // NUOVO: Aggiungi warning sul momentum delle squadre
+      if (analysis.homeMomentum && analysis.homeMomentum.status === 'crisis') {
+        advice.reasons.push({ text: `⚠️ ${analysis.match.home.name}: ${analysis.homeMomentum.message}`, type: 'warning' });
+        // Abbassa la confidenza se la squadra favorita è in crisi
+        if (advice.pick.includes('1') && !advice.pick.includes('X') && advice.confidence === 'high') {
+          advice.confidence = 'medium';
+        }
+      } else if (analysis.homeMomentum && analysis.homeMomentum.status === 'hot') {
+        advice.reasons.push({ text: `🔥 ${analysis.match.home.name}: ${analysis.homeMomentum.message}`, type: 'positive' });
+      }
+      
+      if (analysis.awayMomentum && analysis.awayMomentum.status === 'crisis') {
+        advice.reasons.push({ text: `⚠️ ${analysis.match.away.name}: ${analysis.awayMomentum.message}`, type: 'warning' });
+        // Abbassa la confidenza se la squadra favorita è in crisi
+        if (advice.pick.includes('2') && advice.confidence === 'high') {
+          advice.confidence = 'medium';
+        }
+      } else if (analysis.awayMomentum && analysis.awayMomentum.status === 'hot') {
+        advice.reasons.push({ text: `🔥 ${analysis.match.away.name}: ${analysis.awayMomentum.message}`, type: 'positive' });
+      }
+      
       return advice;
     }
 
@@ -4546,94 +2776,6 @@
       if (prob >= 65) return 'high';
       if (prob >= 50) return 'mid';
       return 'low';
-    }
-
-    // Funzione per generare il verdetto del trader
-    function renderTraderVerdict(ai, stat, d) {
-      const bestProb = Math.max(ai.prob, stat.prob);
-      const bestPick = ai.prob >= stat.prob ? ai.pick : stat.pick;
-      const bestMarket = ai.prob >= stat.prob ? 'AI' : 'Statistico';
-      
-      const HISTORICAL = {
-        'Under': { rate: 100, note: 'Storico perfetto!' },
-        'GG': { rate: 100, note: 'Mai sbagliato!' },
-        '1': { rate: 91.7, note: 'Ottimo storico' },
-        '1 Casa': { rate: 91.7, note: 'Ottimo storico' },
-        '2': { rate: 88.9, note: 'Buon storico' },
-        '2 Ospite': { rate: 88.9, note: 'Buon storico' },
-        '1X': { rate: 88.9, note: 'Buon storico' },
-        'X2': { rate: 88.9, note: 'Buon storico' },
-        'X': { rate: 88.9, note: 'Equilibrato' },
-        'Over 1.5': { rate: 80, note: 'Discreto' },
-        'Over 2.5': { rate: 69, note: '⚠️ Attenzione!' },
-        'Over 3.5': { rate: 65, note: '⚠️ Rischioso' }
-      };
-      
-      let histMatch = null;
-      for (const [key, val] of Object.entries(HISTORICAL)) {
-        if (bestPick.includes(key) || bestPick === key) {
-          histMatch = { market: key, ...val };
-          break;
-        }
-      }
-      if (!histMatch) histMatch = { market: bestPick, rate: 75, note: 'Dati limitati' };
-      
-      let verdict, verdictClass, verdictIcon;
-      if (bestProb >= 80 && histMatch.rate >= 85) {
-        verdict = '✅ GIOCABILE';
-        verdictClass = 'play';
-        verdictIcon = '🎯';
-      } else if (bestProb >= 70 && histMatch.rate >= 70) {
-        verdict = '⚠️ CAUTELA';
-        verdictClass = 'caution';
-        verdictIcon = '⚡';
-      } else {
-        verdict = '❌ EVITARE';
-        verdictClass = 'avoid';
-        verdictIcon = '🛑';
-      }
-      
-      let suggestion = '';
-      if (bestProb >= 82) {
-        suggestion = 'Ideale per <strong>RADDOPPIO</strong> con altra partita ≥82%';
-      } else if (bestProb >= 70) {
-        suggestion = 'Consigliata come <strong>SINGOLA</strong> (max 5% bankroll)';
-      } else {
-        suggestion = 'Non consigliata per betting. Solo per studio.';
-      }
-      
-      const stars = Math.min(5, Math.floor(bestProb / 18));
-      
-      let warningHtml = '';
-      if (histMatch.rate < 75) {
-        warningHtml = '<div class="verdict-warning"><span class="verdict-warning-icon">⚠️</span><span class="verdict-warning-text"><strong>Attenzione:</strong> Questo mercato ha uno storico sotto il 75%. Evita di usarlo nei raddoppi.</span></div>';
-      }
-      
-      return '<div class="trader-verdict">' +
-        '<div class="verdict-header">' +
-          '<div class="verdict-icon">' + verdictIcon + '</div>' +
-          '<div class="verdict-title"><h3>Consiglio del Trader</h3><p>Analisi strategica basata su probabilità e storico</p></div>' +
-          '<div class="verdict-badge ' + verdictClass + '">' + verdict + '</div>' +
-        '</div>' +
-        '<div class="verdict-content">' +
-          '<div class="verdict-box">' +
-            '<div class="verdict-box-title">🎯 Pick Consigliato</div>' +
-            '<div class="verdict-main-pick">' +
-              '<div class="verdict-main-pick-label">Pronostico ' + bestMarket + '</div>' +
-              '<div class="verdict-main-pick-value">' + bestPick + '</div>' +
-              '<div class="verdict-main-pick-prob">' + bestProb.toFixed(0) + '%</div>' +
-              '<div class="verdict-stars">' + '★'.repeat(stars) + '☆'.repeat(5-stars) + '</div>' +
-            '</div>' +
-            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">💡</span><span class="verdict-suggestion-text">' + suggestion + '</span></div>' +
-          '</div>' +
-          '<div class="verdict-box">' +
-            '<div class="verdict-box-title">📊 Win Rate Storico</div>' +
-            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">📈</span><span class="verdict-suggestion-text">Mercato <strong>' + histMatch.market + '</strong>: <strong>' + histMatch.rate + '%</strong> win rate</span></div>' +
-            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">📝</span><span class="verdict-suggestion-text">' + histMatch.note + '</span></div>' +
-            warningHtml +
-          '</div>' +
-        '</div>' +
-      '</div>';
     }
 
     // === LIVE BETTING SYSTEM ===
@@ -4677,102 +2819,14 @@
     function calculateLiveAlerts() {
       const alerts = [];
       
-      // ============================================
-      // === CONFIGURAZIONE CAMPIONATI AD ALTA MEDIA GOL ===
-      // ============================================
-      const HIGH_SCORING_LEAGUES = {
-        // Top 5 Europei
-        88: { name: 'Eredivisie', avgGoals: 3.2, boost: 12 },
-        78: { name: 'Bundesliga', avgGoals: 3.1, boost: 10 },
-        144: { name: 'Jupiler Pro', avgGoals: 3.0, boost: 10 },
-        218: { name: 'Bundesliga Austria', avgGoals: 3.0, boost: 10 },
-        179: { name: 'Premiership Scozia', avgGoals: 2.9, boost: 8 },
-        // Serie A e altri
-        135: { name: 'Serie A', avgGoals: 2.8, boost: 6 },
-        39: { name: 'Premier League', avgGoals: 2.8, boost: 6 },
-        140: { name: 'La Liga', avgGoals: 2.6, boost: 4 },
-        61: { name: 'Ligue 1', avgGoals: 2.7, boost: 5 },
-        // Leghe minori ad alto punteggio
-        203: { name: 'Super Lig Turchia', avgGoals: 2.9, boost: 8 },
-        94: { name: 'Primeira Liga Portogallo', avgGoals: 2.7, boost: 5 },
-        // Sudamerica (tanti gol)
-        71: { name: 'Serie A Brasile', avgGoals: 2.6, boost: 5 },
-        128: { name: 'Liga Argentina', avgGoals: 2.5, boost: 4 }
-      };
-      
-      // ============================================
-      // === MOMENTI CALDI (statisticamente più gol) ===
-      // ============================================
-      const getHotMomentBoost = (elapsed, isFirstHalf) => {
-        if (isFirstHalf) {
-          if (elapsed >= 43 && elapsed <= 45) return 15; // Fine 1T - squadre spingono
-          if (elapsed >= 40 && elapsed <= 42) return 8;  // Pre-fine 1T
-          if (elapsed >= 35 && elapsed <= 39) return 5;  // Fase calda 1T
-        } else {
-          if (elapsed >= 85) return 18;                  // Ultimi minuti - disperazione
-          if (elapsed >= 80 && elapsed <= 84) return 14; // Forcing finale
-          if (elapsed >= 75 && elapsed <= 79) return 10; // Ultimi 15 min
-          if (elapsed >= 55 && elapsed <= 60) return 8;  // Inizio 2T - cambi tattici
-        }
-        return 0;
-      };
-      
-      // ============================================
-      // === FATTORE SVANTAGGIO (squadra sotto attacca) ===
-      // ============================================
-      const getDisadvantageBoost = (homeGoals, awayGoals, elapsed) => {
-        const diff = Math.abs(homeGoals - awayGoals);
-        if (diff === 0) return 0; // Pareggio
-        
-        // Squadra sotto di 1 gol
-        if (diff === 1) {
-          if (elapsed >= 75) return 18; // Ultimi 15 min, spinta massima
-          if (elapsed >= 65) return 12;
-          if (elapsed >= 55) return 8;
-          return 4;
-        }
-        
-        // Squadra sotto di 2 gol
-        if (diff === 2) {
-          if (elapsed >= 70) return 10; // Ancora possibile rimonta
-          if (elapsed >= 60) return 5;
-          return 0; // Troppo presto o partita chiusa
-        }
-        
-        return 0; // 3+ gol di differenza = partita chiusa
-      };
-      
-      // ============================================
-      // === ANALISI PARTITE ===
-      // ============================================
-      
       state.liveMatches.forEach(match => {
-        const elapsed = match.elapsed || 0;
-        const homeGoals = match.goals?.home || 0;
-        const awayGoals = match.goals?.away || 0;
+        const elapsed = match.elapsed;
+        const homeGoals = match.goals.home;
+        const awayGoals = match.goals.away;
         const totalGoals = homeGoals + awayGoals;
-        const isFirstHalf = match.status === '1H';
-        const isSecondHalf = match.status === '2H';
-        const isHalfTime = match.status === 'HT';
         
-        // Estrai ID campionato
-        const leagueId = match.league?.id || 0;
-        const leagueInfo = HIGH_SCORING_LEAGUES[leagueId];
-        const leagueBoost = leagueInfo ? leagueInfo.boost : 0;
-        
-        // Calcola boost dinamici
-        const hotMomentBoost = getHotMomentBoost(elapsed, isFirstHalf);
-        const disadvantageBoost = getDisadvantageBoost(homeGoals, awayGoals, elapsed);
-        
-        // Estrai statistiche
-        let stats = { 
-          shotsHome: 0, shotsAway: 0, shots: 0,
-          shotsOnHome: 0, shotsOnAway: 0, shotsOn: 0,
-          cornersHome: 0, cornersAway: 0, corners: 0,
-          possessionHome: 50, possessionAway: 50,
-          hasStats: false
-        };
-        
+        // Estrai statistiche se disponibili
+        let stats = { shots: 0, shotsOn: 0, corners: 0, possession: 50 };
         if (match.stats && match.stats.length >= 2) {
           const homeStats = match.stats[0]?.statistics || [];
           const awayStats = match.stats[1]?.statistics || [];
@@ -4782,310 +2836,268 @@
             return s ? (parseInt(s.value) || 0) : 0;
           };
           
-          stats.shotsHome = getStat(homeStats, 'Total Shots');
-          stats.shotsAway = getStat(awayStats, 'Total Shots');
-          stats.shotsOnHome = getStat(homeStats, 'Shots on Goal');
-          stats.shotsOnAway = getStat(awayStats, 'Shots on Goal');
-          stats.cornersHome = getStat(homeStats, 'Corner Kicks');
-          stats.cornersAway = getStat(awayStats, 'Corner Kicks');
-          stats.possessionHome = getStat(homeStats, 'Ball Possession') || 50;
-          stats.possessionAway = getStat(awayStats, 'Ball Possession') || 50;
-          
+          stats = {
+            shotsHome: getStat(homeStats, 'Total Shots'),
+            shotsAway: getStat(awayStats, 'Total Shots'),
+            shotsOnHome: getStat(homeStats, 'Shots on Goal'),
+            shotsOnAway: getStat(awayStats, 'Shots on Goal'),
+            cornersHome: getStat(homeStats, 'Corner Kicks'),
+            cornersAway: getStat(awayStats, 'Corner Kicks'),
+            possessionHome: getStat(homeStats, 'Ball Possession'),
+            possessionAway: getStat(awayStats, 'Ball Possession')
+          };
           stats.shots = stats.shotsHome + stats.shotsAway;
           stats.shotsOn = stats.shotsOnHome + stats.shotsOnAway;
           stats.corners = stats.cornersHome + stats.cornersAway;
-          stats.hasStats = (stats.shots >= 1) || (stats.corners >= 1);
         }
         
-        // === CALCOLO PRESSIONE OFFENSIVA ===
-        // Più alto = più probabilità di gol
-        const pressure = stats.hasStats 
-          ? (stats.shotsOn * 3) + (stats.shots * 1) + (stats.corners * 1.5)
-          : 0;
-        const pressureBoost = Math.min(20, pressure * 0.8);
+        // === LOGICA ALERT OTTIMIZZATA ===
         
-        // ============================================
-        // === 🔥 ALERT SECONDO TEMPO 🔥 ===
-        // ============================================
-        
-        // 🎯 OVER 0.5 - Partita 0-0 (dal 50')
-        if (isSecondHalf && totalGoals === 0 && elapsed >= 50) {
-          let prob = 45;
+        // ALERT 1: 0-0 con tanti tiri (Over 0.5) - Dal 45' al 85'
+        if (totalGoals === 0 && elapsed >= 45 && elapsed <= 85) {
+          const pressure = stats.shotsOn * 2 + stats.corners * 0.5;
+          let prob = 50 + (elapsed - 40) * 0.6 + pressure * 2;
+          prob = Math.min(95, prob);
           
-          // Base: tempo trascorso
-          prob += (elapsed - 45) * 0.8;
-          
-          // Boost dinamici
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += pressureBoost;
-          
-          // 0-0 tardi = alta pressione
-          if (elapsed >= 70) prob += 12;
-          if (elapsed >= 80) prob += 10;
-          
-          prob = Math.min(94, prob);
-          
-          if (prob >= 58) {
-            const leagueTag = leagueInfo ? ` [${leagueInfo.name}]` : '';
+          if (prob >= 60 && stats.shotsOn >= 3) {
+            const quotaStimata = (100 / prob).toFixed(2);
             alerts.push({
-              match, type: 'over05',
-              level: prob >= 78 ? 'high' : prob >= 65 ? 'medium' : 'low',
-              pick: '⚽ Over 0.5',
+              match,
+              type: 'over05',
+              level: prob >= 75 ? 'high' : 'medium',
+              pick: 'Over 0.5',
               prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `0-0 al ${elapsed}'${leagueTag}${stats.hasStats ? ` | ${stats.shotsOn} tiri in porta` : ''}`,
-              stats, leagueBoost, hotMomentBoost
+              quota: quotaStimata,
+              reason: `${stats.shotsOn} tiri in porta, ${stats.corners} corner - il gol arriverà!`,
+              stats
             });
           }
         }
         
-        // 🎯 OVER 1.5 - Partita con 0-1 gol (dal 50')
-        if (isSecondHalf && totalGoals <= 1 && elapsed >= 50 && elapsed <= 85) {
-          let prob = 35;
+        // ALERT 2: 0-0 o 1-0 tardi (Over 1.5) - Soglia tiri abbassata
+        if (totalGoals <= 1 && elapsed >= 55 && elapsed <= 85) {
+          const pressure = stats.shotsOn * 1.5 + stats.corners * 0.3;
+          let prob = 40 + pressure * 1.8;
           
-          prob += (elapsed - 45) * 0.6;
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += disadvantageBoost;
-          prob += pressureBoost * 0.8;
-          
-          if (totalGoals === 1) prob += 15;
-          if (elapsed >= 65) prob += 6;
-          if (elapsed >= 75) prob += 6;
-          
-          // 1-1 apertissima
-          if (homeGoals === 1 && awayGoals === 0 && elapsed >= 70) prob += 8;
-          if (homeGoals === 0 && awayGoals === 1 && elapsed >= 70) prob += 8;
-          
+          if (totalGoals === 0) prob += 15;
+          if (elapsed >= 65) prob += 8;
+          if (elapsed >= 75) prob += 5;
           prob = Math.min(88, prob);
           
-          if (prob >= 52) {
+          if (prob >= 58 && stats.shots >= 10) {
+            const quotaStimata = (100 / prob).toFixed(2);
             alerts.push({
-              match, type: 'over15',
-              level: prob >= 72 ? 'high' : prob >= 60 ? 'medium' : 'low',
-              pick: '⚽⚽ Over 1.5',
+              match,
+              type: 'over15',
+              level: prob >= 70 ? 'high' : 'medium',
+              pick: 'Over 1.5',
               prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `${homeGoals}-${awayGoals} al ${elapsed}'${disadvantageBoost > 0 ? ' | Squadra sotto spinge!' : ''}`,
-              stats, leagueBoost, hotMomentBoost, disadvantageBoost
+              quota: quotaStimata,
+              reason: `${stats.shots} tiri totali, partita sbloccata in arrivo`,
+              stats
             });
           }
         }
         
-        // 🎯 OVER 2.5 - Partita con gol (dal 48')
-        if (isSecondHalf && totalGoals >= 1 && totalGoals <= 2 && elapsed >= 48 && elapsed <= 83) {
-          let prob = 30;
-          
-          prob += totalGoals * 10;
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += disadvantageBoost;
-          prob += pressureBoost * 0.7;
-          
-          // Situazioni specifiche
-          if (homeGoals === 1 && awayGoals === 1) prob += 18; // 1-1 = APERTA
-          if (homeGoals === 2 && awayGoals === 0) prob += 10; // 2-0 = ospite spingerà
-          if (homeGoals === 0 && awayGoals === 2) prob += 10; // 0-2 = casa spingerà
-          if (homeGoals === 2 && awayGoals === 1) prob += 12; // 2-1 vivace
-          if (homeGoals === 1 && awayGoals === 2) prob += 12; // 1-2 vivace
-          
-          if (elapsed >= 60) prob += 5;
+        // ALERT 3: 1-1 partita aperta (Over 2.5)
+        if (homeGoals === 1 && awayGoals === 1 && elapsed >= 50 && elapsed <= 85) {
+          let prob = 55 + (stats.shotsOn * 1.5);
+          if (elapsed >= 60) prob += 8;
           if (elapsed >= 70) prob += 5;
-          
-          prob = Math.min(85, prob);
-          
-          if (prob >= 50) {
-            const situation = (homeGoals === 1 && awayGoals === 1) ? '🔥 Partita APERTA!' : 
-                             (Math.abs(homeGoals - awayGoals) >= 1) ? '⚡ Squadra sotto attacca!' : '';
-            alerts.push({
-              match, type: 'over25',
-              level: prob >= 70 ? 'high' : prob >= 58 ? 'medium' : 'low',
-              pick: '⚽⚽⚽ Over 2.5',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `${homeGoals}-${awayGoals} al ${elapsed}' ${situation}`,
-              stats, leagueBoost, hotMomentBoost, disadvantageBoost
-            });
-          }
-        }
-        
-        // 🎯 OVER 3.5 - Partita ricca di gol (dal 50')
-        if (isSecondHalf && totalGoals >= 2 && totalGoals <= 3 && elapsed >= 50 && elapsed <= 82) {
-          let prob = 28;
-          
-          prob += totalGoals * 10;
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += pressureBoost * 0.6;
-          
-          if ((homeGoals === 2 && awayGoals === 1) || (homeGoals === 1 && awayGoals === 2)) prob += 15;
-          if (homeGoals === 2 && awayGoals === 2) prob += 12;
-          if (totalGoals === 3 && elapsed >= 60) prob += 8;
-          
-          prob = Math.min(80, prob);
-          
-          if (prob >= 50) {
-            alerts.push({
-              match, type: 'over35',
-              level: prob >= 68 ? 'high' : prob >= 55 ? 'medium' : 'low',
-              pick: '⚽⚽⚽⚽ Over 3.5',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `🔥 Già ${totalGoals} gol! ${homeGoals}-${awayGoals} al ${elapsed}'`,
-              stats, leagueBoost, hotMomentBoost
-            });
-          }
-        }
-        
-        // 🎯 GOL 2° TEMPO (all'intervallo)
-        if (isHalfTime) {
-          let prob = 52;
-          
-          prob += leagueBoost;
-          prob += pressureBoost;
-          
-          if (totalGoals === 0) prob += 18; // 0-0 = pressione massima
-          if (totalGoals === 1) prob += 12;
-          if (stats.hasStats && stats.shotsOn >= 3) prob += 10;
-          if (stats.hasStats && stats.shotsOn >= 5) prob += 8;
-          if (stats.hasStats && stats.corners >= 5) prob += 5;
-          
-          prob = Math.min(90, prob);
-          
-          if (prob >= 58) {
-            alerts.push({
-              match, type: 'goal2T',
-              level: prob >= 78 ? 'high' : prob >= 65 ? 'medium' : 'low',
-              pick: totalGoals === 0 ? '⚽ Gol 2°T' : '⚽ Altro Gol',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `${homeGoals}-${awayGoals} HT${stats.hasStats ? ` | ${stats.shotsOn} tiri, ${stats.corners} corner` : ''}`,
-              stats, leagueBoost
-            });
-          }
-        }
-        
-        // ============================================
-        // === 🔥 ALERT PRIMO TEMPO 🔥 ===
-        // ============================================
-        
-        // 🎯 OVER 0.5 1°T (dal 25')
-        if (isFirstHalf && totalGoals === 0 && elapsed >= 25 && elapsed <= 45) {
-          let prob = 38;
-          
-          prob += (elapsed - 20) * 1.5;
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += pressureBoost;
-          
-          // Fine primo tempo = boost extra
-          if (elapsed >= 40) prob += 8;
-          if (elapsed >= 43) prob += 10;
-          
-          prob = Math.min(88, prob);
-          
-          if (prob >= 55) {
-            alerts.push({
-              match, type: 'over05_1T',
-              level: prob >= 72 ? 'high' : prob >= 60 ? 'medium' : 'low',
-              pick: '⚽ Over 0.5 1°T',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `0-0 al ${elapsed}'${elapsed >= 40 ? ' ⏰ Fine 1T vicina!' : ''}${stats.hasStats ? ` | ${stats.shotsOn} tiri` : ''}`,
-              stats, leagueBoost, hotMomentBoost
-            });
-          }
-        }
-        
-        // 🎯 OVER 1.5 1°T - Se già 1 gol (dal 20')
-        if (isFirstHalf && totalGoals === 1 && elapsed >= 20 && elapsed <= 45) {
-          let prob = 35;
-          
-          prob += (elapsed - 15) * 1.2;
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += pressureBoost * 0.8;
-          prob += disadvantageBoost;
-          
-          if (elapsed >= 35) prob += 8;
-          if (elapsed >= 42) prob += 10;
-          
           prob = Math.min(82, prob);
           
-          if (prob >= 50) {
+          if (prob >= 55) {
+            const quotaStimata = (100 / prob).toFixed(2);
             alerts.push({
-              match, type: 'over15_1T',
-              level: prob >= 68 ? 'high' : prob >= 55 ? 'medium' : 'low',
-              pick: '⚽⚽ Over 1.5 1°T',
+              match,
+              type: 'over25',
+              level: prob >= 68 ? 'high' : 'medium',
+              pick: 'Over 2.5',
               prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `${homeGoals}-${awayGoals} al ${elapsed}'${elapsed >= 40 ? ' ⏰ Fine 1T!' : ''}`,
-              stats, leagueBoost, hotMomentBoost, disadvantageBoost
+              quota: quotaStimata,
+              reason: `Partita aperta, entrambe hanno già segnato`,
+              stats
             });
           }
         }
         
-        // ============================================
-        // === 🏠✈️ SQUADRA SEGNA (con stats) ===
-        // ============================================
-        
-        if (stats.hasStats && elapsed >= 20) {
-          // 🏠 Casa domina
-          if (stats.shotsOnHome >= 3 && stats.shotsOnHome > stats.shotsOnAway * 1.5 && homeGoals === 0) {
-            let prob = 45;
-            prob += stats.shotsOnHome * 5;
-            prob += leagueBoost;
-            prob += hotMomentBoost;
-            if (elapsed >= 50) prob += 10;
-            if (elapsed >= 70) prob += 10;
-            if (stats.cornersHome >= 4) prob += 5;
-            prob = Math.min(88, prob);
+        // ALERT 3b: 2-1 o 1-2 (Over 3.5 possibile)
+        if ((homeGoals === 2 && awayGoals === 1) || (homeGoals === 1 && awayGoals === 2)) {
+          if (elapsed >= 55 && elapsed <= 80) {
+            let prob = 50 + stats.shotsOn * 1.5;
+            if (elapsed >= 65) prob += 5;
+            prob = Math.min(75, prob);
             
-            if (prob >= 58) {
+            if (prob >= 55 && stats.shotsOn >= 4) {
               alerts.push({
-                match, type: 'homeScores',
-                level: prob >= 75 ? 'high' : prob >= 62 ? 'medium' : 'low',
-                pick: `🏠 ${match.home.name.substring(0,12)} Segna`,
+                match,
+                type: 'over35',
+                level: prob >= 65 ? 'high' : 'medium',
+                pick: 'Over 3.5',
                 prob: prob.toFixed(0),
                 quota: (100 / prob).toFixed(2),
-                reason: `Dominio: ${stats.shotsOnHome} tiri in porta vs ${stats.shotsOnAway}`,
-                stats, leagueBoost, hotMomentBoost
+                reason: `Partita vivace (${homeGoals}-${awayGoals}), ${stats.shotsOn} tiri in porta`,
+                stats
               });
             }
           }
+        }
+        
+        // ALERT 4: Squadra domina ma non segna - Soglie abbassate
+        if (totalGoals === 0 && elapsed >= 35 && elapsed <= 80) {
+          const homeDominating = stats.shotsOnHome >= 3 && stats.possessionHome >= 55;
+          const awayDominating = stats.shotsOnAway >= 3 && stats.possessionAway >= 55;
           
-          // ✈️ Ospite domina
-          if (stats.shotsOnAway >= 3 && stats.shotsOnAway > stats.shotsOnHome * 1.5 && awayGoals === 0) {
-            let prob = 42;
-            prob += stats.shotsOnAway * 5;
-            prob += leagueBoost;
-            prob += hotMomentBoost;
-            if (elapsed >= 50) prob += 10;
-            if (elapsed >= 70) prob += 10;
-            if (stats.cornersAway >= 4) prob += 5;
+          if (homeDominating && stats.shotsOnHome > stats.shotsOnAway + 1) {
+            let prob = 55 + stats.shotsOnHome * 4;
+            prob = Math.min(88, prob);
+            alerts.push({
+              match,
+              type: 'homeScores',
+              level: prob >= 72 ? 'high' : 'medium',
+              pick: `${match.home.name.substring(0,15)} Segna`,
+              prob: prob.toFixed(0),
+              quota: (100 / prob).toFixed(2),
+              reason: `Dominio: ${stats.shotsOnHome} tiri in porta, ${stats.possessionHome}% possesso`,
+              stats
+            });
+          } else if (awayDominating && stats.shotsOnAway > stats.shotsOnHome + 1) {
+            let prob = 50 + stats.shotsOnAway * 4;
             prob = Math.min(85, prob);
-            
-            if (prob >= 55) {
+            alerts.push({
+              match,
+              type: 'awayScores',
+              level: prob >= 70 ? 'high' : 'medium',
+              pick: `${match.away.name.substring(0,15)} Segna`,
+              prob: prob.toFixed(0),
+              quota: (100 / prob).toFixed(2),
+              reason: `Dominio ospite: ${stats.shotsOnAway} tiri in porta, ${stats.possessionAway}% possesso`,
+              stats
+            });
+          }
+        }
+        
+        // ALERT 5: Intervallo con tanti tiri (Gol 2° Tempo) - Soglia abbassata
+        if (match.status === 'HT' && totalGoals <= 2) {
+          let prob = 50 + stats.shotsOn * 2.5;
+          prob = Math.min(88, prob);
+          
+          if (prob >= 60 && stats.shotsOn >= 3) {
+            alerts.push({
+              match,
+              type: 'goal2T',
+              level: prob >= 72 ? 'high' : 'medium',
+              pick: 'Gol 2° Tempo',
+              prob: prob.toFixed(0),
+              quota: (100 / prob).toFixed(2),
+              reason: `${stats.shotsOn} tiri in porta nel 1° tempo - gol in arrivo!`,
+              stats
+            });
+          }
+        }
+        
+        // === ALERT PRIMO TEMPO ===
+        
+        // ALERT 6: Over 0.5 Primo Tempo (0-0 tra 20' e 45')
+        if (totalGoals === 0 && elapsed >= 20 && elapsed <= 45 && match.status === '1H') {
+          const pressure = stats.shotsOn * 2.5 + stats.corners * 0.5;
+          let prob = 35 + (elapsed - 15) * 0.8 + pressure * 2;
+          prob = Math.min(90, prob);
+          
+          if (prob >= 60 && stats.shotsOn >= 3) {
+            alerts.push({
+              match,
+              type: 'over05_1T',
+              level: prob >= 72 ? 'high' : 'medium',
+              pick: 'Over 0.5 1°T',
+              prob: prob.toFixed(0),
+              quota: (100 / prob).toFixed(2),
+              reason: `${stats.shotsOn} tiri in porta in ${elapsed}' - gol in arrivo!`,
+              stats
+            });
+          }
+        }
+        
+        // ALERT 7: Squadra Segna nel 1° Tempo (dominio evidente 15'-40')
+        if (totalGoals === 0 && elapsed >= 15 && elapsed <= 40 && match.status === '1H') {
+          const homeDominating = stats.shotsOnHome >= 3 && stats.possessionHome >= 55;
+          const awayDominating = stats.shotsOnAway >= 3 && stats.possessionAway >= 55;
+          
+          if (homeDominating && stats.shotsOnHome > stats.shotsOnAway + 1) {
+            let prob = 50 + stats.shotsOnHome * 5;
+            prob = Math.min(85, prob);
+            if (prob >= 60) {
               alerts.push({
-                match, type: 'awayScores',
-                level: prob >= 72 ? 'high' : prob >= 60 ? 'medium' : 'low',
-                pick: `✈️ ${match.away.name.substring(0,12)} Segna`,
+                match,
+                type: 'homeScores1T',
+                level: prob >= 72 ? 'high' : 'medium',
+                pick: `${match.home.name.substring(0,12)} Segna 1°T`,
                 prob: prob.toFixed(0),
                 quota: (100 / prob).toFixed(2),
-                reason: `Dominio: ${stats.shotsOnAway} tiri in porta vs ${stats.shotsOnHome}`,
-                stats, leagueBoost, hotMomentBoost
+                reason: `Dominio: ${stats.shotsOnHome} tiri in porta, ${stats.possessionHome}% possesso`,
+                stats
               });
             }
+          } else if (awayDominating && stats.shotsOnAway > stats.shotsOnHome + 1) {
+            let prob = 45 + stats.shotsOnAway * 5;
+            prob = Math.min(82, prob);
+            if (prob >= 60) {
+              alerts.push({
+                match,
+                type: 'awayScores1T',
+                level: prob >= 70 ? 'high' : 'medium',
+                pick: `${match.away.name.substring(0,12)} Segna 1°T`,
+                prob: prob.toFixed(0),
+                quota: (100 / prob).toFixed(2),
+                reason: `Dominio ospite: ${stats.shotsOnAway} tiri in porta, ${stats.possessionAway}% possesso`,
+                stats
+              });
+            }
+          }
+        }
+        
+        // ALERT 8: Over 1.5 Primo Tempo (1-0 o 0-1 tra 25' e 45')
+        if (totalGoals === 1 && elapsed >= 25 && elapsed <= 45 && match.status === '1H') {
+          let prob = 40 + stats.shotsOn * 2.5;
+          if (stats.shotsOn >= 5) prob += 10;
+          prob = Math.min(82, prob);
+          
+          if (prob >= 55 && stats.shotsOn >= 4) {
+            alerts.push({
+              match,
+              type: 'over15_1T',
+              level: prob >= 68 ? 'high' : 'medium',
+              pick: 'Over 1.5 1°T',
+              prob: prob.toFixed(0),
+              quota: (100 / prob).toFixed(2),
+              reason: `Già 1 gol + ${stats.shotsOn} tiri in porta - altro gol probabile!`,
+              stats
+            });
+          }
+        }
+        
+        // ALERT 9: Gol nei primi minuti di ripresa (50'-60')
+        if (totalGoals <= 1 && elapsed >= 50 && elapsed <= 65 && match.status === '2H') {
+          let prob = 45 + stats.shotsOn * 2;
+          if (totalGoals === 0) prob += 10;
+          prob = Math.min(80, prob);
+          
+          if (prob >= 58 && stats.shotsOn >= 4) {
+            alerts.push({
+              match,
+              type: 'earlyGoal2T',
+              level: prob >= 68 ? 'high' : 'medium',
+              pick: totalGoals === 0 ? 'Over 0.5' : 'Over 1.5',
+              prob: prob.toFixed(0),
+              quota: (100 / prob).toFixed(2),
+              reason: `Inizio 2°T con ${stats.shotsOn} tiri - pressione alta!`,
+              stats
+            });
           }
         }
       });
       
-      // ============================================
-      // === ORDINAMENTO E FILTRO FINALE ===
-      // ============================================
-      
-      // Ordina: HIGH prima, poi per probabilità
+      // Ordina per livello e probabilità
       alerts.sort((a, b) => {
         const levelOrder = { high: 0, medium: 1, low: 2 };
         if (levelOrder[a.level] !== levelOrder[b.level]) {
@@ -5094,19 +3106,7 @@
         return parseFloat(b.prob) - parseFloat(a.prob);
       });
       
-      // Max 2 alert per partita (i migliori)
-      const alertsFiltered = [];
-      const matchAlertCount = {};
-      alerts.forEach(alert => {
-        const matchId = alert.match.id;
-        matchAlertCount[matchId] = (matchAlertCount[matchId] || 0);
-        if (matchAlertCount[matchId] < 2) {
-          alertsFiltered.push(alert);
-          matchAlertCount[matchId]++;
-        }
-      });
-      
-      state.liveAlerts = alertsFiltered;
+      state.liveAlerts = alerts;
     }
     
     // === LIVE BACKGROUND MONITORING ===
@@ -5212,12 +3212,6 @@
     // === TRACKING PRONOSTICI ===
     
     function trackBet(type, matchId, matchName, pick, prob, odds, isLive = false) {
-      // Evita duplicati
-      if (state.trackedBets.some(b => b.matchId === matchId && b.pick === pick)) {
-        console.log('Pronostico già tracciato');
-        return null;
-      }
-      
       const bet = {
         id: Date.now(),
         type, // 'prematch' o 'live'
@@ -5238,34 +3232,26 @@
       // Salva anche su Firebase
       saveTrackingToFirebase();
       
-      render();
       return bet;
     }
     
-    // Funzione per tracciare pronostici pre-match
-    function trackPrematchBet(matchId, matchName, pick, prob, event) {
-      if (event) event.stopPropagation();
-      
-      // Stima quota basata sulla probabilità
-      const odds = (100 / prob).toFixed(2);
-      
-      const bet = trackBet('prematch', matchId, matchName, pick, prob, odds, false);
-      if (bet) {
-        alert(`✅ Pronostico tracciato!\n\n${matchName}\n${pick} @ ${odds}\n\nVerrà verificato automaticamente a fine partita.`);
-      } else {
-        alert('⚠️ Questo pronostico è già stato tracciato.');
+    // Funzione per tracking LIVE (chiamata da onclick)
+    function trackLiveBet(matchId, matchName, pick, prob, odds, event) {
+      event.stopPropagation();
+      if (!state.trackedBets.some(b => b.matchId === matchId && b.isLive)) {
+        trackBet('live', matchId, matchName, pick, prob, odds, true);
+        render();
+        alert('✅ Pronostico LIVE tracciato!');
       }
     }
     
-    // Funzione per tracciare pronostici LIVE
-    function trackLiveBet(matchId, matchName, pick, prob, odds, event) {
-      if (event) event.stopPropagation();
-      
-      const bet = trackBet('live', matchId, matchName, pick, prob, odds, true);
-      if (bet) {
-        alert(`✅ Pronostico LIVE tracciato!\n\n${matchName}\n${pick} @ ${odds}\n\nVerrà verificato automaticamente a fine partita.`);
-      } else {
-        alert('⚠️ Questo pronostico LIVE è già stato tracciato.');
+    // Funzione per tracking PRE-MATCH (chiamata da onclick)
+    function trackPrematchBet(matchId, matchName, pick, prob, event) {
+      event.stopPropagation();
+      if (!state.trackedBets.some(b => b.matchId === matchId && b.type === 'prematch')) {
+        trackBet('prematch', matchId, matchName, pick, prob, 0, false);
+        render();
+        alert('✅ Pronostico tracciato!');
       }
     }
     
@@ -5280,12 +3266,12 @@
     }
     
     function saveTrackedBets() {
-      localStorage.setItem('bp2_tracked', JSON.stringify(state.trackedBets));
+      localStorage.setItem('bp_tracked', JSON.stringify(state.trackedBets));
     }
     
     async function saveTrackingToFirebase() {
       try {
-        await fetch(`${CONFIG.FIREBASE.url}/tracking2/${USER_ID}.json`, {
+        await fetch(`${CONFIG.FIREBASE.url}/tracking/${USER_ID}.json`, {
           method: 'PUT',
           body: JSON.stringify(state.trackedBets)
         });
@@ -5296,7 +3282,7 @@
     
     async function loadTrackingFromFirebase() {
       try {
-        const res = await fetch(`${CONFIG.FIREBASE.url}/tracking2/${USER_ID}.json`);
+        const res = await fetch(`${CONFIG.FIREBASE.url}/tracking/${USER_ID}.json`);
         const data = await res.json();
         if (data && Array.isArray(data)) {
           state.trackedBets = data;
@@ -5328,26 +3314,21 @@
               let won = false;
               const pick = bet.pick.toLowerCase();
               
-              // Over/Under
               if (pick.includes('over 0.5') && totalGoals >= 1) won = true;
               else if (pick.includes('over 1.5') && totalGoals >= 2) won = true;
               else if (pick.includes('over 2.5') && totalGoals >= 3) won = true;
               else if (pick.includes('over 3.5') && totalGoals >= 4) won = true;
               else if (pick.includes('under 2.5') && totalGoals < 3) won = true;
               else if (pick.includes('under 3.5') && totalGoals < 4) won = true;
-              // GG/NG
-              else if ((pick.includes('gg') || pick.includes('entrambe segnano')) && homeGoals > 0 && awayGoals > 0) won = true;
+              else if (pick.includes('gg') && homeGoals > 0 && awayGoals > 0) won = true;
               else if (pick.includes('ng') && (homeGoals === 0 || awayGoals === 0)) won = true;
-              // 1X2 - con supporto per formato esteso "(Vittoria Casa)" ecc.
-              else if ((pick === '1' || pick.startsWith('1 (') || pick.startsWith('1 ')) && homeGoals > awayGoals) won = true;
-              else if ((pick === 'x' || pick.startsWith('x (') || pick === 'pareggio') && homeGoals === awayGoals) won = true;
-              else if ((pick === '2' || pick.startsWith('2 (') || pick.startsWith('2 ')) && homeGoals < awayGoals) won = true;
-              // Doppie chance
-              else if ((pick === '1x' || pick.startsWith('1x (') || pick.startsWith('1x ')) && homeGoals >= awayGoals) won = true;
-              else if ((pick === 'x2' || pick.startsWith('x2 (') || pick.startsWith('x2 ')) && homeGoals <= awayGoals) won = true;
-              // Segna
+              else if (pick === '1' && homeGoals > awayGoals) won = true;
+              else if (pick === 'x' && homeGoals === awayGoals) won = true;
+              else if (pick === '2' && homeGoals < awayGoals) won = true;
+              else if (pick === '1x' && homeGoals >= awayGoals) won = true;
+              else if (pick === 'x2' && homeGoals <= awayGoals) won = true;
               else if (pick.includes('segna') && totalGoals > 0) won = true;
-              else if (pick.includes('gol 2°') && totalGoals > 0) won = true;
+              else if (pick.includes('gol 2°') && totalGoals > 0) won = true; // Semplificato
               
               updateBetResult(bet.id, won ? 'won' : 'lost', result);
             }
@@ -5389,27 +3370,14 @@
       });
       
       // Per tipo di pick
-      const pickTypes = [
-        { key: 'over 0.5', label: 'Over 0.5' },
-        { key: 'over 1.5', label: 'Over 1.5' },
-        { key: 'over 2.5', label: 'Over 2.5' },
-        { key: 'over 3.5', label: 'Over 3.5' },
-        { key: 'under', label: 'Under' },
-        { key: 'gg', label: 'GG' },
-        { key: 'entrambe segnano', label: 'GG' },
-        { key: '1 (', label: '1 (Vittoria Casa)' },
-        { key: '2 (', label: '2 (Vittoria Ospite)' },
-        { key: '1x', label: '1X' },
-        { key: 'x2', label: 'X2' },
-        { key: 'pareggio', label: 'X (Pareggio)' }
-      ];
+      const pickTypes = ['over 0.5', 'over 1.5', 'over 2.5', 'over 3.5', 'gg', '1x', 'x2', 'segna', 'gol 2°'];
       pickTypes.forEach(pickType => {
-        const bets = state.trackedBets.filter(b => b.pick.toLowerCase().includes(pickType.key));
+        const bets = state.trackedBets.filter(b => b.pick.toLowerCase().includes(pickType));
         const won = bets.filter(b => b.status === 'won').length;
         const lost = bets.filter(b => b.status === 'lost').length;
         const total = won + lost;
         if (bets.length > 0) {
-          stats.byPick[pickType.label] = {
+          stats.byPick[pickType] = {
             total: bets.length,
             won,
             lost,
@@ -5431,6 +3399,76 @@
       saveTrackedBets();
     }
     
+    function renderStatsModal() {
+      const stats = getTrackingStats();
+      const winRateClass = stats.winRate >= 65 ? 'good' : stats.winRate >= 50 ? 'medium' : 'bad';
+      
+      return `
+        <div class="stats-modal" id="statsModal">
+          <div class="stats-modal-content">
+            <div class="stats-modal-header">
+              <div class="stats-modal-title">📊 Statistiche Pronostici</div>
+              <button class="stats-modal-close" id="closeStats">×</button>
+            </div>
+            <div class="stats-modal-body">
+              <div class="stats-winrate-box">
+                <div class="stats-winrate-big ${winRateClass}">${stats.winRate}%</div>
+                <div class="stats-winrate-label">Win Rate Totale</div>
+              </div>
+              
+              <div class="stats-grid">
+                <div class="stats-grid-item">
+                  <div class="stats-grid-value purple">${stats.total}</div>
+                  <div class="stats-grid-label">Totali</div>
+                </div>
+                <div class="stats-grid-item">
+                  <div class="stats-grid-value green">${stats.won}</div>
+                  <div class="stats-grid-label">Vinti</div>
+                </div>
+                <div class="stats-grid-item">
+                  <div class="stats-grid-value red">${stats.lost}</div>
+                  <div class="stats-grid-label">Persi</div>
+                </div>
+                <div class="stats-grid-item">
+                  <div class="stats-grid-value yellow">${stats.pending}</div>
+                  <div class="stats-grid-label">In attesa</div>
+                </div>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <div class="stats-grid-item">
+                  <div class="stats-grid-value" style="color: var(--accent-cyan);">${stats.byType.prematch?.winRate || 0}%</div>
+                  <div class="stats-grid-label">PRE-MATCH (${stats.byType.prematch?.won || 0}/${(stats.byType.prematch?.won || 0) + (stats.byType.prematch?.lost || 0)})</div>
+                </div>
+                <div class="stats-grid-item">
+                  <div class="stats-grid-value" style="color: var(--accent-red);">${stats.byType.live?.winRate || 0}%</div>
+                  <div class="stats-grid-label">LIVE (${stats.byType.live?.won || 0}/${(stats.byType.live?.won || 0) + (stats.byType.live?.lost || 0)})</div>
+                </div>
+              </div>
+              
+              <div class="stats-by-pick">
+                <div class="stats-pick-title">📈 Win Rate per Mercato</div>
+                ${Object.entries(stats.byPick).map(([pick, data]) => {
+                  const rateClass = data.winRate >= 65 ? 'good' : data.winRate >= 50 ? 'medium' : 'bad';
+                  return `
+                    <div class="stats-pick-item">
+                      <div class="stats-pick-name">${pick.toUpperCase()}</div>
+                      <div class="stats-pick-rate ${rateClass}">${data.won}/${data.won + data.lost} (${data.winRate}%)</div>
+                    </div>
+                  `;
+                }).join('') || '<div style="color: var(--text-dark); text-align: center; padding: 20px;">Nessun dato ancora</div>'}
+              </div>
+              
+              <div class="stats-buttons">
+                <button class="stats-btn stats-btn-check" id="checkResults">🔄 Verifica Risultati</button>
+                <button class="stats-btn stats-btn-reset" id="resetStats">🗑️ Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
     // === RENDER ===
     function render() {
       document.getElementById('app').innerHTML = `
@@ -5443,11 +3481,13 @@
         </main>
         ${renderSlipFloating()}
         ${state.slipModal ? renderSlipModal() : ''}
+        ${state.statsModal ? renderStatsModal() : ''}
       `;
       attachEvents();
     }
 
     function renderHeader() {
+      const stats = getTrackingStats();
       return `
         <header class="header">
           <div class="header-inner">
@@ -5466,165 +3506,18 @@
                   <span>Stats</span>
                 </div>
               </div>
-              <button class="settings-btn" onclick="toggleSettingsPanel()">
-                ⚙️ <span style="display:none">Impostazioni</span>
-              </button>
+              <div class="stats-badge" id="openStats">
+                📊 ${stats.won}/${stats.won + stats.lost} ${stats.winRate}%
+              </div>
               <div class="slip-badge" id="openSlip">
                 🎫 ${state.slip.length} pronostici
               </div>
             </div>
           </div>
         </header>
-        ${renderSettingsPanel()}
       `;
     }
-    
-    function renderSettingsPanel() {
-      const s = state.settings;
-      const stats = getTrackingStats();
-      return `
-        <div class="settings-overlay ${state.settingsOpen ? 'open' : ''}" onclick="toggleSettingsPanel()"></div>
-        <div class="settings-panel ${state.settingsOpen ? 'open' : ''}">
-          <div class="settings-header">
-            <span class="settings-title">⚙️ Impostazioni</span>
-            <button class="settings-close" onclick="toggleSettingsPanel()">×</button>
-          </div>
-          
-          <div class="settings-section">
-            <div class="settings-section-title">📊 Win Rate per Segno</div>
-            ${renderWinRateByPick(stats)}
-          </div>
-          
-          <div class="settings-section">
-            <div class="settings-section-title">🔧 Funzionalità</div>
-            <div class="settings-row">
-              <span class="settings-label">Mostra Classifica</span>
-              <div class="settings-toggle ${s.showStandings ? 'active' : ''}" 
-                onclick="toggleSetting('showStandings')"></div>
-            </div>
-            <div class="settings-row">
-              <span class="settings-label">Mostra Infortunati</span>
-              <div class="settings-toggle ${s.showInjuries ? 'active' : ''}" 
-                onclick="toggleSetting('showInjuries')"></div>
-            </div>
-            <div class="settings-row">
-              <span class="settings-label">Auto-refresh LIVE</span>
-              <div class="settings-toggle ${s.autoRefresh ? 'active' : ''}" 
-                onclick="toggleSetting('autoRefresh')"></div>
-            </div>
-          </div>
-          
-          <div class="settings-section">
-            <div class="settings-section-title">📈 Storico Ultimi Pronostici</div>
-            ${renderHistoryChart()}
-          </div>
-          
-          <div class="settings-section">
-            <button class="btn btn-secondary" style="width:100%" onclick="resetAllData()">
-              🗑️ Reset tutti i dati
-            </button>
-          </div>
-        </div>
-      `;
-    }
-    
-    function renderWinRateByPick(stats) {
-      const picks = Object.entries(stats.byPick);
-      if (picks.length === 0) {
-        return '<div style="text-align:center; color:var(--text-dark); padding:20px;">Nessun pronostico tracciato</div>';
-      }
-      
-      // Ordina per numero di giocate
-      picks.sort((a, b) => b[1].total - a[1].total);
-      
-      return `
-        <div class="winrate-grid">
-          ${picks.map(([label, data]) => `
-            <div class="winrate-item">
-              <div class="winrate-label">${label}</div>
-              <div class="winrate-stats">
-                <span class="winrate-played">${data.total} giocate</span>
-                <span class="winrate-won">✅ ${data.won}</span>
-                <span class="winrate-lost">❌ ${data.lost}</span>
-              </div>
-              <div class="winrate-bar">
-                <div class="winrate-bar-fill ${parseFloat(data.winRate) >= 50 ? 'good' : 'bad'}" 
-                  style="width: ${data.winRate}%"></div>
-              </div>
-              <div class="winrate-percent">${data.winRate}%</div>
-            </div>
-          `).join('')}
-        </div>
-        
-        <div class="winrate-summary">
-          <div class="winrate-summary-item">
-            <span>Totale</span>
-            <strong>${stats.total}</strong>
-          </div>
-          <div class="winrate-summary-item">
-            <span>Vinte</span>
-            <strong style="color: var(--accent-green)">${stats.won}</strong>
-          </div>
-          <div class="winrate-summary-item">
-            <span>Perse</span>
-            <strong style="color: var(--accent-red)">${stats.lost}</strong>
-          </div>
-          <div class="winrate-summary-item">
-            <span>Win Rate</span>
-            <strong style="color: var(--accent-cyan)">${stats.winRate}%</strong>
-          </div>
-        </div>
-      `;
-    }
-    
-    function renderHistoryChart() {
-      const bets = state.trackedBets.filter(b => b.status !== 'pending').slice(-20);
-      if (bets.length === 0) {
-        return '<div style="text-align:center; color:var(--text-dark); padding:20px;">Nessun pronostico verificato</div>';
-      }
-      
-      const maxHeight = 60;
-      return `
-        <div class="history-chart">
-          <div class="history-bars">
-            ${bets.map(b => `
-              <div class="history-bar ${b.status}" style="height: ${maxHeight}px" title="${b.match}: ${b.pick} - ${b.status === 'won' ? 'VINTO' : 'PERSO'}"></div>
-            `).join('')}
-          </div>
-          <div class="history-labels">
-            <span>Ultimi ${bets.length} pronostici</span>
-            <span style="color: var(--accent-green)">${bets.filter(b => b.status === 'won').length}V</span>
-            <span style="color: var(--accent-red)">${bets.filter(b => b.status === 'lost').length}P</span>
-          </div>
-        </div>
-      `;
-    }
-    
-    function toggleSetting(key) {
-      state.settings[key] = !state.settings[key];
-      saveSettings();
-      render();
-    }
-    
-    function resetAllData() {
-      if (confirm('Sei sicuro di voler cancellare TUTTI i dati? (pronostici, impostazioni, statistiche)')) {
-        localStorage.removeItem('bp2_tracked');
-        localStorage.removeItem('bp2_settings');
-        localStorage.removeItem('bp2_history');
-        localStorage.removeItem('bp2_bankroll');
-        localStorage.removeItem('bp2_slip');
-        state.trackedBets = [];
-        state.slip = [];
-        state.settings = {
-          thresholds: { '1': 50, 'X': 28, '2': 50, 'GG': 55, 'Over 2.5': 50, 'Over 1.5': 65 },
-          showInjuries: true, showStandings: true, autoRefresh: true
-        };
-        render();
-        alert('✅ Tutti i dati sono stati cancellati');
-      }
-    }
-    
-    // Filtra campionati e squadre
+
     function renderLoading() {
       return `<div class="loading"><div class="spinner"></div><div class="loading-text">Caricamento...</div></div>`;
     }
@@ -5646,151 +3539,89 @@
         </div>
         
         ${state.liveMode ? renderLiveSection() : `
-        <!-- SELEZIONA CAMPIONATO - SPOSTATO IN ALTO -->
-        <div class="panel" style="margin-bottom: 16px;">
-          <div class="panel-title">📋 Seleziona Campionato (${state.matches.length} partite)</div>
-          ${state.leagues.length === 0 ? `<div class="empty"><div class="empty-icon">📭</div>Nessuna partita</div>` : `
-            <select class="select-field" id="leagueSelect">
-              <option value="">-- Scegli un campionato --</option>
-              ${state.leagues.map(l => `<option value="${l.id}">${esc(l.country)} - ${esc(l.name)} (${l.matchCount})</option>`).join('')}
-            </select>
-          `}
+        <!-- MONEY MANAGEMENT - SISTEMA OBIETTIVO -->
+        <div class="money-section">
+          <div class="money-header">
+            <div class="money-title">🎯 Sistema Obiettivo</div>
+            <div class="money-subtitle">Raggiungi il tuo target in N giocate</div>
+          </div>
+          
+          <!-- INPUTS -->
+          <div class="money-grid-4">
+            <div class="money-input-group">
+              <label class="money-label">💰 Cassa Attuale</label>
+              <input type="number" class="money-input" id="bankrollInput" value="${money.bankroll.toFixed(2)}" min="1" step="10">
+            </div>
+            <div class="money-input-group">
+              <label class="money-label">🏆 Obiettivo</label>
+              <input type="number" class="money-input" id="targetInput" value="${money.target}" min="10" step="50">
+            </div>
+            <div class="money-input-group">
+              <label class="money-label">🎲 N° Giocate</label>
+              <input type="number" class="money-input" id="totalBetsInput" value="${money.totalBets}" min="1" max="50" step="1">
+            </div>
+            <div class="money-input-group">
+              <label class="money-label">📊 Quota</label>
+              <input type="number" class="money-input" id="oddsInput" value="${money.currentOdds}" min="1.01" step="0.05">
+            </div>
+          </div>
+          
+          <!-- PROGRESS BAR -->
+          <div class="progress-section">
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" style="width: ${money.progress}%"></div>
+              <div class="progress-bar-text">€${money.bankroll.toFixed(0)} / €${money.target} (${money.progress.toFixed(1)}%)</div>
+            </div>
+          </div>
+          
+          <!-- CALCOLO PUNTATA -->
+          <div class="stake-section ${money.reached ? 'reached' : ''} ${money.warning ? 'warning' : ''}">
+            <div class="stake-header">
+              <span class="stake-label">Giocata ${money.currentBet} di ${money.totalBets}</span>
+              <span class="stake-remaining">${money.remainingBets} rimaste</span>
+            </div>
+            ${money.reached ? `
+              <div class="stake-reached">🏆 OBIETTIVO RAGGIUNTO!</div>
+            ` : `
+              <div class="stake-value">
+                <div class="stake-amount">€${money.stake.toFixed(2)}</div>
+                <div class="stake-info">@ ${money.currentOdds} → Vincita €${money.potentialWin.toFixed(2)}</div>
+                ${money.warning ? `<div class="stake-warning">${money.warning}</div>` : ''}
+              </div>
+              <div class="stake-preview">
+                Se vinci: <strong>€${money.newBankroll.toFixed(2)}</strong>
+              </div>
+            `}
+            <div class="stake-buttons">
+              <button class="stake-btn win" id="betWin">✅ VINTO</button>
+              <button class="stake-btn loss" id="betLoss">❌ PERSO</button>
+              <button class="stake-btn reset" id="betReset">🔄 Reset</button>
+            </div>
+          </div>
+          
+          <!-- STATS -->
+          <div class="money-stats">
+            <div class="money-stat">
+              <div class="money-stat-label">Cassa</div>
+              <div class="money-stat-value green">€${money.bankroll.toFixed(0)}</div>
+            </div>
+            <div class="money-stat">
+              <div class="money-stat-label">Vinte</div>
+              <div class="money-stat-value cyan">${money.wins}</div>
+            </div>
+            <div class="money-stat">
+              <div class="money-stat-label">Perse</div>
+              <div class="money-stat-value yellow">${money.losses}</div>
+            </div>
+            <div class="money-stat">
+              <div class="money-stat-label">Win Rate</div>
+              <div class="money-stat-value purple">${money.winRate}%</div>
+            </div>
+          </div>
         </div>
         
         <!-- HOME SECTIONS - PICKS DEL GIORNO -->
-        <!-- SMART FILTERS -->
-      <div class="smart-filters-section">
-        <div class="filters-header">
-          <div class="filters-title">
-            <span>🎯</span> Top Picks Combinati (AI + Statistica)
-          </div>
-          <div class="filters-count">${state.smartFilters.results.length} partite</div>
-        </div>
-
-        <div class="filter-buttons">
-          <div class="filter-btn ${state.smartFilters.active === '1' ? 'active' : ''}" onclick="setSmartFilter('1')">1</div>
-          <div class="filter-btn ${state.smartFilters.active === 'X' ? 'active' : ''}" onclick="setSmartFilter('X')">X</div>
-          <div class="filter-btn ${state.smartFilters.active === '2' ? 'active' : ''}" onclick="setSmartFilter('2')">2</div>
-          <div class="filter-btn ${state.smartFilters.active === 'GG' ? 'active' : ''}" onclick="setSmartFilter('GG')">GG</div>
-          <div class="filter-btn ${state.smartFilters.active === 'NG' ? 'active' : ''}" onclick="setSmartFilter('NG')">NG</div>
-          <div class="filter-btn ${state.smartFilters.active === 'Over 2.5' ? 'active' : ''}" onclick="setSmartFilter('Over 2.5')">O 2.5</div>
-          <div class="filter-btn ${state.smartFilters.active === 'Under 2.5' ? 'active' : ''}" onclick="setSmartFilter('Under 2.5')">U 2.5</div>
-          <div class="filter-btn ${state.smartFilters.active === 'Over 1.5' ? 'active' : ''}" onclick="setSmartFilter('Over 1.5')">O 1.5</div>
-        </div>
-
-        <div class="filtered-picks">
-          ${state.smartFilters.results.length === 0 ? `
-            <div class="empty" style="padding: 20px;">
-              <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
-              <div>Seleziona un segno per vedere le partite</div>
-            </div>
-          ` : state.smartFilters.results.map((r, idx) => `
-            <div class="filtered-pick-card" onclick="selectMatch(${r.match.id})">
-              <div class="filtered-pick-rank">${idx + 1}</div>
-              <div class="filtered-pick-left">
-                <div class="filtered-pick-match">${esc(r.match.home.name)} vs ${esc(r.match.away.name)}</div>
-                <div class="filtered-pick-league">${r.time} • ${esc(r.league)}</div>
-              </div>
-              <div class="filtered-pick-right">
-                <div class="filtered-pick-bet">${r.pick}</div>
-                <div class="filtered-pick-prob">${r.prob}%</div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-
-      <!-- TRADER SECTION -->
-      ${state.traderPicks.raddoppio.length > 0 || state.traderPicks.singole.length > 0 ? `
-      <div class="trader-section">
-        <div class="trader-header">
-          <div class="trader-title">
-            <div class="trader-icon">💰</div>
-            <div class="trader-title-text">
-              <h3>Consigli del Trader</h3>
-              <p>Selezioni con alta probabilità per trading sportivo</p>
-            </div>
-          </div>
-          <div class="trader-stats">
-            <div class="trader-stat">
-              <div class="trader-stat-value">${state.traderPicks.raddoppio.length}</div>
-              <div class="trader-stat-label">Raddoppi</div>
-            </div>
-            <div class="trader-stat">
-              <div class="trader-stat-value">${state.traderPicks.singole.length}</div>
-              <div class="trader-stat-label">Singole</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="trader-content">
-          <!-- RADDOPPIO CONSIGLIATO -->
-          ${state.traderPicks.raddoppio.length >= 2 ? `
-          <div class="trader-box">
-            <div class="trader-box-title">🎰 Raddoppio Consigliato (≥82%)</div>
-            <div class="trader-picks">
-              ${state.traderPicks.raddoppio.slice(0, 2).map(p => `
-                <div class="trader-pick" onclick="selectMatch(${p.match.id})">
-                  <div class="trader-pick-info">
-                    <div class="trader-pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                    <div class="trader-pick-league">${p.time} • ${esc(p.league)}</div>
-                  </div>
-                  <div class="trader-pick-bet">
-                    <div class="trader-pick-value">${p.bet.value}</div>
-                    <div class="trader-pick-prob">${p.bet.prob.toFixed(0)}%</div>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-            <div class="trader-combined">
-              <span class="trader-combined-label">Prob. Combinata</span>
-              <span class="trader-combined-value">${(state.traderPicks.raddoppio.slice(0,2).reduce((a, p) => a * (p.bet.prob / 100), 1) * 100).toFixed(1)}%</span>
-            </div>
-            <div class="trader-strategy">
-              <strong>💡 Strategia:</strong> Punta max 2-3% del bankroll. Win rate storico sui raddoppi: <strong>~70%</strong>
-            </div>
-          </div>
-          ` : `
-          <div class="trader-box">
-            <div class="trader-box-title">🎰 Raddoppio Consigliato</div>
-            <div style="padding: 20px; text-align: center; color: var(--text-dark);">
-              Nessun raddoppio disponibile oggi con prob ≥82%
-            </div>
-          </div>
-          `}
-          
-          <!-- SINGOLE TOP -->
-          <div class="trader-box">
-            <div class="trader-box-title">⭐ Singole Top (≥70%)</div>
-            ${state.traderPicks.singole.length > 0 ? `
-            <div class="trader-picks">
-              ${state.traderPicks.singole.slice(0, 4).map(p => `
-                <div class="trader-pick" onclick="selectMatch(${p.match.id})">
-                  <div class="trader-pick-info">
-                    <div class="trader-pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                    <div class="trader-pick-league">${p.time} • ${esc(p.league)}</div>
-                  </div>
-                  <div class="trader-pick-bet">
-                    <div class="trader-pick-value">${p.bet.value}</div>
-                    <div class="trader-pick-prob">${p.bet.prob.toFixed(0)}%</div>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-            <div class="trader-strategy">
-              <strong>💡 Strategia:</strong> Punta max 5% del bankroll per singola. Preferisci: <strong>Under, GG, 1 Casa</strong>
-            </div>
-            ` : `
-            <div style="padding: 20px; text-align: center; color: var(--text-dark);">
-              Nessuna singola disponibile oggi con prob ≥70%
-            </div>
-            `}
-          </div>
-        </div>
-      </div>
-      ` : ''}
-
-            <div class="home-sections">
+        <div class="home-sections">
           
           <!-- RADDOPPI DEL GIORNO (COMBINAZIONI) -->
           ${picks.raddoppi.length > 0 ? `
@@ -5923,6 +3754,17 @@
           </div>
           ` : ''}
         </div>
+        
+        <!-- SELEZIONA CAMPIONATO -->
+        <div class="panel">
+          <div class="panel-title">📋 Seleziona Campionato (${state.matches.length} partite)</div>
+          ${state.leagues.length === 0 ? `<div class="empty"><div class="empty-icon">📭</div>Nessuna partita</div>` : `
+            <select class="select-field" id="leagueSelect">
+              <option value="">-- Scegli un campionato --</option>
+              ${state.leagues.map(l => `<option value="${l.id}">${esc(l.country)} - ${esc(l.name)} (${l.matchCount})</option>`).join('')}
+            </select>
+          `}
+        </div>
       `}
       `;
     }
@@ -5987,7 +3829,11 @@
                       </div>
                       <div class="live-pick-reason">💡 ${alert.reason}</div>
                       <button class="live-track-btn ${state.trackedBets.some(b => b.matchId === alert.match.id && b.isLive) ? 'tracked' : ''}"
-                              onclick="trackLiveBet(${alert.match.id}, '${esc(alert.match.home.name)} vs ${esc(alert.match.away.name)}', '${esc(alert.pick)}', ${alert.prob}, ${alert.quota}, event)"
+                              data-matchid="${alert.match.id}"
+                              data-matchname="${esc(alert.match.home.name)} vs ${esc(alert.match.away.name)}"
+                              data-pick="${esc(alert.pick)}"
+                              data-prob="${alert.prob}"
+                              data-odds="${alert.quota}"
                               ${state.trackedBets.some(b => b.matchId === alert.match.id && b.isLive) ? 'disabled' : ''}>
                         ${state.trackedBets.some(b => b.matchId === alert.match.id && b.isLive) ? '✅ Tracciato' : '🎯 GIOCATO'}
                       </button>
@@ -6042,8 +3888,7 @@
       
       // Genera consiglio AI
       const ai = generateAIAdvice(m, d);
-      const stat = generateStatisticalAdvice(m, d);
-
+      
       return `
         <div class="back-btn" id="backToMatches">← Partite</div>
         
@@ -6066,11 +3911,8 @@
           </div>
         </div>
         
-        <!-- DUAL ADVICE: AI + STATISTICAL -->
-        <div class="dual-advice-container">
-
-          <!-- AI CONSIGLIO -->
-          <div class="ai-advice">
+        <!-- AI CONSIGLIO -->
+        <div class="ai-advice">
           <div class="ai-header">
             <div class="ai-icon">🤖</div>
             <div class="ai-title-group">
@@ -6091,7 +3933,7 @@
             <div class="ai-reasoning-list">
               ${ai.reasons.map(r => `
                 <div class="ai-reason ${r.type}">
-                  <span class="ai-reason-icon">${r.type === 'positive' ? '✅' : r.type === 'negative' ? '⚠️' : '📊'}</span>
+                  <span class="ai-reason-icon">${r.type === 'positive' ? '✅' : r.type === 'negative' ? '❌' : r.type === 'warning' ? '⚠️' : '📊'}</span>
                   <span>${r.text}</span>
                 </div>
               `).join('')}
@@ -6110,79 +3952,53 @@
           ` : ''}
           
           <button class="track-btn ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'tracked' : ''}" 
-                  onclick="trackPrematchBet(${m.id}, '${esc(m.home.name)} vs ${esc(m.away.name)}', '${esc(ai.pick)}', ${ai.prob.toFixed(0)}, event)"
+                  data-matchid="${m.id}"
+                  data-matchname="${esc(m.home.name)} vs ${esc(m.away.name)}"
+                  data-pick="${esc(ai.pick)}"
+                  data-prob="${ai.prob.toFixed(0)}"
                   ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'disabled' : ''}>
             ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? '✅ Pronostico Tracciato' : '🎯 GIOCATO - Traccia questo pronostico'}
           </button>
         </div>
-
-        <!-- PRONOSTICO STATISTICO -->
-        <div class="statistical-advice">
-          <div class="ai-header">
-            <div class="ai-icon">📊</div>
-            <div class="ai-title-group">
-              <div class="ai-title" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Pronostico Statistico</div>
-              <div class="ai-subtitle">Basato solo sulla probabilità più alta</div>
+        
+        <div class="comparison-panel">
+          <div class="comparison-title">🔮 Confronto Pronostici</div>
+          <div class="comparison-grid">
+            <div class="comparison-box ai">
+              <div class="comparison-box-header">🤖 ALGORITMO AI</div>
+              <div class="comparison-box-pick">${ai.pick.split(' (')[0]}</div>
+              <div class="comparison-box-prob">${ai.prob.toFixed(0)}%</div>
+              <div class="comparison-box-basis">Basato su: xG, Dixon-Coles, Form, H2H</div>
             </div>
-            <div class="ai-confidence ${stat.confidence}">${stat.confidence === 'high' ? '🎯 Alta' : stat.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
-          </div>
-
-          <div class="ai-pick">
-            <div class="ai-pick-label">Pronostico con Prob. Massima</div>
-            <div class="ai-pick-value">${stat.pick}</div>
-            <div class="ai-pick-prob">${stat.prob.toFixed(0)}% probabilità</div>
-          </div>
-
-          <div class="ai-reasoning">
-            <div class="ai-reasoning-title">📈 Dettagli Statistici</div>
-            <div class="ai-reasoning-list">
-              <div class="ai-reason positive">
-                <span class="ai-reason-icon">✅</span>
-                <span>Mercato: ${stat.market}</span>
-              </div>
-              <div class="ai-reason positive">
-                <span class="ai-reason-icon">📊</span>
-                <span>Probabilità più alta tra tutti i pronostici</span>
-              </div>
-              <div class="ai-reason neutral">
-                <span class="ai-reason-icon">🔢</span>
-                <span>Basato su calcoli Poisson e xG</span>
-              </div>
+            <div class="comparison-vs">VS</div>
+            <div class="comparison-box stats">
+              <div class="comparison-box-header">📊 STATISTICHE PURE</div>
+              ${(() => {
+                // Calcola pronostico statistiche pure (basato solo su medie, non xG)
+                const statsPicks = [
+                  { pick: 'Over 2.5', prob: d.pOU[2.5].over },
+                  { pick: 'Under 2.5', prob: d.pOU[2.5].under },
+                  { pick: 'GG', prob: d.pBTTS },
+                  { pick: 'NG', prob: 100 - d.pBTTS },
+                  { pick: 'Over 1.5', prob: d.pOU[1.5].over }
+                ];
+                const bestStats = statsPicks.sort((a, b) => b.prob - a.prob)[0];
+                return `
+                  <div class="comparison-box-pick">${bestStats.pick}</div>
+                  <div class="comparison-box-prob">${bestStats.prob.toFixed(0)}%</div>
+                  <div class="comparison-box-basis">Basato su: Medie gol, % storiche</div>
+                `;
+              })()}
             </div>
           </div>
-
-          ${stat.alternatives.length > 0 ? `
-            <div class="ai-alternatives">
-              <div class="ai-alt-title">Top 3 alternative:</div>
-              <div class="ai-alt-grid">
-                ${stat.alternatives.map(a => `
-                  <div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-        </div>
-
-      </div>
-      
-      <!-- TRADER VERDICT -->
-      ${renderTraderVerdict(ai, stat, d)}
-      
-      <!-- STORICO VARIAZIONI -->
-      ${renderHistorySection(m.id)}
-      
-        <div class="combo-panel">
-          <div class="combo-title">🔥 Combo Suggerite</div>
-          <div class="combo-grid">
-            ${d.combos.map(c => `
-              <div class="combo-card ${isInSlip(m.id, 'combo_'+c.value) ? 'selected' : ''}" data-market="combo_${c.value}" data-value="${c.value}" data-prob="${c.prob.toFixed(0)}">
-                <div class="combo-value">${c.value}</div>
-                <div class="combo-stats">
-                  <span class="combo-prob">${c.prob.toFixed(0)}%</span>
-                  <span class="combo-odds">@${c.odds}</span>
-                </div>
-              </div>
-            `).join('')}
+          <div class="comparison-verdict">
+            ${ai.pick.includes('Over') || ai.pick.includes('GG') ? 
+              (d.pOU[2.5].over >= 55 || d.pBTTS >= 55 ? 
+                '✅ <strong>AI e Statistiche concordano:</strong> partita da gol!' : 
+                '⚠️ <strong>Attenzione:</strong> AI e Statistiche in disaccordo') :
+              (ai.prob >= 70 ? 
+                '✅ <strong>Pronostico solido:</strong> AI sicura al ' + ai.prob.toFixed(0) + '%' : 
+                '📊 <strong>Valuta entrambi:</strong> confronta prima di scommettere')}
           </div>
         </div>
         
@@ -6240,184 +4056,33 @@
             </div>
           </div>
           
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🚩</div><span>Corner & Cartellini</span></div>
-            <div class="stat-grid">
-              <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.corners.home.toFixed(1)}</div><div class="stat-box-sub">corner</div></div>
-              <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.corners.total.toFixed(1)}</div><div class="stat-box-sub">corner</div></div>
-              <div class="stat-box"><div class="stat-box-label">Ospite</div><div class="stat-box-value">${d.corners.away.toFixed(1)}</div><div class="stat-box-sub">corner</div></div>
-            </div>
-            <div class="stat-grid" style="margin-top:10px">
-              <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.cards.home.toFixed(1)}</div><div class="stat-box-sub">cart.</div></div>
-              <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.cards.total.toFixed(1)}</div><div class="stat-box-sub">cart.</div></div>
-              <div class="stat-box"><div class="stat-box-label">Ospite</div><div class="stat-box-value">${d.cards.away.toFixed(1)}</div><div class="stat-box-sub">cart.</div></div>
-            </div>
-          </div>
-          
-          <!-- SEZIONE SCOMMESSE SPECIALI -->
           <div class="analysis-card wide">
-            <div class="card-title"><div class="card-title-icon">🎰</div><span>Multigoal Range</span></div>
-            <div class="multigoal-grid">
-              ${d.multigoal ? d.multigoal.slice(0, 6).map((mg, i) => `
-                <div class="multigoal-box ${i === 0 ? 'best' : ''}">
-                  <div class="multigoal-range">${mg.range}</div>
-                  <div class="multigoal-prob">${mg.prob.toFixed(0)}%</div>
-                  <div class="multigoal-quota">@${mg.quota}</div>
+            <div class="card-title"><div class="card-title-icon">📐</div><span>Corner & Cartellini - Pronostici</span></div>
+            <div class="corner-cards-grid">
+              <div class="corner-section">
+                <div class="corner-header">🚩 CORNER</div>
+                <div class="corner-pick">
+                  <span class="corner-pick-value">Over ${d.corners.total >= 10 ? '10.5' : d.corners.total >= 9 ? '9.5' : '8.5'}</span>
+                  <span class="corner-pick-prob ${d.corners.probs[d.corners.total >= 10 ? 10.5 : d.corners.total >= 9 ? 9.5 : 8.5]?.over >= 60 ? 'high' : 'medium'}">${(d.corners.probs[d.corners.total >= 10 ? 10.5 : d.corners.total >= 9 ? 9.5 : 8.5]?.over || 50).toFixed(0)}%</span>
                 </div>
-              `).join('') : '<div>N/A</div>'}
-            </div>
-          </div>
-          
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">⏱️</div><span>Gol per Tempo</span></div>
-            ${d.temporalDistribution ? `
-              <div class="prob-row">
-                <span class="prob-label">Over 0.5 1°T</span>
-                <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${d.temporalDistribution.primoTempo.over05}%"></div></div>
-                <span class="prob-value">${d.temporalDistribution.primoTempo.over05.toFixed(0)}%</span>
-              </div>
-              <div class="prob-row">
-                <span class="prob-label">Over 0.5 2°T</span>
-                <div class="prob-bar-track"><div class="prob-bar-fill green" style="width:${d.temporalDistribution.secondoTempo.over05}%"></div></div>
-                <span class="prob-value">${d.temporalDistribution.secondoTempo.over05.toFixed(0)}%</span>
-              </div>
-              <div class="prob-row">
-                <span class="prob-label">Over 1.5 1°T</span>
-                <div class="prob-bar-track"><div class="prob-bar-fill yellow" style="width:${d.temporalDistribution.primoTempo.over15}%"></div></div>
-                <span class="prob-value">${d.temporalDistribution.primoTempo.over15.toFixed(0)}%</span>
-              </div>
-              <div class="tempo-highlight">
-                <span>⚡ Tempo con più gol:</span>
-                <strong>${d.temporalDistribution.tempoConPiuGol}</strong>
-                <span class="tempo-prob">(${d.temporalDistribution.probTempoConPiuGol.toFixed(0)}%)</span>
-              </div>
-            ` : '<div>N/A</div>'}
-          </div>
-          
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🏠</div><span>MG ${m.home.name.split(' ')[0]}</span></div>
-            ${d.multigoalHome ? d.multigoalHome.map(mg => `
-              <div class="prob-row">
-                <span class="prob-label">${mg.range} gol</span>
-                <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${mg.prob}%"></div></div>
-                <span class="prob-value">${mg.prob.toFixed(0)}%</span>
-              </div>
-            `).join('') : '<div>N/A</div>'}
-          </div>
-          
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">✈️</div><span>MG ${m.away.name.split(' ')[0]}</span></div>
-            ${d.multigoalAway ? d.multigoalAway.map(mg => `
-              <div class="prob-row">
-                <span class="prob-label">${mg.range} gol</span>
-                <div class="prob-bar-track"><div class="prob-bar-fill purple" style="width:${mg.prob}%"></div></div>
-                <span class="prob-value">${mg.prob.toFixed(0)}%</span>
-              </div>
-            `).join('') : '<div>N/A</div>'}
-          </div>
-          
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">📈</div><span>Forma + MG Consigliato</span></div>
-            <div class="form-display">
-              <div class="form-team">
-                <span class="form-team-name">${m.home.name.split(' ')[0]}</span>
-                <span class="form-string">${d.homeForm ? d.homeForm.split('').map(c => 
-                  c === 'W' ? '<span class="form-w">V</span>' : 
-                  c === 'D' ? '<span class="form-d">P</span>' : 
-                  '<span class="form-l">S</span>'
-                ).join('') : 'N/A'}</span>
-              </div>
-              <div class="form-team">
-                <span class="form-team-name">${m.away.name.split(' ')[0]}</span>
-                <span class="form-string">${d.awayForm ? d.awayForm.split('').map(c => 
-                  c === 'W' ? '<span class="form-w">V</span>' : 
-                  c === 'D' ? '<span class="form-d">P</span>' : 
-                  '<span class="form-l">S</span>'
-                ).join('') : 'N/A'}</span>
-              </div>
-            </div>
-            <!-- MG PIÙ PROBABILE -->
-            <div style="display: flex; gap: 10px; margin-top: 12px;">
-              <div class="mg-best-box" style="flex:1">
-                <div class="mg-best-label">🏠 MG ${m.home.name.split(' ')[0]}</div>
-                <div class="mg-best-value">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
-                <div class="mg-best-prob">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
-              </div>
-              <div class="mg-best-box" style="flex:1">
-                <div class="mg-best-label">✈️ MG ${m.away.name.split(' ')[0]}</div>
-                <div class="mg-best-value">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
-                <div class="mg-best-prob">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- CLASSIFICA E MOTIVAZIONE -->
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🏆</div><span>Classifica</span></div>
-            ${d.homePosition ? `
-              <div class="standings-card">
-                <div class="standings-header">
-                  <div>
-                    <span style="font-weight:600; font-size:0.85rem;">${m.home.name.split(' ')[0]}</span>
-                    <span class="standings-position">${d.homePosition.position}°<sup>/${d.homePosition.totalTeams}</sup></span>
-                  </div>
-                  <span class="motivation-badge ${d.homePosition.motivationColor}">${d.homePosition.motivationText}</span>
-                </div>
-                <div class="standings-stats">
-                  <span class="standings-stat">📊 ${d.homePosition.points} pt</span>
-                  <span class="standings-stat">✅ ${d.homePosition.won}V</span>
-                  <span class="standings-stat">➖ ${d.homePosition.draw}P</span>
-                  <span class="standings-stat">❌ ${d.homePosition.lost}S</span>
+                <div class="corner-stats">
+                  <div class="corner-stat"><span>Casa:</span><strong>${d.corners.home.toFixed(1)}</strong></div>
+                  <div class="corner-stat"><span>Ospite:</span><strong>${d.corners.away.toFixed(1)}</strong></div>
+                  <div class="corner-stat total"><span>Media Tot:</span><strong>${d.corners.total.toFixed(1)}</strong></div>
                 </div>
               </div>
-            ` : '<div class="standings-card"><span style="color:var(--text-dark)">Classifica non disponibile</span></div>'}
-            ${d.awayPosition ? `
-              <div class="standings-card">
-                <div class="standings-header">
-                  <div>
-                    <span style="font-weight:600; font-size:0.85rem;">${m.away.name.split(' ')[0]}</span>
-                    <span class="standings-position">${d.awayPosition.position}°<sup>/${d.awayPosition.totalTeams}</sup></span>
-                  </div>
-                  <span class="motivation-badge ${d.awayPosition.motivationColor}">${d.awayPosition.motivationText}</span>
+              <div class="cards-section">
+                <div class="cards-header">🟨 CARTELLINI</div>
+                <div class="cards-pick">
+                  <span class="cards-pick-value">Over ${d.cards.total >= 4.5 ? '4.5' : d.cards.total >= 4 ? '3.5' : '2.5'}</span>
+                  <span class="cards-pick-prob ${d.cards.probs[d.cards.total >= 4.5 ? 4.5 : d.cards.total >= 4 ? 3.5 : 2.5]?.over >= 60 ? 'high' : 'medium'}">${(d.cards.probs[d.cards.total >= 4.5 ? 4.5 : d.cards.total >= 4 ? 3.5 : 2.5]?.over || 50).toFixed(0)}%</span>
                 </div>
-                <div class="standings-stats">
-                  <span class="standings-stat">📊 ${d.awayPosition.points} pt</span>
-                  <span class="standings-stat">✅ ${d.awayPosition.won}V</span>
-                  <span class="standings-stat">➖ ${d.awayPosition.draw}P</span>
-                  <span class="standings-stat">❌ ${d.awayPosition.lost}S</span>
+                <div class="cards-stats">
+                  <div class="cards-stat"><span>Casa:</span><strong>${d.cards.home.toFixed(1)}</strong></div>
+                  <div class="cards-stat"><span>Ospite:</span><strong>${d.cards.away.toFixed(1)}</strong></div>
+                  <div class="cards-stat total"><span>Media Tot:</span><strong>${d.cards.total.toFixed(1)}</strong></div>
                 </div>
               </div>
-            ` : ''}
-          </div>
-          
-          <!-- INFORTUNATI -->
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🏥</div><span>Assenze</span></div>
-            <div class="injuries-card" style="margin-bottom: 8px;">
-              <div class="injuries-header">
-                <span>🏠 ${m.home.name.split(' ')[0]}</span>
-              </div>
-              ${d.homeInjuries && d.homeInjuries.length > 0 ? `
-                <div class="injuries-list">
-                  ${d.homeInjuries.slice(0, 5).map(inj => `
-                    <span class="injury-chip">❌ ${inj.player}</span>
-                  `).join('')}
-                  ${d.homeInjuries.length > 5 ? `<span class="injury-chip">+${d.homeInjuries.length - 5} altri</span>` : ''}
-                </div>
-              ` : '<span class="no-injuries">✅ Rosa completa</span>'}
-            </div>
-            <div class="injuries-card">
-              <div class="injuries-header">
-                <span>✈️ ${m.away.name.split(' ')[0]}</span>
-              </div>
-              ${d.awayInjuries && d.awayInjuries.length > 0 ? `
-                <div class="injuries-list">
-                  ${d.awayInjuries.slice(0, 5).map(inj => `
-                    <span class="injury-chip">❌ ${inj.player}</span>
-                  `).join('')}
-                  ${d.awayInjuries.length > 5 ? `<span class="injury-chip">+${d.awayInjuries.length - 5} altri</span>` : ''}
-                </div>
-              ` : '<span class="no-injuries">✅ Rosa completa</span>'}
             </div>
           </div>
           
@@ -6500,6 +4165,74 @@
     }
 
     function attachEvents() {
+      // Stats Modal
+      document.getElementById('openStats')?.addEventListener('click', () => {
+        state.statsModal = true;
+        render();
+      });
+      document.getElementById('closeStats')?.addEventListener('click', () => {
+        state.statsModal = false;
+        render();
+      });
+      document.getElementById('statsModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'statsModal') {
+          state.statsModal = false;
+          render();
+        }
+      });
+      document.getElementById('checkResults')?.addEventListener('click', async () => {
+        await checkPendingResults();
+        render();
+      });
+      document.getElementById('resetStats')?.addEventListener('click', () => {
+        if (confirm('Sei sicuro di voler cancellare tutte le statistiche?')) {
+          state.trackedBets = [];
+          saveTrackedBets();
+          saveTrackingToFirebase();
+          render();
+        }
+      });
+      
+      // Track buttons - PRE-MATCH
+      document.querySelectorAll('.track-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const matchId = parseInt(btn.dataset.matchid);
+          const matchName = btn.dataset.matchname;
+          const pick = btn.dataset.pick;
+          const prob = btn.dataset.prob;
+          const odds = btn.dataset.odds || 0;
+          
+          if (!state.trackedBets.some(b => b.matchId === matchId && b.type === 'prematch')) {
+            trackBet('prematch', matchId, matchName, pick, prob, odds, false);
+            btn.classList.add('tracked');
+            btn.textContent = '✅ Pronostico Tracciato';
+            btn.disabled = true;
+            alert('✅ Pronostico tracciato! Controlla le statistiche nel badge 📊');
+          }
+        });
+      });
+      
+      // Track buttons - LIVE
+      document.querySelectorAll('.live-track-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const matchId = parseInt(btn.dataset.matchid);
+          const matchName = btn.dataset.matchname;
+          const pick = btn.dataset.pick;
+          const prob = btn.dataset.prob;
+          const odds = btn.dataset.odds || 0;
+          
+          if (!state.trackedBets.some(b => b.matchId === matchId && b.isLive)) {
+            trackBet('live', matchId, matchName, pick, prob, odds, true);
+            btn.classList.add('tracked');
+            btn.textContent = '✅ Tracciato';
+            btn.disabled = true;
+            alert('✅ Pronostico LIVE tracciato! Controlla le statistiche nel badge 📊');
+          }
+        });
+      });
+      
       // LIVE Tab
       document.getElementById('liveTab')?.addEventListener('click', toggleLiveMode);
       document.getElementById('refreshLive')?.addEventListener('click', loadLiveMatches);
@@ -6631,15 +4364,8 @@
     // === INIT ===
     async function init() {
       console.log('🚀 BettingPro v5 starting...');
-      
-      // Check API status FIRST
-      await checkAPIStatus();
-      
       await loadSlipFromFirebase();
-      
-      // Carica pronostici tracciati da Firebase
       await loadTrackingFromFirebase();
-      
       render();
       await loadMatches(0);
       
@@ -6647,15 +4373,8 @@
       startLiveBackgroundMonitoring();
       console.log('📡 LIVE background monitoring started');
       
-      // Controlla risultati dei pronostici pendenti
-      await checkPendingResults();
-      console.log('📊 Pending results checked');
-      
-      // Controlla risultati ogni 10 minuti
-      setInterval(() => {
-        checkPendingResults();
-        console.log('🔄 Auto-check pending results');
-      }, 10 * 60 * 1000);
+      // Verifica risultati pending ogni 5 minuti
+      setInterval(checkPendingResults, 5 * 60 * 1000);
     }
 
     init();
