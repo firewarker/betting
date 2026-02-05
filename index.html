@@ -2513,7 +2513,7 @@
     }
 
     function calcMultigol(lH, lA, min, max) {
-      let prob = = 0;
+      let prob == 0;
       for (let i = 0; i <= 6; i++) {
         for (let j = 0; j <= 6; j++) {
           const t = i + j;
@@ -3774,7 +3774,7 @@
       document.getElementById('clearSlip')?.addEventListener('click', clearSlip);
       
       document.getElementById('copySlip')?.addEventListener('click', () => {
-        const text = state.slip.map(s => `${s.matchName}: ${s.market} ${s.value} (${s.prob}%)`).join('\n');
+        const text = state.slip.map(s => `${s.matchName}: ${s.market} ${s.value} (${s.prob}%)`).join('\\n');
         navigator.clipboard.writeText(text);
         alert('Schedina copiata!');
       });
