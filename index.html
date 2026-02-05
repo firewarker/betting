@@ -267,7 +267,6 @@
     .score-box-prob { font-size: 0.6rem; color: var(--text-dark); margin-top: 2px; }
     .score-box.highlight .score-box-prob { color: rgba(255,255,255,0.8); }
     
-    /* MG BOX SOTTO RISULTATI ESATTI */
     .mg-compact-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -287,7 +286,6 @@
     .mg-compact-range { font-size: 0.95rem; font-weight: 700; color: var(--accent-cyan); }
     .mg-compact-prob { font-size: 0.75rem; color: var(--accent-green); margin-top: 2px; }
     
-    /* COMBO SUGGERITE */
     .combo-panel {
       background: linear-gradient(135deg, var(--bg-card), var(--bg-card-light));
       border: 2px solid var(--accent-purple);
@@ -313,7 +311,6 @@
     .combo-prob { color: var(--accent-cyan); }
     .combo-odds { color: var(--accent-green); }
     
-    /* MULTIGOAL GRID */
     .multigoal-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -348,7 +345,6 @@
       margin-top: 2px;
     }
     
-    /* TEMPO GOL */
     .tempo-highlight {
       background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.1));
       border: 1px solid var(--accent-purple);
@@ -367,7 +363,6 @@
       font-weight: 600;
     }
     
-    /* FORM DISPLAY */
     .form-display {
       display: flex;
       flex-direction: column;
@@ -403,7 +398,6 @@
     .form-d { background: var(--accent-yellow); color: #1a1a2e; }
     .form-l { background: var(--accent-red); color: white; }
     
-    /* CLASSIFICA E MOTIVAZIONE */
     .standings-card {
       background: var(--bg-input);
       border: 1px solid var(--border);
@@ -450,7 +444,6 @@
       gap: 4px;
     }
     
-    /* INFORTUNATI */
     .injuries-card {
       background: rgba(239,68,68,0.05);
       border: 1px solid rgba(239,68,68,0.3);
@@ -483,7 +476,6 @@
       font-size: 0.8rem;
     }
     
-    /* PANNELLO IMPOSTAZIONI */
     .settings-panel {
       position: fixed;
       top: 0;
@@ -581,7 +573,6 @@
     }
     .settings-toggle.active::after { transform: translateX(20px); }
     
-    /* STORICO WIN RATE */
     .history-chart {
       background: var(--bg-input);
       border: 1px solid var(--border);
@@ -612,7 +603,6 @@
       color: var(--text-dark);
     }
     
-    /* WIN RATE PER SEGNO */
     .winrate-grid {
       display: flex;
       flex-direction: column;
@@ -684,7 +674,6 @@
       font-weight: 700;
     }
     
-    /* SETTINGS BUTTON */
     .settings-btn {
       background: var(--bg-input);
       border: 1px solid var(--border);
@@ -703,7 +692,6 @@
       background: rgba(6,182,212,0.1);
     }
     
-    /* PRONOSTICI AI */
     .predictions-panel {
       background: linear-gradient(135deg, var(--bg-card), var(--bg-card-light));
       border: 1px solid var(--border);
@@ -761,7 +749,6 @@
     .prediction-prob.mid { background: rgba(251,191,36,0.2); color: var(--accent-yellow); }
     .prediction-prob.low { background: rgba(239,68,68,0.2); color: var(--accent-red); }
     
-    /* HOME SECTIONS - Picks del giorno */
     .home-sections { display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px; }
     .picks-section {
       background: var(--bg-card);
@@ -783,7 +770,6 @@
     .picks-section.pareggi::before { background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue)); }
     .picks-section.over1t::before { background: linear-gradient(90deg, var(--accent-red), var(--accent-yellow)); }
     
-    /* ADVICE TABS */
     .advice-section {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -875,7 +861,6 @@
       color: var(--accent-green);
     }
     
-    /* RADDOPPI COMBINATI */
     .raddoppi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
     .raddoppio-card {
       background: linear-gradient(145deg, var(--bg-card-light), var(--bg-input));
@@ -927,7 +912,6 @@
       font-weight: 600;
     }
 
-    /* AI CONSIGLIO */
     .ai-advice {
       background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(34,211,238,0.15));
       border: 2px solid var(--accent-purple);
@@ -1043,7 +1027,6 @@
     }
     .ai-alt-chip:hover { border-color: var(--accent-cyan); color: var(--text-white); }
 
-    /* DUAL ADVICE LAYOUT */
     .dual-advice-container {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -1054,7 +1037,6 @@
       .dual-advice-container { grid-template-columns: 1fr; }
     }
 
-    /* STATISTICAL ADVICE */
     .statistical-advice {
       background: linear-gradient(135deg, rgba(34,211,238,0.15), rgba(16,185,129,0.15));
       border: 2px solid var(--accent-cyan);
@@ -1071,7 +1053,6 @@
       background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green), var(--accent-yellow));
     }
 
-    /* STORICO VARIAZIONI PRONOSTICI */
     .history-section {
       background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.08));
       border: 1px solid rgba(139, 92, 246, 0.25);
@@ -1169,30 +1150,7 @@
       color: var(--text-dark);
       font-size: 0.85rem;
     }
-    .history-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border);
-    }
-    .history-stat {
-      text-align: center;
-    }
-    .history-stat-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--accent-purple);
-    }
-    .history-stat-label {
-      font-size: 0.6rem;
-      color: var(--text-dark);
-      text-transform: uppercase;
-    }
 
-    /* TRACKER BUTTONS */
     .track-btn {
       background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
       color: white;
@@ -1216,6 +1174,107 @@
     .loading-text { color: var(--text-gray); font-size: 0.9rem; }
     .empty { text-align: center; padding: 40px; color: var(--text-dark); }
     .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    .slip-floating {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(12,18,34,0.98);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+      padding: 12px 20px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    .slip-count {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px;
+      background: var(--accent-cyan);
+      border-radius: 20px;
+      font-weight: 700;
+      color: var(--bg-dark);
+    }
+    .slip-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.85rem; font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .slip-btn.primary { background: var(--accent-green); color: white; }
+    .slip-btn.secondary { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-white); }
+    .slip-btn.danger { background: transparent; border: 1px solid var(--accent-red); color: var(--accent-red); }
+    
+    .slip-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .slip-modal-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .slip-modal-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .slip-modal-title { font-size: 1.2rem; font-weight: 700; }
+    .slip-modal-close {
+      width: 32px; height: 32px;
+      background: var(--bg-input);
+      border: none;
+      border-radius: 8px;
+      color: var(--text-gray);
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+    .slip-modal-body { padding: 20px; }
+    .slip-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: var(--bg-card-light);
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    .slip-item-info { flex: 1; }
+    .slip-item-match { font-size: 0.75rem; color: var(--text-dark); margin-bottom: 4px; }
+    .slip-item-bet { font-weight: 700; }
+    .slip-item-prob { font-size: 0.8rem; color: var(--accent-cyan); }
+    .slip-item-remove {
+      width: 28px; height: 28px;
+      background: transparent;
+      border: 1px solid var(--accent-red);
+      border-radius: 6px;
+      color: var(--accent-red);
+      cursor: pointer;
+    }
+    .slip-total {
+      padding: 16px;
+      background: var(--bg-input);
+      border-radius: 12px;
+      text-align: center;
+      margin-top: 16px;
+    }
+    .slip-total-label { font-size: 0.8rem; color: var(--text-dark); margin-bottom: 4px; }
+    .slip-total-value { font-size: 1.5rem; font-weight: 800; color: var(--accent-green); }
     
     @media (max-width: 768px) {
       .main { padding: 16px; }
@@ -1237,10 +1296,6 @@
 <body>
   <div id="app"></div>
   <script>
-    // ===================================================
-    // BETTINGPRO v6 - SENZA LIVE, CON CONSIGLI DEL GIORNO
-    // ===================================================
-    
     const CONFIG = {
       API_FOOTBALL: {
         key: 'aeb2864a3d4dbb8395fa53c83a876a93',
@@ -1255,7 +1310,6 @@
       }
     };
 
-    // Generate unique user ID
     const getUserId = () => {
       let id = localStorage.getItem('bettingpro_uid');
       if (!id) {
@@ -1282,12 +1336,9 @@
       fsData: new Map(),
       slip: [],
       slipModal: false,
-      // Picks del giorno
       dailyPicks: { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [] },
-      // Consigli del giorno (new)
       dayAdvices: { gg: [], one: [], two: [], x: [] },
-      adviceTab: 'gg', // tab attivo
-      // Money Management
+      adviceTab: 'gg',
       money: {
         bankroll: parseFloat(localStorage.getItem('bp2_bankroll')) || 100,
         target: parseFloat(localStorage.getItem('bp2_target')) || 500,
@@ -1296,12 +1347,9 @@
         currentOdds: parseFloat(localStorage.getItem('bp2_odds')) || 1.80,
         history: JSON.parse(localStorage.getItem('bp2_history') || '[]')
       },
-      // Tracking Pronostici
       trackedBets: JSON.parse(localStorage.getItem('bp2_tracked') || '[]'),
-      // Cache Classifica e Infortunati
       standingsCache: new Map(),
       injuriesCache: new Map(),
-      // Impostazioni
       settings: JSON.parse(localStorage.getItem('bp2_settings') || JSON.stringify({
         thresholds: {
           '1': 50,
@@ -1316,18 +1364,15 @@
         autoRefresh: true
       })),
       settingsOpen: false,
-      statsView: false,
-      // Storico variazioni
       predictionHistory: JSON.parse(localStorage.getItem('bp2_prediction_history') || '{}')
     };
 
-    // === UTILITIES ===
     const esc = t => String(t || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
     const clamp = (min, v, max) => Math.max(min, Math.min(max, v));
     const formatTime = d => d ? new Date(d).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '--:--';
     const formatDate = d => d ? new Date(d).toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'}) : '--/--';
     const formatDateFull = d => d ? new Date(d).toLocaleDateString('it-IT', {weekday:'short', day:'2-digit', month:'short'}) : '';
-        const getInitials = n => n ? n.split(' ').map(w => w[0]).join('').slice(0,3).toUpperCase() : '??';
+    const getInitials = n => n ? n.split(' ').map(w => w[0]).join('').slice(0,3).toUpperCase() : '??';
     
     function getDateString(offset = 0) {
       const d = new Date();
@@ -1343,17 +1388,14 @@
       return '';
     }
 
-    // Poisson
     const factorial = n => { let r = 1; for (let i = 2; i <= n; i++) r *= i; return r; };
     const poisson = (l, k) => l <= 0 ? (k === 0 ? 1 : 0) : (Math.pow(l, k) * Math.exp(-l)) / factorial(k);
 
-    // === STORICO VARIAZIONI PRONOSTICI ===
-    
+    // PREDICTION HISTORY
     function savePredictionToHistory(matchId, matchName, prediction) {
       const key = String(matchId);
       const now = new Date();
       const timestamp = now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-      const fullTimestamp = now.getTime();
       
       if (!state.predictionHistory[key]) {
         state.predictionHistory[key] = {
@@ -1384,7 +1426,7 @@
       
       history.push({
         time: timestamp,
-        fullTime: fullTimestamp,
+        fullTime: now.getTime(),
         pick: prediction.pick,
         prob: prediction.prob,
         changeType: changeType
@@ -1416,22 +1458,16 @@
     function getPredictionHistory(matchId) {
       return state.predictionHistory[String(matchId)]?.predictions || [];
     }
-    
+
     function renderHistorySection(matchId) {
       const history = getPredictionHistory(matchId);
       
       if (!history || history.length === 0) {
-        return '<div class="history-section">' +
-          '<div class="history-header">' +
-            '<div class="history-icon">📜</div>' +
-            '<div class="history-title"><h3>Storico Variazioni</h3><p>Traccia le variazioni dei pronostici</p></div>' +
-          '</div>' +
-          '<div class="history-empty">📊 <strong>Prima analisi registrata!</strong></div>' +
-        '</div>';
+        return '<div class="history-section"><div class="history-header"><div class="history-icon">📜</div><div class="history-title"><h3>Storico Variazioni</h3><p>Traccia le variazioni dei pronostici</p></div></div><div class="history-empty">📊 <strong>Prima analisi registrata!</strong></div></div>';
       }
       
       let historyHtml = '';
-      history.forEach(function(item, index) {
+      history.forEach((item, index) => {
         const isLast = index === history.length - 1;
         const itemClass = isLast ? 'current' : (item.changeType === 'major' || item.changeType === 'significant' ? 'significant' : '');
         
@@ -1441,26 +1477,12 @@
         else if (item.changeType === 'significant') { changeLabel = '⚠️ ±10%+'; changeClass = 'significant'; }
         else if (item.changeType === 'major') { changeLabel = '🔄 CAMBIO!'; changeClass = 'major'; }
         
-        historyHtml += '<div class="history-item ' + itemClass + '">' +
-          '<span class="history-time">🕐 ' + item.time + '</span>' +
-          '<div class="history-pick">' +
-            '<span class="history-pick-value">' + item.pick + '</span>' +
-            '<span class="history-pick-prob">' + item.prob.toFixed(0) + '%</span>' +
-          '</div>' +
-          '<span class="history-change ' + changeClass + '">' + changeLabel + '</span>' +
-        '</div>';
+        historyHtml += '<div class="history-item ' + itemClass + '"><span class="history-time">🕐 ' + item.time + '</span><div class="history-pick"><span class="history-pick-value">' + item.pick + '</span><span class="history-pick-prob">' + item.prob.toFixed(0) + '%</span></div><span class="history-change ' + changeClass + '">' + changeLabel + '</span></div>';
       });
       
-      return '<div class="history-section">' +
-        '<div class="history-header">' +
-          '<div class="history-icon">📜</div>' +
-          '<div class="history-title"><h3>Storico Variazioni</h3></div>' +
-        '</div>' +
-        '<div class="history-timeline">' + historyHtml + '</div>' +
-      '</div>';
+      return '<div class="history-section"><div class="history-header"><div class="history-icon">📜</div><div class="history-title"><h3>Storico Variazioni</h3></div></div><div class="history-timeline">' + historyHtml + '</div></div>';
     }
 
-    // === API STATUS CHECK ===
     async function checkAPIStatus() {
       console.log('🔍 Controllo stato API...');
       
@@ -1483,7 +1505,7 @@
       } catch (e) {
         state.api.football = 'offline';
         localStorage.setItem('api_football_status', 'offline');
-        console.warn('❌ API-Football: OFFLINE', e.message);
+        console.warn('❌ API-Football: OFFLINE');
       }
       
       try {
@@ -1496,9 +1518,7 @@
             console.log('✅ FootyStats: ONLINE (direct)');
             return;
           }
-        } catch (e) {
-          // Ignora errori CORS
-        }
+        } catch (e) {}
         
         const testUrl = `${CONFIG.FOOTYSTATS.baseURL}/test?key=${CONFIG.FOOTYSTATS.key}`;
         const proxies = [
@@ -1514,7 +1534,7 @@
             if (res.ok || res.status === 404) {
               state.api.footystats = 'online';
               localStorage.setItem('api_footystats_status', 'online');
-              console.log(`✅ FootyStats: ONLINE (proxy: ${proxy})`);
+              console.log(`✅ FootyStats: ONLINE (proxy)`);
               return;
             }
           } catch (e) {
@@ -1522,15 +1542,14 @@
           }
         }
         
-        throw new Error('FootyStats non disponibile con nessun proxy');
+        throw new Error('FootyStats non disponibile');
       } catch (e) {
         state.api.footystats = 'offline';
         localStorage.setItem('api_footystats_status', 'offline');
-        console.warn('❌ FootyStats: OFFLINE', e.message);
+        console.warn('❌ FootyStats: OFFLINE');
       }
     }
 
-    // === API CALLS ===
     async function callAPIFootball(endpoint, params = {}) {
       const url = new URL(CONFIG.API_FOOTBALL.baseURL + endpoint);
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
@@ -1554,13 +1573,11 @@
         return data;
       } catch (e) {
         console.error('API Football error:', e);
-        
         if (state.api.football !== 'offline') {
           state.api.football = 'offline';
           localStorage.setItem('api_football_status', 'offline');
           render();
         }
-        
         return null;
       }
     }
@@ -1575,18 +1592,14 @@
           const directRes = await fetch(url.toString());
           if (directRes.ok) {
             const data = await directRes.json();
-            
             if (state.api.footystats !== 'online') {
               state.api.footystats = 'online';
               localStorage.setItem('api_footystats_status', 'online');
               render();
             }
-            
             return data;
           }
-        } catch (e) {
-          // Ignora errori CORS
-        }
+        } catch (e) {}
         
         const proxies = [
           'https://api.allorigins.win/raw?url=',
@@ -1600,13 +1613,11 @@
             const res = await fetch(proxyUrl);
             if (res.ok) {
               const data = await res.json();
-              
               if (state.api.footystats !== 'online') {
                 state.api.footystats = 'online';
                 localStorage.setItem('api_footystats_status', 'online');
                 render();
               }
-              
               return data;
             }
           } catch (e) {
@@ -1614,21 +1625,18 @@
           }
         }
         
-        throw new Error('Tutti i proxy CORS hanno fallito');
+        throw new Error('Tutti i proxy hanno fallito');
       } catch (e) {
         console.error('FootyStats error:', e);
-        
         if (state.api.footystats !== 'offline') {
           state.api.footystats = 'offline';
           localStorage.setItem('api_footystats_status', 'offline');
           render();
         }
-        
         return null;
       }
     }
 
-    // === CLASSIFICA ===
     async function getStandings(leagueId, season) {
       const cacheKey = `${leagueId}_${season}`;
       if (state.standingsCache.has(cacheKey)) {
@@ -1642,9 +1650,7 @@
           state.standingsCache.set(cacheKey, standings);
           return standings;
         }
-      } catch (e) {
-        console.warn('Standings error:', e);
-      }
+      } catch (e) {}
       return null;
     }
     
@@ -1687,24 +1693,13 @@
       }
       
       return {
-        position,
-        totalTeams,
-        points: team.points,
-        form: team.form,
-        played: team.all.played,
-        won: team.all.win,
-        draw: team.all.draw,
-        lost: team.all.lose,
-        goalsFor: team.all.goals.for,
-        goalsAgainst: team.all.goals.against,
-        goalDiff: team.goalsDiff,
-        motivation,
-        motivationText,
-        motivationColor
+        position, totalTeams, points: team.points, form: team.form,
+        played: team.all.played, won: team.all.win, draw: team.all.draw, lost: team.all.lose,
+        goalsFor: team.all.goals.for, goalsAgainst: team.all.goals.against, goalDiff: team.goalsDiff,
+        motivation, motivationText, motivationColor
       };
     }
     
-    // === INFORTUNATI ===
     async function getInjuries(teamId, season) {
       const cacheKey = `injuries_${teamId}_${season}`;
       if (state.injuriesCache.has(cacheKey)) {
@@ -1733,9 +1728,7 @@
           state.injuriesCache.set(cacheKey, uniqueInjuries);
           return uniqueInjuries;
         }
-      } catch (e) {
-        console.warn('Injuries error:', e);
-      }
+      } catch (e) {}
       return [];
     }
     
@@ -1762,7 +1755,6 @@
       return { attack: attackImpact, defense: defenseImpact, text };
     }
     
-    // === SALVA IMPOSTAZIONI ===
     function saveSettings() {
       localStorage.setItem('bp2_settings', JSON.stringify(state.settings));
     }
@@ -1772,74 +1764,6 @@
       render();
     }
 
-    // === DATA LOADING ===
-    async function loadMatches(dateOffset = 0) {
-      state.loading = true;
-      state.selectedDate = dateOffset;
-      render();
-      
-      const dateStr = getDateString(dateOffset);
-      console.log('📅 Loading matches for:', dateStr);
-      
-      const data = await callAPIFootball('/fixtures', { date: dateStr, timezone: 'Europe/Rome' });
-      
-      if (data?.response) {
-        const leagueMap = new Map();
-        data.response.forEach(f => {
-          const key = f.league.id;
-          if (!leagueMap.has(key)) {
-            leagueMap.set(key, {
-              id: f.league.id,
-              name: f.league.name,
-              country: f.league.country,
-              logo: f.league.logo,
-              season: f.league.season,
-              matchCount: 0
-            });
-          }
-          leagueMap.get(key).matchCount++;
-        });
-        
-        state.leagues = Array.from(leagueMap.values())
-          .sort((a, b) => `${a.country} ${a.name}`.localeCompare(`${b.country} ${b.name}`));
-        
-        state.matches = data.response.map(f => ({
-          id: f.fixture.id,
-          date: f.fixture.date,
-          timestamp: f.fixture.timestamp,
-          status: f.fixture.status.short,
-          elapsed: f.fixture.status.elapsed,
-          league: f.league,
-          home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo },
-          away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo },
-          goals: f.goals
-        }));
-        
-        console.log(`✅ Loaded ${state.leagues.length} leagues, ${state.matches.length} matches`);
-      }
-      
-      const fsData = await callFootyStats('/todays-matches', {});
-      if (fsData?.data) {
-        fsData.data.forEach(m => {
-          if (m.home_name && m.away_name) {
-            const keys = [
-              `${m.home_name.toLowerCase()}_${m.away_name.toLowerCase()}`,
-              m.home_name.toLowerCase().replace(/\s+/g, '') + '_' + m.away_name.toLowerCase().replace(/\s+/g, '')
-            ];
-            keys.forEach(k => state.fsData.set(k, m));
-          }
-        });
-      }
-      
-      // Calcola picks e consigli
-      calculateDailyPicks();
-      generateDayAdvices();
-      
-      state.loading = false;
-      render();
-    }
-
-    // === DAILY PICKS ===
     const TOP_LEAGUES = [135, 136, 39, 40, 41, 140, 141, 78, 79, 61, 62, 88, 94, 144, 203, 2, 3, 848];
     
     function calculateDailyPicks() {
@@ -1876,12 +1800,10 @@
         
         homeXG *= 1.10;
         awayXG *= 0.93;
-        
         homeXG = clamp(0.3, homeXG, 3.5);
         awayXG = clamp(0.2, awayXG, 3.0);
         
         const totXG = homeXG + awayXG;
-        
         const p1X2 = quickCalc1X2(homeXG, awayXG);
         const pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
         const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
@@ -1895,65 +1817,37 @@
           time: formatTime(match.date)
         };
         
-        // Raddoppi sicuri (campionati TOP, prob >= 75%)
         if (isTopLeague) {
           const p1X = p1X2.home + p1X2.draw;
           const pX2 = p1X2.draw + p1X2.away;
           
-          if (p1X >= 78) {
-            safeBets.push({ ...matchInfo, bet: '1X', prob: p1X, odds: (100 / p1X).toFixed(2) });
-          }
-          if (pX2 >= 78) {
-            safeBets.push({ ...matchInfo, bet: 'X2', prob: pX2, odds: (100 / pX2).toFixed(2) });
-          }
-          if (pOver15 >= 80) {
-            safeBets.push({ ...matchInfo, bet: 'Over 1.5', prob: pOver15, odds: (100 / pOver15).toFixed(2) });
-          }
-          if (p1X2.home >= 73) {
-            safeBets.push({ ...matchInfo, bet: '1', prob: p1X2.home, odds: (100 / p1X2.home).toFixed(2) });
-          }
-          if (p1X2.away >= 70) {
-            safeBets.push({ ...matchInfo, bet: '2', prob: p1X2.away, odds: (100 / p1X2.away).toFixed(2) });
-          }
+          if (p1X >= 78) safeBets.push({ ...matchInfo, bet: '1X', prob: p1X, odds: (100 / p1X).toFixed(2) });
+          if (pX2 >= 78) safeBets.push({ ...matchInfo, bet: 'X2', prob: pX2, odds: (100 / pX2).toFixed(2) });
+          if (pOver15 >= 80) safeBets.push({ ...matchInfo, bet: 'Over 1.5', prob: pOver15, odds: (100 / pOver15).toFixed(2) });
+          if (p1X2.home >= 73) safeBets.push({ ...matchInfo, bet: '1', prob: p1X2.home, odds: (100 / p1X2.home).toFixed(2) });
+          if (p1X2.away >= 70) safeBets.push({ ...matchInfo, bet: '2', prob: p1X2.away, odds: (100 / p1X2.away).toFixed(2) });
         }
         
-        if (pBTTS >= 55) {
-          picks.gg.push({ ...matchInfo, bet: 'GG', prob: pBTTS });
-        }
-        
-        if (pOver25 >= 55 && totXG >= 3.0) {
-          picks.over25.push({ ...matchInfo, bet: 'Over 2.5', prob: pOver25, xgTotal: totXG.toFixed(2) });
-        }
-        
-        if (p1X2.draw >= 28 && p1X2.home < 50 && p1X2.away < 50) {
-          picks.pareggi.push({ ...matchInfo, bet: 'X', prob: p1X2.draw });
-        }
+        if (pBTTS >= 55) picks.gg.push({ ...matchInfo, bet: 'GG', prob: pBTTS });
+        if (pOver25 >= 55 && totXG >= 3.0) picks.over25.push({ ...matchInfo, bet: 'Over 2.5', prob: pOver25, xgTotal: totXG.toFixed(2) });
+        if (p1X2.draw >= 28 && p1X2.home < 50 && p1X2.away < 50) picks.pareggi.push({ ...matchInfo, bet: 'X', prob: p1X2.draw });
         
         const pOver05_1T = quickCalcOver(homeXG * 0.45, awayXG * 0.45, 0.5);
         const pOver15_1T = quickCalcOver(homeXG * 0.45, awayXG * 0.45, 1.5);
         
-        if (pOver05_1T >= 75 && totXG >= 3.0) {
-          picks.over1T.push({ ...matchInfo, bet: 'Over 0.5 1T', prob: pOver05_1T, xgTotal: totXG.toFixed(2) });
-        }
-        if (pOver15_1T >= 55 && totXG >= 3.8) {
-          picks.over1T.push({ ...matchInfo, bet: 'Over 1.5 1T', prob: pOver15_1T, xgTotal: totXG.toFixed(2) });
-        }
+        if (pOver05_1T >= 75 && totXG >= 3.0) picks.over1T.push({ ...matchInfo, bet: 'Over 0.5 1T', prob: pOver05_1T, xgTotal: totXG.toFixed(2) });
+        if (pOver15_1T >= 55 && totXG >= 3.8) picks.over1T.push({ ...matchInfo, bet: 'Over 1.5 1T', prob: pOver15_1T, xgTotal: totXG.toFixed(2) });
       });
       
-      // Costruisci raddoppi AI (max 3)
       picks.raddoppi = buildRaddoppiAI(safeBets, 3);
-      
-      // Ordina e limita a 6
       picks.gg = picks.gg.sort((a, b) => b.prob - a.prob).slice(0, 6);
       picks.over25 = picks.over25.sort((a, b) => b.prob - a.prob).slice(0, 6);
       picks.pareggi = picks.pareggi.sort((a, b) => b.prob - a.prob).slice(0, 6);
       picks.over1T = picks.over1T.sort((a, b) => b.prob - a.prob).slice(0, 6);
       
       state.dailyPicks = picks;
-      console.log('🎯 Daily picks:', Object.keys(picks).map(k => `${k}: ${picks[k].length}`).join(', '));
     }
 
-    // === RADDOPPI AI (max 3 combinazioni) ===
     function buildRaddoppiAI(safeBets, maxRaddoppi = 3) {
       if (safeBets.length < 2) return [];
       
@@ -1961,10 +1855,8 @@
       const targetOdds = 2.0;
       const tolerance = 0.25;
       
-      // Ordina per probabilità decrescente
       safeBets.sort((a, b) => b.prob - a.prob);
       
-      // Prova combinazioni di 2 e 3 partite
       for (let size = 2; size <= Math.min(3, safeBets.length); size++) {
         const combos = getCombinations(safeBets, size);
         
@@ -1986,13 +1878,9 @@
         }
       }
       
-      // Ordina per probabilità e prendi i migliori MAX
-      return raddoppi
-        .sort((a, b) => parseFloat(b.totalProb) - parseFloat(a.totalProb))
-        .slice(0, maxRaddoppi);
+      return raddoppi.sort((a, b) => parseFloat(b.totalProb) - parseFloat(a.totalProb)).slice(0, maxRaddoppi);
     }
     
-    // Combinazioni
     function getCombinations(arr, k) {
       if (k === 1) return arr.map(x => [x]);
       if (k === arr.length) return [arr];
@@ -2021,34 +1909,6 @@
       return result;
     }
 
-    // === QUICK CALCOLI ===
-    function quickCalc1X2(lH, lA) {
-      let pH = 0, pD = 0, pA = 0;
-      for (let i = 0; i <= 5; i++) {
-        for (let j = 0; j <= 5; j++) {
-          const p = poisson(lH, i) * poisson(lA, j);
-          if (i > j) pH += p; else if (i === j) pD += p; else pA += p;
-        }
-      }
-      const t = pH + pD + pA;
-      return { home: (pH/t)*100, draw: (pD/t)*100, away: (pA/t)*100 };
-    }
-    
-    function quickCalcOver(lH, lA, line) {
-      let pUnder = 0;
-      for (let i = 0; i <= 5; i++) {
-        for (let j = 0; j <= 5; j++) {
-          if (i + j <= Math.floor(line)) pUnder += poisson(lH, i) * poisson(lA, j);
-        }
-      }
-      return clamp(10, (1 - pUnder) * 100, 90);
-    }
-    
-    function quickCalcBTTS(lH, lA) {
-      return clamp(15, (1 - poisson(lH, 0)) * (1 - poisson(lA, 0)) * 100, 85);
-    }
-
-    // === NUOVA FUNZIONE: CONSIGLI DEL GIORNO ===
     function generateDayAdvices() {
       if (state.matches.length === 0) return;
       
@@ -2057,7 +1917,6 @@
       state.matches.forEach(match => {
         if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
         
-        // Estrai dati come in calculateDailyPicks
         let fsMatch = null;
         const fsKeys = [
           `${match.home.name.toLowerCase()}_${match.away.name.toLowerCase()}`,
@@ -2094,383 +1953,110 @@
           time: formatTime(match.date)
         };
         
-        // GG: generato da AI picks con GG
-        if (pBTTS >= 55) {
-          advices.gg.push({ ...matchInfo, prob: pBTTS.toFixed(0) });
-        }
-        
-        // 1: AI pick = 1 con prob >= 85%
-        if (p1X2.home >= 85) {
-          advices.one.push({ ...matchInfo, prob: p1X2.home.toFixed(0) });
-        }
-        
-        // 2: AI pick = 2 con prob >= 75%
-        if (p1X2.away >= 75) {
-          advices.two.push({ ...matchInfo, prob: p1X2.away.toFixed(0) });
-        }
-        
-        // X: esito X da AI E prob X >= 33%
-        if (p1X2.draw >= 33) {
-          advices.x.push({ ...matchInfo, prob: p1X2.draw.toFixed(0) });
-        }
+        if (pBTTS >= 55) advices.gg.push({ ...matchInfo, prob: pBTTS.toFixed(0) });
+        if (p1X2.home >= 85) advices.one.push({ ...matchInfo, prob: p1X2.home.toFixed(0) });
+        if (p1X2.away >= 75) advices.two.push({ ...matchInfo, prob: p1X2.away.toFixed(0) });
+        if (p1X2.draw >= 33) advices.x.push({ ...matchInfo, prob: p1X2.draw.toFixed(0) });
       });
       
-      // Ordina per probabilità decrescente e limita a Top 15 per categoria
       advices.gg = advices.gg.sort((a, b) => parseFloat(b.prob) - parseFloat(a.prob)).slice(0, 15);
       advices.one = advices.one.sort((a, b) => parseFloat(b.prob) - parseFloat(a.prob)).slice(0, 15);
       advices.two = advices.two.sort((a, b) => parseFloat(b.prob) - parseFloat(a.prob)).slice(0, 15);
       advices.x = advices.x.sort((a, b) => parseFloat(b.prob) - parseFloat(a.prob)).slice(0, 15);
       
       state.dayAdvices = advices;
-      console.log('📊 Day advices:', Object.keys(advices).map(k => `${k}: ${advices[k].length}`).join(', '));
     }
 
-    // === FIREBASE ===
-    async function loadSlipFromFirebase() {
-      try {
-        const res = await fetch(`${CONFIG.FIREBASE.url}/slips2/${USER_ID}.json`);
-        const data = await res.json();
-        if (data && Array.isArray(data.items)) {
-          state.slip = data.items;
-          console.log('📋 Schedina caricata:', state.slip.length);
+    function quickCalc1X2(lH, lA) {
+      let pH = 0, pD = 0, pA = 0;
+      for (let i = 0; i <= 5; i++) {
+        for (let j = 0; j <= 5; j++) {
+          const p = poisson(lH, i) * poisson(lA, j);
+          if (i > j) pH += p; else if (i === j) pD += p; else pA += p;
         }
-      } catch (e) {
-        console.warn('Firebase load error:', e);
       }
-    }
-
-    async function saveSlipToFirebase() {
-      try {
-        await fetch(`${CONFIG.FIREBASE.url}/slips2/${USER_ID}.json`, {
-          method: 'PUT',
-          body: JSON.stringify({ items: state.slip, updated: Date.now() })
-        });
-        console.log('💾 Schedina salvata');
-      } catch (e) {
-        console.warn('Firebase save error:', e);
-      }
-    }
-
-    function addToSlip(match, market, value, prob) {
-      const key = `${match.id}_${market}`;
-      const exists = state.slip.find(s => s.key === key);
-      if (exists) {
-        state.slip = state.slip.filter(s => s.key !== key);
-      } else {
-        state.slip.push({
-          key,
-          matchId: match.id,
-          matchName: `${match.home.name} vs ${match.away.name}`,
-          matchDate: match.date,
-          market,
-          value,
-          prob
-        });
-      }
-      saveSlipToFirebase();
-      render();
-    }
-
-    function removeFromSlip(key) {
-      state.slip = state.slip.filter(s => s.key !== key);
-      saveSlipToFirebase();
-      render();
-    }
-
-    function clearSlip() {
-      state.slip = [];
-      saveSlipToFirebase();
-      render();
-    }
-
-    function isInSlip(matchId, market) {
-      return state.slip.some(s => s.key === `${matchId}_${market}`);
-    }
-
-    // === MONEY MANAGEMENT ===
-    function saveMoney() {
-      localStorage.setItem('bp2_bankroll', state.money.bankroll);
-      localStorage.setItem('bp2_target', state.money.target);
-      localStorage.setItem('bp2_totalbets', state.money.totalBets);
-      localStorage.setItem('bp2_currentbet', state.money.currentBet);
-      localStorage.setItem('bp2_odds', state.money.currentOdds);
-      localStorage.setItem('bp2_history', JSON.stringify(state.money.history.slice(-30)));
+      const t = pH + pD + pA;
+      return { home: (pH/t)*100, draw: (pD/t)*100, away: (pA/t)*100 };
     }
     
-    function calculateStake() {
-      const { bankroll, target, totalBets, currentBet, currentOdds } = state.money;
-      const remainingBets = totalBets - currentBet + 1;
-      
-      if (remainingBets <= 0 || bankroll <= 0 || currentOdds <= 1) {
-        return { stake: 0, error: 'Parametri non validi' };
-      }
-      
-      if (bankroll >= target) {
-        return { stake: 0, reached: true };
-      }
-      
-      const totalMultiplier = target / bankroll;
-      const perBetMultiplier = Math.pow(totalMultiplier, 1 / remainingBets);
-      const stake = bankroll * (perBetMultiplier - 1) / (currentOdds - 1);
-      
-      if (stake > bankroll * 0.95) {
-        return { stake: Math.round(bankroll * 0.95 * 100) / 100, warning: '⚠️ Rischio MOLTO alto!' };
-      }
-      
-      if (stake < 0.5) {
-        return { stake: 0.5, warning: 'Puntata minima €0.50' };
-      }
-      
-      return {
-        stake: Math.round(stake * 100) / 100,
-        perBetMultiplier: perBetMultiplier.toFixed(3),
-        potentialWin: Math.round(stake * (currentOdds - 1) * 100) / 100,
-        newBankroll: Math.round((bankroll + stake * (currentOdds - 1)) * 100) / 100
-      };
-    }
-    
-    function recordBetResult(won) {
-      const calc = calculateStake();
-      const stake = calc.stake || 0;
-      
-      state.money.history.push({
-        bet: state.money.currentBet,
-        date: new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}),
-        odds: state.money.currentOdds,
-        stake: stake,
-        won: won,
-        bankrollBefore: state.money.bankroll
-      });
-      
-      if (won) {
-        state.money.bankroll += stake * (state.money.currentOdds - 1);
-      } else {
-        state.money.bankroll -= stake;
-      }
-      
-      state.money.bankroll = Math.max(0, Math.round(state.money.bankroll * 100) / 100);
-      state.money.currentBet++;
-      
-      saveMoney();
-      render();
-    }
-    
-    function resetMoney() {
-      state.money.currentBet = 1;
-      state.money.history = [];
-      saveMoney();
-      render();
-    }
-    
-    function getMoneyStats() {
-      const { bankroll, target, totalBets, currentBet, currentOdds, history } = state.money;
-      const calc = calculateStake();
-      const wins = history.filter(h => h.won).length;
-      const losses = history.filter(h => !h.won).length;
-      const progress = Math.min(100, (bankroll / target) * 100);
-      
-      return {
-        bankroll,
-        target,
-        totalBets,
-        currentBet,
-        currentOdds,
-        remainingBets: Math.max(0, totalBets - currentBet + 1),
-        progress,
-        stake: calc.stake || 0,
-        warning: calc.warning,
-        error: calc.error,
-        reached: calc.reached,
-        potentialWin: calc.potentialWin || 0,
-        newBankroll: calc.newBankroll || bankroll,
-        perBetMultiplier: calc.perBetMultiplier || '-',
-        wins,
-        losses,
-        winRate: (wins + losses) > 0 ? ((wins / (wins + losses)) * 100).toFixed(0) : '-'
-      };
-    }
-
-    // === TRACKING ===
-    async function loadTrackingFromFirebase() {
-      try {
-        const res = await fetch(`${CONFIG.FIREBASE.url}/tracking2/${USER_ID}.json`);
-        const data = await res.json();
-        if (data && Array.isArray(data)) {
-          state.trackedBets = data;
-          saveTrackedBets();
+    function quickCalcOver(lH, lA, line) {
+      let pUnder = 0;
+      for (let i = 0; i <= 5; i++) {
+        for (let j = 0; j <= 5; j++) {
+          if (i + j <= Math.floor(line)) pUnder += poisson(lH, i) * poisson(lA, j);
         }
-      } catch (e) {
-        console.warn('Firebase tracking load error:', e);
       }
+      return clamp(10, (1 - pUnder) * 100, 90);
+    }
+    
+    function quickCalcBTTS(lH, lA) {
+      return clamp(15, (1 - poisson(lH, 0)) * (1 - poisson(lA, 0)) * 100, 85);
     }
 
-    function trackBet(type, matchId, matchName, pick, prob, odds, isLive = false) {
-      if (state.trackedBets.some(b => b.matchId === matchId && b.pick === pick)) {
-        console.log('Pronostico già tracciato');
-        return null;
-      }
-      
-      const bet = {
-        id: Date.now(),
-        type,
-        matchId,
-        matchName,
-        pick,
-        prob: parseFloat(prob),
-        odds: parseFloat(odds) || 0,
-        isLive,
-        timestamp: new Date().toISOString(),
-        status: 'pending',
-        result: null
-      };
-      
-      state.trackedBets.push(bet);
-      saveTrackedBets();
-      saveTrackingToFirebase();
-      
+    async function loadMatches(dateOffset = 0) {
+      state.loading = true;
+      state.selectedDate = dateOffset;
       render();
-      return bet;
-    }
-    
-    function trackPrematchBet(matchId, matchName, pick, prob, event) {
-      if (event) event.stopPropagation();
       
-      const odds = (100 / prob).toFixed(2);
-      const bet = trackBet('prematch', matchId, matchName, pick, prob, odds, false);
-      if (bet) {
-        alert(`✅ Pronostico tracciato!\n\n${matchName}\n${pick} @ ${odds}\n\nVerrà verificato automaticamente.`);
-      } else {
-        alert('⚠️ Questo pronostico è già stato tracciato.');
-      }
-    }
-    
-    function saveTrackedBets() {
-      localStorage.setItem('bp2_tracked', JSON.stringify(state.trackedBets));
-    }
-    
-    async function saveTrackingToFirebase() {
-      try {
-        await fetch(`${CONFIG.FIREBASE.url}/tracking2/${USER_ID}.json`, {
-          method: 'PUT',
-          body: JSON.stringify(state.trackedBets)
-        });
-      } catch (e) {
-        console.warn('Firebase tracking save error:', e);
-      }
-    }
-    
-    async function checkPendingResults() {
-      const pending = state.trackedBets.filter(b => b.status === 'pending');
+      const dateStr = getDateString(dateOffset);
+      console.log('📅 Loading matches for:', dateStr);
       
-      for (const bet of pending) {
-        try {
-          const data = await callAPIFootball('/fixtures', { id: bet.matchId });
-          if (data && data.response && data.response[0]) {
-            const fixture = data.response[0];
-            const status = fixture.fixture.status.short;
-            
-            if (['FT', 'AET', 'PEN'].includes(status)) {
-              const homeGoals = fixture.goals.home;
-              const awayGoals = fixture.goals.away;
-              const totalGoals = homeGoals + awayGoals;
-              const result = `${homeGoals}-${awayGoals}`;
-              
-              let won = false;
-              const pick = bet.pick.toLowerCase();
-              
-              if (pick.includes('over 0.5') && totalGoals >= 1) won = true;
-              else if (pick.includes('over 1.5') && totalGoals >= 2) won = true;
-              else if (pick.includes('over 2.5') && totalGoals >= 3) won = true;
-              else if (pick.includes('over 3.5') && totalGoals >= 4) won = true;
-              else if (pick.includes('under 2.5') && totalGoals < 3) won = true;
-              else if (pick.includes('under 3.5') && totalGoals < 4) won = true;
-              else if ((pick.includes('gg') || pick.includes('entrambe segnano')) && homeGoals > 0 && awayGoals > 0) won = true;
-              else if (pick.includes('ng') && (homeGoals === 0 || awayGoals === 0)) won = true;
-              else if ((pick === '1' || pick.startsWith('1 (') || pick.startsWith('1 ')) && homeGoals > awayGoals) won = true;
-              else if ((pick === 'x' || pick.startsWith('x (') || pick === 'pareggio') && homeGoals === awayGoals) won = true;
-              else if ((pick === '2' || pick.startsWith('2 (') || pick.startsWith('2 ')) && homeGoals < awayGoals) won = true;
-              else if ((pick === '1x' || pick.startsWith('1x (') || pick.startsWith('1x ')) && homeGoals >= awayGoals) won = true;
-              else if ((pick === 'x2' || pick.startsWith('x2 (') || pick.startsWith('x2 ')) && homeGoals <= awayGoals) won = true;
-              else if (pick.includes('segna') && totalGoals > 0) won = true;
-              else if (pick.includes('gol 2°') && totalGoals > 0) won = true;
-              
-              const betIndex = state.trackedBets.findIndex(b => b.id === bet.id);
-              if (betIndex >= 0) {
-                state.trackedBets[betIndex].status = won ? 'won' : 'lost';
-                state.trackedBets[betIndex].result = result;
-              }
-            }
+      const data = await callAPIFootball('/fixtures', { date: dateStr, timezone: 'Europe/Rome' });
+      
+      if (data?.response) {
+        const leagueMap = new Map();
+        data.response.forEach(f => {
+          const key = f.league.id;
+          if (!leagueMap.has(key)) {
+            leagueMap.set(key, {
+              id: f.league.id,
+              name: f.league.name,
+              country: f.league.country,
+              logo: f.league.logo,
+              season: f.league.season,
+              matchCount: 0
+            });
           }
-        } catch (e) {
-          console.warn('Check result error:', e);
-        }
+          leagueMap.get(key).matchCount++;
+        });
+        
+        state.leagues = Array.from(leagueMap.values()).sort((a, b) => `${a.country} ${a.name}`.localeCompare(`${b.country} ${b.name}`));
+        
+        state.matches = data.response.map(f => ({
+          id: f.fixture.id,
+          date: f.fixture.date,
+          timestamp: f.fixture.timestamp,
+          status: f.fixture.status.short,
+          elapsed: f.fixture.status.elapsed,
+          league: f.league,
+          home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo },
+          away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo },
+          goals: f.goals
+        }));
+        
+        console.log(`✅ Loaded ${state.leagues.length} leagues, ${state.matches.length} matches`);
       }
       
-      saveTrackedBets();
-      saveTrackingToFirebase();
+      const fsData = await callFootyStats('/todays-matches', {});
+      if (fsData?.data) {
+        fsData.data.forEach(m => {
+          if (m.home_name && m.away_name) {
+            const keys = [
+              `${m.home_name.toLowerCase()}_${m.away_name.toLowerCase()}`,
+              m.home_name.toLowerCase().replace(/\s+/g, '') + '_' + m.away_name.toLowerCase().replace(/\s+/g, '')
+            ];
+            keys.forEach(k => state.fsData.set(k, m));
+          }
+        });
+      }
+      
+      calculateDailyPicks();
+      generateDayAdvices();
+      
+      state.loading = false;
       render();
     }
-    
-    function getTrackingStats() {
-      const stats = {
-        total: state.trackedBets.length,
-        pending: state.trackedBets.filter(b => b.status === 'pending').length,
-        won: state.trackedBets.filter(b => b.status === 'won').length,
-        lost: state.trackedBets.filter(b => b.status === 'lost').length,
-        byType: {},
-        byPick: {}
-      };
-      
-      const completed = stats.won + stats.lost;
-      stats.winRate = completed > 0 ? ((stats.won / completed) * 100).toFixed(1) : 0;
-      
-      ['prematch', 'live'].forEach(type => {
-        const bets = state.trackedBets.filter(b => b.type === type);
-        const won = bets.filter(b => b.status === 'won').length;
-        const lost = bets.filter(b => b.status === 'lost').length;
-        const total = won + lost;
-        stats.byType[type] = {
-          total: bets.length,
-          won,
-          lost,
-          winRate: total > 0 ? ((won / total) * 100).toFixed(1) : 0
-        };
-      });
-      
-      const pickTypes = [
-        { key: 'over 0.5', label: 'Over 0.5' },
-        { key: 'over 1.5', label: 'Over 1.5' },
-        { key: 'over 2.5', label: 'Over 2.5' },
-        { key: 'over 3.5', label: 'Over 3.5' },
-        { key: 'under', label: 'Under' },
-        { key: 'gg', label: 'GG' },
-        { key: 'entrambe segnano', label: 'GG' },
-        { key: '1 (', label: '1' },
-        { key: '2 (', label: '2' },
-        { key: '1x', label: '1X' },
-        { key: 'x2', label: 'X2' },
-        { key: 'pareggio', label: 'X' }
-      ];
-      pickTypes.forEach(pickType => {
-        const bets = state.trackedBets.filter(b => b.pick.toLowerCase().includes(pickType.key));
-        const won = bets.filter(b => b.status === 'won').length;
-        const lost = bets.filter(b => b.status === 'lost').length;
-        const total = won + lost;
-        if (bets.length > 0) {
-          stats.byPick[pickType.label] = {
-            total: bets.length,
-            won,
-            lost,
-            winRate: total > 0 ? ((won / total) * 100).toFixed(1) : 0
-          };
-        }
-      });
-      
-      return stats;
-    }
 
-        // === ANALYSIS ENGINE ===
-    
     async function analyzeMatch(match) {
       state.selectedMatch = match;
       state.view = 'analysis';
@@ -2533,18 +2119,13 @@
         match.home.name.toLowerCase().replace(/\s+/g, '') + '_' + match.away.name.toLowerCase().replace(/\s+/g, '')
       ];
       for (const k of fsKeys) {
-        if (state.fsData.has(k)) {
-          fsMatch = state.fsData.get(k);
-          break;
-        }
+        if (state.fsData.has(k)) { fsMatch = state.fsData.get(k); break; }
       }
       
       const homeForm = calculateRealForm(homeLastMatches, match.home.id);
       const awayForm = calculateRealForm(awayLastMatches, match.away.id);
-      
       const homePosition = getTeamPosition(standings, match.home.id);
       const awayPosition = getTeamPosition(standings, match.away.id);
-      
       const homeInjuryImpact = calculateInjuryImpact(homeInjuries);
       const awayInjuryImpact = calculateInjuryImpact(awayInjuries);
       
@@ -2567,13 +2148,11 @@
     
     function calculateRealForm(matches, teamId) {
       if (!matches || matches.length === 0) return 'DDDDD';
-      
       let form = '';
       matches.forEach(m => {
         const homeGoals = m.goals?.home ?? 0;
         const awayGoals = m.goals?.away ?? 0;
         const isHome = m.teams?.home?.id === teamId;
-        
         if (isHome) {
           if (homeGoals > awayGoals) form += 'W';
           else if (homeGoals < awayGoals) form += 'L';
@@ -2584,7 +2163,6 @@
           else form += 'D';
         }
       });
-      
       return form || 'DDDDD';
     }
 
@@ -2620,39 +2198,30 @@
       
       homeXG *= 1.10;
       awayXG *= 0.93;
-      
       homeXG = clamp(0.25, homeXG, 3.8);
       awayXG = clamp(0.15, awayXG, 3.2);
       
       const totXG = homeXG + awayXG;
-      
       const p1X2 = calc1X2(homeXG, awayXG);
       const pOU = calcOU(homeXG, awayXG);
       
       let pBTTS = calcBTTS(homeXG, awayXG);
-      
       const homeWillScore = 100 - homeData.failedToScorePct;
       const awayWillScore = 100 - awayData.failedToScorePct;
       const historicalBTTS = (homeWillScore * awayWillScore) / 100;
-      
       pBTTS = (pBTTS * 0.60) + (historicalBTTS * 0.40);
       pBTTS = clamp(15, pBTTS, 85);
       
       const exactScores = calcExactScores(homeXG, awayXG);
-      
       const corners = calcCorners(homeData, awayData, fsMatch);
       const cards = calcCards(homeData, awayData, fsMatch);
+      const shots = calcExpectedShots(homeXG, awayXG);
       
       const predictions = buildPredictions(match, homeXG, awayXG, p1X2, pOU, pBTTS, exactScores, corners, cards);
-      
       const combos = buildCombos(p1X2, pOU, pBTTS);
-      
       const h2hInfo = summarizeH2H(h2h, match.home.id);
-      
       const multigoal = calcAllMultigol(homeXG, awayXG);
-      
       const temporalDistribution = calcTemporalDistribution(homeXG, awayXG);
-      
       const multigoalHome = [
         { range: '1+', prob: calcTeamMultigol(homeXG, 1, 6) },
         { range: '2+', prob: calcTeamMultigol(homeXG, 2, 6) },
@@ -2666,28 +2235,12 @@
         { range: '1-3', prob: calcTeamMultigol(awayXG, 1, 3) }
       ];
       
-      const shots = calcExpectedShots(homeXG, awayXG);
-      
       return {
-        match,
-        xG: { home: homeXG, away: awayXG, total: totXG },
-        p1X2, pOU, pBTTS,
-        exactScores: exactScores.slice(0, 12),
-        corners, cards,
-        shots,
-        h2h: h2hInfo,
-        predictions,
-        combos,
-        multigoal,
-        temporalDistribution,
-        multigoalHome,
-        multigoalAway,
-        homeForm: homeForm || 'N/A',
-        awayForm: awayForm || 'N/A',
-        homePosition,
-        awayPosition,
-        homeInjuries: homeInjuries || [],
-        awayInjuries: awayInjuries || [],
+        match, xG: { home: homeXG, away: awayXG, total: totXG }, p1X2, pOU, pBTTS,
+        exactScores: exactScores.slice(0, 12), corners, cards, shots, h2h: h2hInfo,
+        predictions, combos, multigoal, temporalDistribution, multigoalHome, multigoalAway,
+        homeForm: homeForm || 'N/A', awayForm: awayForm || 'N/A',
+        homePosition, awayPosition, homeInjuries: homeInjuries || [], awayInjuries: awayInjuries || [],
         quality: (homeStats || awayStats) ? 'enhanced' : 'base'
       };
     }
@@ -2718,15 +2271,10 @@
         ((side === 'home' ? stats.failed_to_score.home : stats.failed_to_score.away) || stats.failed_to_score.total || 0) / played * 100 : 25;
       
       return {
-        goalsFor: parseFloat(forAvg) || 1.3,
-        goalsAgainst: parseFloat(againstAvg) || 1.2,
-        form: stats.form || 'DDDDD',
-        corners: 5.0,
-        cards: parseFloat(stats.cards?.yellow?.total) / (played || 1) || 1.8,
-        cleanSheetPct: cleanSheetPct || 25,
-        failedToScorePct: failedToScorePct || 25,
-        played, wins, draws, losses,
-        winRate: played > 0 ? (wins / played) * 100 : 40
+        goalsFor: parseFloat(forAvg) || 1.3, goalsAgainst: parseFloat(againstAvg) || 1.2, form: stats.form || 'DDDDD',
+        corners: 5.0, cards: parseFloat(stats.cards?.yellow?.total) / (played || 1) || 1.8,
+        cleanSheetPct: cleanSheetPct || 25, failedToScorePct: failedToScorePct || 25,
+        played, wins, draws, losses, winRate: played > 0 ? (wins / played) * 100 : 40
       };
     }
 
@@ -2772,15 +2320,12 @@
 
     function calculateFormMultiplier(form) {
       if (!form || form.length === 0) return 1.0;
-      
       const recent = form.slice(0, 5).split('');
-      let score = 0;
-      let totalWeight = 0;
+      let score = 0, totalWeight = 0;
       
       recent.forEach((r, i) => {
         const weight = Math.pow(0.8, i);
         totalWeight += weight;
-        
         if (r === 'W') score += 1.0 * weight;
         else if (r === 'D') score += 0.35 * weight;
         else if (r === 'L') score += 0.0 * weight;
@@ -2889,9 +2434,7 @@
       return { home: h, away: a, total, probs };
     }
 
-    // === NUOVA FUNZIONE: EXPECTED SHOTS ===
     function calcExpectedShots(homeXG, awayXG) {
-      // Ratio storico: shot on target = xG × 1.8
       const homeShots = homeXG * 1.8;
       const awayShots = awayXG * 1.8;
       const totalShots = homeShots + awayShots;
@@ -2970,7 +2513,7 @@
     }
 
     function calcMultigol(lH, lA, min, max) {
-      let prob = 0;
+      let prob = = 0;
       for (let i = 0; i <= 6; i++) {
         for (let j = 0; j <= 6; j++) {
           const t = i + j;
@@ -3019,16 +2562,8 @@
         (totXG_2T / (totXG_1T + totXG_2T)) * 100;
       
       return {
-        primoTempo: {
-          xG: totXG_1T,
-          over05: over05_1T,
-          over15: over15_1T
-        },
-        secondoTempo: {
-          xG: totXG_2T,
-          over05: over05_2T,
-          over15: over15_2T
-        },
+        primoTempo: { xG: totXG_1T, over05: over05_1T, over15: over15_1T },
+        secondoTempo: { xG: totXG_2T, over05: over05_2T, over15: over15_2T },
         tempoConPiuGol: piuGol1T ? '1° Tempo' : '2° Tempo',
         probTempoConPiuGol: probPiuGol
       };
@@ -3118,7 +2653,6 @@
       return combos.sort((a, b) => b.prob - a.prob);
     }
 
-    // === AI ADVICE ===
     function generateAIAdvice(match, analysis) {
       const { xG, p1X2, pOU, pBTTS, exactScores } = analysis;
       const homeXG = xG.home;
@@ -3162,7 +2696,6 @@
         advice.confidence = p1X2.away >= 70 ? 'high' : 'medium';
         advice.reasons.push({ text: `xG Ospite ${awayXG.toFixed(2)} superiore`, type: 'positive' });
         advice.reasons.push({ text: `xG Casa debole ${homeXG.toFixed(2)}`, type: 'positive' });
-        
         advice.alternatives.push({ pick: 'X2', prob: (p1X2.away + p1X2.draw).toFixed(0) });
       }
       else if (veryHighScoring && pOU[2.5].over >= 70) {
@@ -3261,7 +2794,72 @@
       return 'low';
     }
 
-    // === RENDER FUNCTIONS ===
+    async function loadSlipFromFirebase() {
+      try {
+        const res = await fetch(`${CONFIG.FIREBASE.url}/slips2/${USER_ID}.json`);
+        const data = await res.json();
+        if (data && Array.isArray(data.items)) {
+          state.slip = data.items;
+          console.log('📋 Schedina caricata:', state.slip.length, 'pronostici');
+        }
+      } catch (e) {
+        console.warn('Firebase load error:', e);
+      }
+    }
+
+    async function saveSlipToFirebase() {
+      try {
+        await fetch(`${CONFIG.FIREBASE.url}/slips2/${USER_ID}.json`, {
+          method: 'PUT',
+          body: JSON.stringify({ items: state.slip, updated: Date.now() })
+        });
+        console.log('💾 Schedina salvata');
+      } catch (e) {
+        console.warn('Firebase save error:', e);
+      }
+    }
+
+    function addToSlip(match, market, value, prob) {
+      const key = `${match.id}_${market}`;
+      const exists = state.slip.find(s => s.key === key);
+      if (exists) {
+        state.slip = state.slip.filter(s => s.key !== key);
+      } else {
+        state.slip.push({
+          key,
+          matchId: match.id,
+          matchName: `${match.home.name} vs ${match.away.name}`,
+          matchDate: match.date,
+          market,
+          value,
+          prob
+        });
+      }
+      saveSlipToFirebase();
+      render();
+    }
+
+    function removeFromSlip(key) {
+      state.slip = state.slip.filter(s => s.key !== key);
+      saveSlipToFirebase();
+      render();
+    }
+
+    function clearSlip() {
+      state.slip = [];
+      saveSlipToFirebase();
+      render();
+    }
+
+    function isInSlip(matchId, market) {
+      return state.slip.some(s => s.key === `${matchId}_${market}`);
+    }
+
+    function switchAdviceTab(tab) {
+      state.adviceTab = tab;
+      render();
+    }
+
     function render() {
       document.getElementById('app').innerHTML = `
         ${renderHeader()}
@@ -3297,7 +2895,7 @@
                 </div>
               </div>
               <button class="settings-btn" onclick="toggleSettingsPanel()">
-                ⚙️ <span style="display:none">Impostazioni</span>
+                ⚙️
               </button>
               <div class="slip-badge" id="openSlip">
                 🎫 ${state.slip.length} pronostici
@@ -3336,11 +2934,6 @@
               <span class="settings-label">Mostra Infortunati</span>
               <div class="settings-toggle ${s.showInjuries ? 'active' : ''}" 
                 onclick="toggleSetting('showInjuries')"></div>
-            </div>
-            <div class="settings-row">
-              <span class="settings-label">Auto-refresh</span>
-              <div class="settings-toggle ${s.autoRefresh ? 'active' : ''}" 
-                onclick="toggleSetting('autoRefresh')"></div>
             </div>
           </div>
           
@@ -3411,11 +3004,10 @@
       if (confirm('Sei sicuro di voler cancellare TUTTI i dati?')) {
         localStorage.removeItem('bp2_tracked');
         localStorage.removeItem('bp2_settings');
-        localStorage.removeItem('bp2_history');
-        localStorage.removeItem('bp2_bankroll');
-        localStorage.removeItem('bp2_slip');
+        localStorage.removeItem('bp2_prediction_history');
         state.trackedBets = [];
         state.slip = [];
+        state.predictionHistory = {};
         state.settings = {
           thresholds: { '1': 50, 'X': 28, '2': 50, 'GG': 55, 'Over 2.5': 50, 'Over 1.5': 65 },
           showInjuries: true, showStandings: true, autoRefresh: true
@@ -3441,7 +3033,6 @@
           `).join('')}
         </div>
         
-        <!-- SELEZIONA CAMPIONATO -->
         <div class="panel" style="margin-bottom: 16px;">
           <div class="panel-title">📋 Seleziona Campionato (${state.matches.length} partite)</div>
           ${state.leagues.length === 0 ? `<div class="empty"><div class="empty-icon">📭</div>Nessuna partita</div>` : `
@@ -3452,7 +3043,7 @@
           `}
         </div>
         
-        <!-- NUOVA SEZIONE: CONSIGLI DEL GIORNO CON TABS -->
+        <!-- SEZIONE: CONSIGLI DEL GIORNO -->
         ${(dayAdvices.gg.length > 0 || dayAdvices.one.length > 0 || dayAdvices.two.length > 0 || dayAdvices.x.length > 0) ? `
         <div class="advice-section">
           <div class="advice-tabs">
@@ -3532,7 +3123,7 @@
         </div>
         ` : ''}
         
-        <!-- RADDOPPI DEL GIORNO -->
+        <!-- SEZIONE: RADDOPPI DEL GIORNO -->
         ${state.dailyPicks.raddoppi.length > 0 ? `
         <div class="picks-section raddoppi">
           <div class="picks-header">
@@ -3565,32 +3156,30 @@
       `;
     }
 
-    function switchAdviceTab(tab) {
-      state.adviceTab = tab;
-      render();
+    function selectMatch(matchId) {
+      const match = state.matches.find(m => m.id === matchId);
+      if (match) {
+        analyzeMatch(match);
+      }
     }
 
     function renderMatches() {
-      const matches =
-              const matches = state.matches.filter(m => m.league.id === state.selectedLeague.id).sort((a, b) => a.timestamp - b.timestamp);
+      const matches = state.matches.filter(m => m.league.id === state.selectedLeague.id).sort((a, b) => a.timestamp - b.timestamp);
       
       return `
         <div class="back-btn" id="backToLeagues">← Campionati</div>
         <div class="panel">
           <div class="panel-title">⚽ ${esc(state.selectedLeague.country)} - ${esc(state.selectedLeague.name)}</div>
           <div class="matches-list">
-            ${matches.map(m => {
-              const isLive = ['1H','2H','HT','ET','P','LIVE'].includes(m.status);
-              return `
-                <div class="match-item" data-id="${m.id}">
-                  <div class="match-item-left">
-                    <div class="match-item-time">${isLive ? m.elapsed+"'" : formatTime(m.date)}</div>
-                    <div class="match-item-teams">${esc(m.home.name)} vs ${esc(m.away.name)}</div>
-                  </div>
-                  <div class="match-item-badge ${isLive ? 'live' : ''}">${isLive ? 'LIVE' : formatDate(m.date)}</div>
+            ${matches.map(m => `
+              <div class="match-item" data-id="${m.id}">
+                <div class="match-item-left">
+                  <div class="match-item-time">${formatTime(m.date)}</div>
+                  <div class="match-item-teams">${esc(m.home.name)} vs ${esc(m.away.name)}</div>
                 </div>
-              `;
-            }).join('')}
+                <div class="match-item-badge">${formatDate(m.date)}</div>
+              </div>
+            `).join('')}
           </div>
         </div>
       `;
@@ -3626,107 +3215,97 @@
           </div>
         </div>
         
-        <!-- DUAL ADVICE: AI + STATISTICAL -->
+        <!-- DUAL ADVICE -->
         <div class="dual-advice-container">
-
-          <!-- AI CONSIGLIO -->
           <div class="ai-advice">
-          <div class="ai-header">
-            <div class="ai-icon">🤖</div>
-            <div class="ai-title-group">
-              <div class="ai-title">Consiglio AI</div>
-              <div class="ai-subtitle">Analisi basata su xG, statistiche e probabilità</div>
+            <div class="ai-header">
+              <div class="ai-icon">🤖</div>
+              <div class="ai-title-group">
+                <div class="ai-title">Consiglio AI</div>
+                <div class="ai-subtitle">Analisi basata su xG, statistiche e probabilità</div>
+              </div>
+              <div class="ai-confidence ${ai.confidence}">${ai.confidence === 'high' ? '🎯 Alta' : ai.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
             </div>
-            <div class="ai-confidence ${ai.confidence}">${ai.confidence === 'high' ? '🎯 Alta' : ai.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
-          </div>
-          
-          <div class="ai-pick">
-            <div class="ai-pick-label">Pronostico Consigliato</div>
-            <div class="ai-pick-value">${ai.pick}</div>
-            <div class="ai-pick-prob">${ai.prob.toFixed(0)}% probabilità</div>
-          </div>
-          
-          <div class="ai-reasoning">
-            <div class="ai-reasoning-title">💡 Perché questo pronostico</div>
-            <div class="ai-reasoning-list">
-              ${ai.reasons.map(r => `
-                <div class="ai-reason ${r.type}">
-                  <span class="ai-reason-icon">${r.type === 'positive' ? '✅' : r.type === 'negative' ? '⚠️' : '📊'}</span>
-                  <span>${r.text}</span>
+            
+            <div class="ai-pick">
+              <div class="ai-pick-label">Pronostico Consigliato</div>
+              <div class="ai-pick-value">${ai.pick}</div>
+              <div class="ai-pick-prob">${ai.prob.toFixed(0)}% probabilità</div>
+            </div>
+            
+            <div class="ai-reasoning">
+              <div class="ai-reasoning-title">💡 Perché questo pronostico</div>
+              <div class="ai-reasoning-list">
+                ${ai.reasons.map(r => `
+                  <div class="ai-reason ${r.type}">
+                    <span class="ai-reason-icon">${r.type === 'positive' ? '✅' : r.type === 'negative' ? '⚠️' : '📊'}</span>
+                    <span>${r.text}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            
+            ${ai.alternatives.length > 0 ? `
+              <div class="ai-alternatives">
+                <div class="ai-alt-title">Alternative valide:</div>
+                <div class="ai-alt-grid">
+                  ${ai.alternatives.map(a => `
+                    <div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>
+                  `).join('')}
                 </div>
-              `).join('')}
-            </div>
+              </div>
+            ` : ''}
           </div>
-          
-          ${ai.alternatives.length > 0 ? `
-            <div class="ai-alternatives">
-              <div class="ai-alt-title">Alternative valide:</div>
-              <div class="ai-alt-grid">
-                ${ai.alternatives.map(a => `
-                  <div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>
-                `).join('')}
+
+          <div class="statistical-advice">
+            <div class="ai-header">
+              <div class="ai-icon">📊</div>
+              <div class="ai-title-group">
+                <div class="ai-title" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Pronostico Statistico</div>
+                <div class="ai-subtitle">Basato solo sulla probabilità più alta</div>
+              </div>
+              <div class="ai-confidence ${stat.confidence}">${stat.confidence === 'high' ? '🎯 Alta' : stat.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
+            </div>
+
+            <div class="ai-pick">
+              <div class="ai-pick-label">Pronostico con Prob. Massima</div>
+              <div class="ai-pick-value">${stat.pick}</div>
+              <div class="ai-pick-prob">${stat.prob.toFixed(0)}% probabilità</div>
+            </div>
+
+            <div class="ai-reasoning">
+              <div class="ai-reasoning-title">📈 Dettagli Statistici</div>
+              <div class="ai-reasoning-list">
+                <div class="ai-reason positive">
+                  <span class="ai-reason-icon">✅</span>
+                  <span>Mercato: ${stat.market}</span>
+                </div>
+                <div class="ai-reason positive">
+                  <span class="ai-reason-icon">📊</span>
+                  <span>Probabilità più alta tra tutti i pronostici</span>
+                </div>
+                <div class="ai-reason neutral">
+                  <span class="ai-reason-icon">🔢</span>
+                  <span>Basato su calcoli Poisson e xG</span>
+                </div>
               </div>
             </div>
-          ` : ''}
-          
-          <button class="track-btn ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'tracked' : ''}" 
-                  onclick="trackPrematchBet(${m.id}, '${esc(m.home.name)} vs ${esc(m.away.name)}', '${esc(ai.pick)}', ${ai.prob.toFixed(0)}, event)"
-                  ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'disabled' : ''}>
-            ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? '✅ Pronostico Tracciato' : '🎯 GIOCATO - Traccia questo pronostico'}
-          </button>
+
+            ${stat.alternatives.length > 0 ? `
+              <div class="ai-alternatives">
+                <div class="ai-alt-title">Top 3 alternative:</div>
+                <div class="ai-alt-grid">
+                  ${stat.alternatives.map(a => `
+                    <div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
         </div>
-
-        <!-- PRONOSTICO STATISTICO -->
-        <div class="statistical-advice">
-          <div class="ai-header">
-            <div class="ai-icon">📊</div>
-            <div class="ai-title-group">
-              <div class="ai-title" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Pronostico Statistico</div>
-              <div class="ai-subtitle">Basato solo sulla probabilità più alta</div>
-            </div>
-            <div class="ai-confidence ${stat.confidence}">${stat.confidence === 'high' ? '🎯 Alta' : stat.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
-          </div>
-
-          <div class="ai-pick">
-            <div class="ai-pick-label">Pronostico con Prob. Massima</div>
-            <div class="ai-pick-value">${stat.pick}</div>
-            <div class="ai-pick-prob">${stat.prob.toFixed(0)}% probabilità</div>
-          </div>
-
-          <div class="ai-reasoning">
-            <div class="ai-reasoning-title">📈 Dettagli Statistici</div>
-            <div class="ai-reasoning-list">
-              <div class="ai-reason positive">
-                <span class="ai-reason-icon">✅</span>
-                <span>Mercato: ${stat.market}</span>
-              </div>
-              <div class="ai-reason positive">
-                <span class="ai-reason-icon">📊</span>
-                <span>Probabilità più alta tra tutti i pronostici</span>
-              </div>
-              <div class="ai-reason neutral">
-                <span class="ai-reason-icon">🔢</span>
-                <span>Basato su calcoli Poisson e xG</span>
-              </div>
-            </div>
-          </div>
-
-          ${stat.alternatives.length > 0 ? `
-            <div class="ai-alternatives">
-              <div class="ai-alt-title">Top 3 alternative:</div>
-              <div class="ai-alt-grid">
-                ${stat.alternatives.map(a => `
-                  <div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-        </div>
-
-      </div>
-      
-      <!-- STORICO VARIAZIONI -->
-      ${renderHistorySection(m.id)}
+        
+        <!-- STORICO VARIAZIONI -->
+        ${renderHistorySection(m.id)}
         
         <div class="combo-panel">
           <div class="combo-title">🔥 Combo Suggerite</div>
@@ -3938,7 +3517,7 @@
             </div>
           </div>
           
-          <!-- CLASSIFICA E MOTIVAZIONE -->
+          <!-- CLASSIFICA -->
           <div class="analysis-card">
             <div class="card-title"><div class="card-title-icon">🏆</div><span>Classifica</span></div>
             ${d.homePosition ? `
@@ -3952,7 +3531,7 @@
                 </div>
                 <div class="standings-stats">
                   <span class="standings-stat">📊 ${d.homePosition.points} pt</span>
-                  <span class="standings-stat">✅ ${d.homePosition.won}V</span>
+                  <span class.standings-stat">✅ ${d.homePosition.won}V</span>
                   <span class="standings-stat">➖ ${d.homePosition.draw}P</span>
                   <span class="standings-stat">❌ ${d.homePosition.lost}S</span>
                 </div>
@@ -4074,15 +3653,72 @@
       `;
     }
 
+    function getTrackingStats() {
+      const stats = {
+        total: state.trackedBets.length,
+        pending: state.trackedBets.filter(b => b.status === 'pending').length,
+        won: state.trackedBets.filter(b => b.status === 'won').length,
+        lost: state.trackedBets.filter(b => b.status === 'lost').length,
+        byType: {},
+        byPick: {}
+      };
+      
+      const completed = stats.won + stats.lost;
+      stats.winRate = completed > 0 ? ((stats.won / completed) * 100).toFixed(1) : 0;
+      
+      ['prematch', 'live'].forEach(type => {
+        const bets = state.trackedBets.filter(b => b.type === type);
+        const won = bets.filter(b => b.status === 'won').length;
+        const lost = bets.filter(b => b.status === 'lost').length;
+        const total = won + lost;
+        stats.byType[type] = {
+          total: bets.length,
+          won,
+          lost,
+          winRate: total > 0 ? ((won / total) * 100).toFixed(1) : 0
+        };
+      });
+      
+      const pickTypes = [
+        { key: 'over 0.5', label: 'Over 0.5' },
+        { key: 'over 1.5', label: 'Over 1.5' },
+        { key: 'over 2.5', label: 'Over 2.5' },
+        { key: 'over 3.5', label: 'Over 3.5' },
+        { key: 'under', label: 'Under' },
+        { key: 'gg', label: 'GG' },
+        { key: 'entrambe segnano', label: 'GG' },
+        { key: '1 (', label: '1 (Vittoria Casa)' },
+        { key: '2 (', label: '2 (Vittoria Ospite)' },
+        { key: '1x', label: '1X' },
+        { key: 'x2', label: 'X2' },
+        { key: 'pareggio', label: 'X (Pareggio)' }
+      ];
+      
+      pickTypes.forEach(pickType => {
+        const bets = state.trackedBets.filter(b => b.pick.toLowerCase().includes(pickType.key));
+        const won = bets.filter(b => b.status === 'won').length;
+        const lost = bets.filter(b => b.status === 'lost').length;
+        const total = won + lost;
+        if (bets.length > 0) {
+          stats.byPick[pickType.label] = {
+            total: bets.length,
+            won,
+            lost,
+            winRate: total > 0 ? ((won / total) * 100).toFixed(1) : 0
+          };
+        }
+      });
+      
+      return stats;
+    }
+
     function attachEvents() {
-      // Date tabs
       document.querySelectorAll('.date-tab[data-date]').forEach(tab => {
         tab.addEventListener('click', () => {
           loadMatches(parseInt(tab.dataset.date));
         });
       });
       
-      // League select
       document.getElementById('leagueSelect')?.addEventListener('change', e => {
         const id = parseInt(e.target.value);
         if (id) {
@@ -4092,7 +3728,6 @@
         }
       });
       
-      // Back buttons
       document.getElementById('backToLeagues')?.addEventListener('click', () => {
         state.view = 'leagues';
         state.selectedLeague = null;
@@ -4106,7 +3741,6 @@
         render();
       });
       
-      // Match items
       document.querySelectorAll('.match-item').forEach(el => {
         el.addEventListener('click', () => {
           const m = state.matches.find(x => x.id === parseInt(el.dataset.id));
@@ -4114,14 +3748,6 @@
         });
       });
       
-      // Advice cards - clicca per analizzare
-      document.querySelectorAll('.advice-card').forEach(el => {
-        el.addEventListener('click', () => {
-          // Il click è già gestito dal onclick inline
-        });
-      });
-      
-      // Predictions click to add
       document.querySelectorAll('.prediction-card, .combo-card').forEach(el => {
         el.addEventListener('click', () => {
           const m = state.selectedMatch;
@@ -4129,7 +3755,6 @@
         });
       });
       
-      // Raddoppi click
       document.querySelectorAll('.raddoppio-card').forEach(el => {
         el.addEventListener('click', () => {
           const idx = parseInt(el.dataset.raddoppio);
@@ -4142,7 +3767,6 @@
         });
       });
       
-      // Slip actions
       document.getElementById('openSlip')?.addEventListener('click', () => { state.slipModal = true; render(); });
       document.getElementById('viewSlip')?.addEventListener('click', () => { state.slipModal = true; render(); });
       document.getElementById('closeSlip')?.addEventListener('click', () => { state.slipModal = false; render(); });
@@ -4155,28 +3779,19 @@
         alert('Schedina copiata!');
       });
       
-      // Remove from slip
       document.querySelectorAll('.slip-item-remove').forEach(btn => {
         btn.addEventListener('click', () => removeFromSlip(btn.dataset.key));
       });
     }
 
-    // === INIT ===
     async function init() {
       console.log('🚀 BettingPro v6 starting...');
       
       await checkAPIStatus();
       await loadSlipFromFirebase();
-      await loadTrackingFromFirebase();
       
       render();
       await loadMatches(0);
-      
-      await checkPendingResults();
-      
-      setInterval(() => {
-        checkPendingResults();
-      }, 10 * 60 * 1000);
     }
 
     init();
