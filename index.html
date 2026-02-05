@@ -3541,15 +3541,29 @@
     async function checkAPIStatus() {
       console.log('🔍 Controllo stato API...');
       
+      // Helper per fetch con timeout
+      const fetchWithTimeout = async (url, options = {}, timeout = 5000) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        try {
+          const res = await fetch(url, { ...options, signal: controller.signal });
+          clearTimeout(timeoutId);
+          return res;
+        } catch (e) {
+          clearTimeout(timeoutId);
+          throw e;
+        }
+      };
+      
       // Check API-Football
       try {
         const testUrl = `${CONFIG.API_FOOTBALL.baseURL}/status`;
-        const res = await fetch(testUrl, {
+        const res = await fetchWithTimeout(testUrl, {
           headers: {
             'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
             'x-rapidapi-host': 'v3.football.api-sports.io'
           }
-        });
+        }, 8000);
         
         if (res.ok) {
           state.api.football = 'online';
@@ -3569,7 +3583,7 @@
         // Prova prima senza proxy
         try {
           const testUrl = `${CONFIG.FOOTYSTATS.baseURL}/test?key=${CONFIG.FOOTYSTATS.key}`;
-          const directRes = await fetch(testUrl);
+          const directRes = await fetchWithTimeout(testUrl, {}, 3000);
           if (directRes.ok || directRes.status === 404) {
             state.api.footystats = 'online';
             localStorage.setItem('api_footystats_status', 'online');
@@ -3584,13 +3598,15 @@
         const proxies = [
           'https://api.allorigins.win/raw?url=',
           'https://corsproxy.io/?',
-          'https://api.codetabs.com/v1/proxy?quest='
+          'https://api.codetabs.com/v1/proxy?quest=',
+          'https://cors-anywhere.herokuapp.com/',
+          'https://thingproxy.freeboard.io/fetch/'
         ];
         
         for (const proxy of proxies) {
           try {
             const proxyUrl = proxy + encodeURIComponent(testUrl);
-            const res = await fetch(proxyUrl);
+            const res = await fetchWithTimeout(proxyUrl, {}, 5000);
             if (res.ok || res.status === 404) {
               state.api.footystats = 'online';
               localStorage.setItem('api_footystats_status', 'online');
@@ -3615,13 +3631,28 @@
       const url = new URL(CONFIG.API_FOOTBALL.baseURL + endpoint);
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
       
+      // Helper per fetch con timeout
+      const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        try {
+          const res = await fetch(url, { ...options, signal: controller.signal });
+          clearTimeout(timeoutId);
+          return res;
+        } catch (e) {
+          clearTimeout(timeoutId);
+          throw e;
+        }
+      };
+      
       try {
-        const res = await fetch(url.toString(), {
+        const res = await fetchWithTimeout(url.toString(), {
           headers: {
             'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
             'x-rapidapi-host': 'v3.football.api-sports.io'
           }
-        });
+        }, 15000);
+        
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         
@@ -3809,10 +3840,24 @@
       url.searchParams.append('key', CONFIG.FOOTYSTATS.key);
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
       
+      // Helper per fetch con timeout
+      const fetchWithTimeout = async (url, timeout = 8000) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        try {
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          return res;
+        } catch (e) {
+          clearTimeout(timeoutId);
+          throw e;
+        }
+      };
+      
       try {
         // Prova prima senza proxy (potrebbe funzionare)
         try {
-          const directRes = await fetch(url.toString());
+          const directRes = await fetchWithTimeout(url.toString(), 5000);
           if (directRes.ok) {
             const data = await directRes.json();
             
@@ -3828,18 +3873,20 @@
           // Ignora errori CORS, proviamo con i proxy
         }
         
-        // Lista di proxy CORS alternativi
+        // Lista di proxy CORS alternativi (aggiornata e ampliata)
         const proxies = [
           'https://api.allorigins.win/raw?url=',
           'https://corsproxy.io/?',
-          'https://api.codetabs.com/v1/proxy?quest='
+          'https://api.codetabs.com/v1/proxy?quest=',
+          'https://cors-anywhere.herokuapp.com/',
+          'https://thingproxy.freeboard.io/fetch/'
         ];
         
         // Prova ogni proxy in sequenza
         for (const proxy of proxies) {
           try {
             const proxyUrl = proxy + encodeURIComponent(url.toString());
-            const res = await fetch(proxyUrl);
+            const res = await fetchWithTimeout(proxyUrl, 10000);
             if (res.ok) {
               const data = await res.json();
               
