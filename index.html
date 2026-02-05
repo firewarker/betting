@@ -2768,7 +2768,9 @@ function calculateRaddoppiDelGiorno(){const today=new Date().toISOString().split
       2, 3, 848, // Champions, Europa League, Conference
     ];
     
-    function calculateDailyPicks(){return calculateRaddoppiDelGiorno();}
+    function calculateDailyPicks() {
+      return calculateRaddoppiDelGiorno();
+    }
     
     // Costruisce combinazioni per raddoppi (quota target ~2.00)
     function buildRaddoppi(safeBets) {
@@ -5766,7 +5768,9 @@ function calculateRaddoppiDelGiorno(){const today=new Date().toISOString().split
       `;
     }
     
-    function renderLiveSection(){return renderConsigliSection();}
+    function renderLiveSection() {
+      return renderConsigliSection();
+    }
 
     function renderMatches() {
       const matches = state.matches.filter(m => m.league.id === state.selectedLeague.id).sort((a, b) => a.timestamp - b.timestamp);
