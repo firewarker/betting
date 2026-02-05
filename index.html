@@ -3064,8 +3064,9 @@
           if (state.fsData.has(k)) { fsMatch = state.fsData.get(k); break; }
         }
         
-        // Stima xG base
-        let homeXG = 1.35, awayXG = 1.10;
+        // Stima xG base - AUMENTATI per generare picks anche senza FootyStats
+        // Media Serie A: ~1.4 gol/partita casa, ~1.1 trasferta
+        let homeXG = 1.55, awayXG = 1.25;
         
         if (fsMatch) {
           if (fsMatch.home_xg) homeXG = fsMatch.home_xg;
@@ -3100,69 +3101,69 @@
           time: formatTime(match.date)
         };
         
-        // === PRONOSTICI SICURI PER RADDOPPI (solo campionati TOP e prob >= 75%) ===
+        // === PRONOSTICI SICURI PER RADDOPPI (solo campionati TOP e prob >= 70%) ===
         if (isTopLeague) {
           const p1X = p1X2.home + p1X2.draw;
           const pX2 = p1X2.draw + p1X2.away;
           
-          // 1X (casa o pareggio)
-          if (p1X >= 78) {
+          // 1X (casa o pareggio) - abbassato da 78% a 72%
+          if (p1X >= 72) {
             safeBets.push({ ...matchInfo, bet: '1X', prob: p1X, odds: (100 / p1X).toFixed(2) });
           }
-          // X2 (pareggio o trasferta)
-          if (pX2 >= 78) {
+          // X2 (pareggio o trasferta) - abbassato da 78% a 72%
+          if (pX2 >= 72) {
             safeBets.push({ ...matchInfo, bet: 'X2', prob: pX2, odds: (100 / pX2).toFixed(2) });
           }
-          // Over 1.5
-          if (pOver15 >= 80) {
+          // Over 1.5 - abbassato da 80% a 75%
+          if (pOver15 >= 75) {
             safeBets.push({ ...matchInfo, bet: 'Over 1.5', prob: pOver15, odds: (100 / pOver15).toFixed(2) });
           }
-          // 1 secco molto probabile
-          if (p1X2.home >= 73) {
+          // 1 secco molto probabile - abbassato da 73% a 65%
+          if (p1X2.home >= 65) {
             safeBets.push({ ...matchInfo, bet: '1', prob: p1X2.home, odds: (100 / p1X2.home).toFixed(2) });
           }
-          // 2 secco molto probabile
-          if (p1X2.away >= 70) {
+          // 2 secco molto probabile - abbassato da 70% a 60%
+          if (p1X2.away >= 60) {
             safeBets.push({ ...matchInfo, bet: '2', prob: p1X2.away, odds: (100 / p1X2.away).toFixed(2) });
           }
         }
         
-        // GG del giorno (prob >= 55%) - tutti i campionati
-        if (pBTTS >= 55) {
+        // GG del giorno (prob >= 50%) - tutti i campionati
+        if (pBTTS >= 50) {
           picks.gg.push({ ...matchInfo, bet: 'GG', prob: pBTTS });
         }
         
-        // OVER 2.5 del giorno - SOLO con xG alto (evita falsi positivi)
-        if (pOver25 >= 55 && totXG >= 3.0) {
+        // OVER 2.5 del giorno - con xG ragionevole
+        if (pOver25 >= 50 && totXG >= 2.6) {
           picks.over25.push({ ...matchInfo, bet: 'Over 2.5', prob: pOver25, xgTotal: totXG.toFixed(2) });
         }
         
-        // PAREGGI del giorno (prob >= 28% - i pareggi hanno sempre prob basse)
-        if (p1X2.draw >= 28 && p1X2.home < 50 && p1X2.away < 50) {
+        // PAREGGI del giorno (prob >= 26% - i pareggi hanno sempre prob basse)
+        if (p1X2.draw >= 26 && p1X2.home < 55 && p1X2.away < 55) {
           picks.pareggi.push({ ...matchInfo, bet: 'X', prob: p1X2.draw });
         }
         
-        // VITTORIE CASA del giorno (IA >70%)
-        if (p1X2.home >= 70) {
+        // VITTORIE CASA del giorno (IA >60%)
+        if (p1X2.home >= 60) {
           picks.vittorieCasa.push({ ...matchInfo, bet: '1', prob: p1X2.home });
         }
         
-        // VITTORIE OSPITE del giorno (IA >65%)
-        if (p1X2.away >= 65) {
+        // VITTORIE OSPITE del giorno (IA >55%)
+        if (p1X2.away >= 55) {
           picks.vittorieOspite.push({ ...matchInfo, bet: '2', prob: p1X2.away });
         }
         
-        // OVER 1° TEMPO - Per partite con xG MOLTO alto
+        // OVER 1° TEMPO - Per partite con xG alto
         // Circa 45% dei gol avviene nel primo tempo
         const pOver05_1T = quickCalcOver(homeXG * 0.45, awayXG * 0.45, 0.5);
         const pOver15_1T = quickCalcOver(homeXG * 0.45, awayXG * 0.45, 1.5);
         
-        // Over 0.5 1T (almeno 1 gol nel primo tempo) - xG >= 3.0
-        if (pOver05_1T >= 75 && totXG >= 3.0) {
+        // Over 0.5 1T (almeno 1 gol nel primo tempo) - xG >= 2.6
+        if (pOver05_1T >= 70 && totXG >= 2.6) {
           picks.over1T.push({ ...matchInfo, bet: 'Over 0.5 1T', prob: pOver05_1T, xgTotal: totXG.toFixed(2) });
         }
-        // Over 1.5 1T (almeno 2 gol nel primo tempo) - xG >= 3.8
-        if (pOver15_1T >= 55 && totXG >= 3.8) {
+        // Over 1.5 1T (almeno 2 gol nel primo tempo) - xG >= 3.5
+        if (pOver15_1T >= 50 && totXG >= 3.5) {
           picks.over1T.push({ ...matchInfo, bet: 'Over 1.5 1T', prob: pOver15_1T, xgTotal: totXG.toFixed(2) });
         }
       });
@@ -3287,8 +3288,8 @@
     function calculateTraderPicks() {
       if (state.matches.length === 0) return;
       
-      const MIN_PROB_RADDOPPIO = 82;
-      const MIN_PROB_SINGOLA = 70;
+      const MIN_PROB_RADDOPPIO = 72;
+      const MIN_PROB_SINGOLA = 60;
       
       const raddoppioPicks = [];
       const singolePicks = [];
@@ -3302,8 +3303,8 @@
       state.matches.forEach(match => {
         if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
         
-        // Stima xG
-        let homeXG = 1.45, awayXG = 1.15;
+        // Stima xG - aumentati per generare picks
+        let homeXG = 1.55, awayXG = 1.25;
         const fsKey = `${match.home.name.toLowerCase()}_${match.away.name.toLowerCase()}`.replace(/\s+/g, '');
         const fsMatch = state.fsData.get(fsKey);
         
