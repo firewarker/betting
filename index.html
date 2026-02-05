@@ -708,6 +708,82 @@
       color: var(--accent-green);
     }
     
+    /* MG SOTTO RISULTATI ESATTI */
+    .mg-under-scores {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .mg-box-compact {
+      flex: 1;
+      background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(16,185,129,0.1));
+      border: 1px solid var(--accent-gold);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+    }
+    .mg-box-compact .mg-box-label {
+      font-size: 0.7rem;
+      color: var(--accent-gold);
+      margin-bottom: 4px;
+    }
+    .mg-box-compact .mg-box-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+    }
+    .mg-box-compact .mg-box-prob {
+      font-size: 0.8rem;
+      color: var(--accent-emerald);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    /* LINEE OVER/UNDER CORNER E CARTELLINI */
+    .ou-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ou-line-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: var(--bg-input);
+      border-radius: 6px;
+      font-size: 0.75rem;
+    }
+    .ou-line-label {
+      color: var(--text-gray);
+      font-weight: 500;
+      flex: 1;
+    }
+    .ou-line-over, .ou-line-under {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+    .ou-line-over {
+      background: rgba(16,185,129,0.15);
+      color: var(--accent-green);
+    }
+    .ou-line-under {
+      background: rgba(239,68,68,0.15);
+      color: var(--accent-red);
+    }
+    .ou-line-over.highlight {
+      background: rgba(16,185,129,0.3);
+      border: 1px solid var(--accent-green);
+    }
+    .ou-line-under.highlight {
+      background: rgba(239,68,68,0.3);
+      border: 1px solid var(--accent-red);
+    }
+    
     /* PRONOSTICI AI */
     .predictions-panel {
       background: linear-gradient(135deg, var(--bg-card), var(--bg-card-light));
@@ -1788,6 +1864,134 @@
     .live-track-btn:hover { transform: scale(1.02); }
     .live-track-btn.tracked { background: var(--text-dark); }
     
+    /* === CONSIGLI SECTION === */
+    .consigli-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .consigli-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .consigli-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .consigli-badge {
+      padding: 6px 14px;
+      background: linear-gradient(135deg, var(--accent-gold), var(--accent-emerald));
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .consigli-category {
+      background: var(--bg-card-light);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .consigli-category-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .consigli-category-icon {
+      font-size: 1.2rem;
+    }
+    .consigli-category-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--accent-gold);
+      flex: 1;
+    }
+    .consigli-category-count {
+      padding: 4px 10px;
+      background: var(--bg-input);
+      border-radius: 8px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-gray);
+    }
+    .consigli-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .consiglio-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .consiglio-card:hover {
+      border-color: var(--accent-gold);
+      transform: translateX(4px);
+    }
+    .consiglio-rank {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--accent-gold), var(--accent-emerald));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+    .consiglio-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .consiglio-match {
+      font-weight: 600;
+      font-size: 0.85rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .consiglio-league {
+      font-size: 0.7rem;
+      color: var(--text-dark);
+    }
+    .consiglio-bet {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .consiglio-value {
+      display: block;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--accent-gold);
+    }
+    .consiglio-prob {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--accent-emerald);
+    }
+    .consigli-tab.active {
+      background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(16,185,129,0.2));
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+    }
+    
     /* === TRADER SECTION === */
     .trader-section {
       background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(16,185,129,0.08));
@@ -2374,7 +2578,7 @@
       slip: [], // Schedina
       slipModal: false,
       // Picks del giorno
-      dailyPicks: { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [] },
+      dailyPicks: { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] },
       // Money Management - Sistema Obiettivo
       money: {
         bankroll: parseFloat(localStorage.getItem('bp2_bankroll')) || 100,
@@ -2384,7 +2588,8 @@
         currentOdds: parseFloat(localStorage.getItem('bp2_odds')) || 1.80,
         history: JSON.parse(localStorage.getItem('bp2_history') || '[]')
       },
-      // LIVE Betting
+      // LIVE Betting (deprecato - mantengo variabili per compatibilità)
+      consigliMode: false,
       liveMode: false,
       liveMatches: [],
       liveAlerts: [],
@@ -2805,7 +3010,7 @@
     function calculateDailyPicks() {
       if (state.matches.length === 0) return;
       
-      const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [] };
+      const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
       const safeBets = []; // Per costruire i raddoppi
       
       state.matches.forEach(match => {
@@ -2903,6 +3108,16 @@
           picks.pareggi.push({ ...matchInfo, bet: 'X', prob: p1X2.draw });
         }
         
+        // VITTORIE CASA del giorno (IA >85%)
+        if (p1X2.home >= 85) {
+          picks.vittorieCasa.push({ ...matchInfo, bet: '1', prob: p1X2.home });
+        }
+        
+        // VITTORIE OSPITE del giorno (IA >75%)
+        if (p1X2.away >= 75) {
+          picks.vittorieOspite.push({ ...matchInfo, bet: '2', prob: p1X2.away });
+        }
+        
         // OVER 1° TEMPO - Per partite con xG MOLTO alto
         // Circa 45% dei gol avviene nel primo tempo
         const pOver05_1T = quickCalcOver(homeXG * 0.45, awayXG * 0.45, 0.5);
@@ -2921,11 +3136,13 @@
       // === COSTRUISCI RADDOPPI (combinazioni che fanno quota ~2.00) ===
       picks.raddoppi = buildRaddoppi(safeBets);
       
-      // Ordina per probabilità decrescente e limita a 6 per categoria
-      picks.gg = picks.gg.sort((a, b) => b.prob - a.prob).slice(0, 6);
-      picks.over25 = picks.over25.sort((a, b) => b.prob - a.prob).slice(0, 6);
-      picks.pareggi = picks.pareggi.sort((a, b) => b.prob - a.prob).slice(0, 6);
-      picks.over1T = picks.over1T.sort((a, b) => b.prob - a.prob).slice(0, 6);
+      // Ordina per probabilità decrescente e limita a 15 per categoria
+      picks.gg = picks.gg.sort((a, b) => b.prob - a.prob).slice(0, 15);
+      picks.over25 = picks.over25.sort((a, b) => b.prob - a.prob).slice(0, 15);
+      picks.pareggi = picks.pareggi.sort((a, b) => b.prob - a.prob).slice(0, 15);
+      picks.over1T = picks.over1T.sort((a, b) => b.prob - a.prob).slice(0, 15);
+      picks.vittorieCasa = picks.vittorieCasa.sort((a, b) => b.prob - a.prob).slice(0, 15);
+      picks.vittorieOspite = picks.vittorieOspite.sort((a, b) => b.prob - a.prob).slice(0, 15);
       
       state.dailyPicks = picks;
       console.log('🎯 Daily picks:', Object.keys(picks).map(k => `${k}: ${picks[k].length}`).join(', '));
@@ -5198,6 +5415,12 @@
       }
     }
     
+    function toggleConsigliMode() {
+      state.consigliMode = !state.consigliMode;
+      state.liveMode = false; // Disattiva live mode
+      render();
+    }
+    
     function toggleLiveMode() {
       state.liveMode = !state.liveMode;
       if (state.liveMode) {
@@ -5635,17 +5858,17 @@
       
       return `
         <div class="date-tabs">
-          <div class="date-tab live-tab ${state.liveMode ? 'active' : ''}" id="liveTab">
-            <span class="live-dot"></span> LIVE ${state.liveAlerts.length > 0 ? `<span class="live-badge-count">${state.liveAlerts.length}</span>` : ''}
+          <div class="date-tab consigli-tab ${state.consigliMode ? 'active' : ''}" id="consigliTab">
+            <span style="color: var(--accent-gold);">💡</span> CONSIGLI ${(picks.gg.length + picks.vittorieCasa.length + picks.vittorieOspite.length + picks.pareggi.length) > 0 ? `<span class="live-badge-count">${picks.gg.length + picks.vittorieCasa.length + picks.vittorieOspite.length + picks.pareggi.length}</span>` : ''}
           </div>
           ${[-1, 0, 1, 2].map(d => `
-            <div class="date-tab ${!state.liveMode && state.selectedDate === d ? 'active' : ''}" data-date="${d}">
+            <div class="date-tab ${!state.consigliMode && state.selectedDate === d ? 'active' : ''}" data-date="${d}">
               ${getDateLabel(d)} ${d !== 0 ? `(${formatDate(getDateString(d))})` : ''}
             </div>
           `).join('')}
         </div>
         
-        ${state.liveMode ? renderLiveSection() : `
+        ${state.consigliMode ? renderConsigliSection() : `
         <!-- SELEZIONA CAMPIONATO - SPOSTATO IN ALTO -->
         <div class="panel" style="margin-bottom: 16px;">
           <div class="panel-title">📋 Seleziona Campionato (${state.matches.length} partite)</div>
@@ -5658,138 +5881,6 @@
         </div>
         
         <!-- HOME SECTIONS - PICKS DEL GIORNO -->
-        <!-- SMART FILTERS -->
-      <div class="smart-filters-section">
-        <div class="filters-header">
-          <div class="filters-title">
-            <span>🎯</span> Top Picks Combinati (AI + Statistica)
-          </div>
-          <div class="filters-count">${state.smartFilters.results.length} partite</div>
-        </div>
-
-        <div class="filter-buttons">
-          <div class="filter-btn ${state.smartFilters.active === '1' ? 'active' : ''}" onclick="setSmartFilter('1')">1</div>
-          <div class="filter-btn ${state.smartFilters.active === 'X' ? 'active' : ''}" onclick="setSmartFilter('X')">X</div>
-          <div class="filter-btn ${state.smartFilters.active === '2' ? 'active' : ''}" onclick="setSmartFilter('2')">2</div>
-          <div class="filter-btn ${state.smartFilters.active === 'GG' ? 'active' : ''}" onclick="setSmartFilter('GG')">GG</div>
-          <div class="filter-btn ${state.smartFilters.active === 'NG' ? 'active' : ''}" onclick="setSmartFilter('NG')">NG</div>
-          <div class="filter-btn ${state.smartFilters.active === 'Over 2.5' ? 'active' : ''}" onclick="setSmartFilter('Over 2.5')">O 2.5</div>
-          <div class="filter-btn ${state.smartFilters.active === 'Under 2.5' ? 'active' : ''}" onclick="setSmartFilter('Under 2.5')">U 2.5</div>
-          <div class="filter-btn ${state.smartFilters.active === 'Over 1.5' ? 'active' : ''}" onclick="setSmartFilter('Over 1.5')">O 1.5</div>
-        </div>
-
-        <div class="filtered-picks">
-          ${state.smartFilters.results.length === 0 ? `
-            <div class="empty" style="padding: 20px;">
-              <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
-              <div>Seleziona un segno per vedere le partite</div>
-            </div>
-          ` : state.smartFilters.results.map((r, idx) => `
-            <div class="filtered-pick-card" onclick="selectMatch(${r.match.id})">
-              <div class="filtered-pick-rank">${idx + 1}</div>
-              <div class="filtered-pick-left">
-                <div class="filtered-pick-match">${esc(r.match.home.name)} vs ${esc(r.match.away.name)}</div>
-                <div class="filtered-pick-league">${r.time} • ${esc(r.league)}</div>
-              </div>
-              <div class="filtered-pick-right">
-                <div class="filtered-pick-bet">${r.pick}</div>
-                <div class="filtered-pick-prob">${r.prob}%</div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-
-      <!-- TRADER SECTION -->
-      ${state.traderPicks.raddoppio.length > 0 || state.traderPicks.singole.length > 0 ? `
-      <div class="trader-section">
-        <div class="trader-header">
-          <div class="trader-title">
-            <div class="trader-icon">💰</div>
-            <div class="trader-title-text">
-              <h3>Consigli del Trader</h3>
-              <p>Selezioni con alta probabilità per trading sportivo</p>
-            </div>
-          </div>
-          <div class="trader-stats">
-            <div class="trader-stat">
-              <div class="trader-stat-value">${state.traderPicks.raddoppio.length}</div>
-              <div class="trader-stat-label">Raddoppi</div>
-            </div>
-            <div class="trader-stat">
-              <div class="trader-stat-value">${state.traderPicks.singole.length}</div>
-              <div class="trader-stat-label">Singole</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="trader-content">
-          <!-- RADDOPPIO CONSIGLIATO -->
-          ${state.traderPicks.raddoppio.length >= 2 ? `
-          <div class="trader-box">
-            <div class="trader-box-title">🎰 Raddoppio Consigliato (≥82%)</div>
-            <div class="trader-picks">
-              ${state.traderPicks.raddoppio.slice(0, 2).map(p => `
-                <div class="trader-pick" onclick="selectMatch(${p.match.id})">
-                  <div class="trader-pick-info">
-                    <div class="trader-pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                    <div class="trader-pick-league">${p.time} • ${esc(p.league)}</div>
-                  </div>
-                  <div class="trader-pick-bet">
-                    <div class="trader-pick-value">${p.bet.value}</div>
-                    <div class="trader-pick-prob">${p.bet.prob.toFixed(0)}%</div>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-            <div class="trader-combined">
-              <span class="trader-combined-label">Prob. Combinata</span>
-              <span class="trader-combined-value">${(state.traderPicks.raddoppio.slice(0,2).reduce((a, p) => a * (p.bet.prob / 100), 1) * 100).toFixed(1)}%</span>
-            </div>
-            <div class="trader-strategy">
-              <strong>💡 Strategia:</strong> Punta max 2-3% del bankroll. Win rate storico sui raddoppi: <strong>~70%</strong>
-            </div>
-          </div>
-          ` : `
-          <div class="trader-box">
-            <div class="trader-box-title">🎰 Raddoppio Consigliato</div>
-            <div style="padding: 20px; text-align: center; color: var(--text-dark);">
-              Nessun raddoppio disponibile oggi con prob ≥82%
-            </div>
-          </div>
-          `}
-          
-          <!-- SINGOLE TOP -->
-          <div class="trader-box">
-            <div class="trader-box-title">⭐ Singole Top (≥70%)</div>
-            ${state.traderPicks.singole.length > 0 ? `
-            <div class="trader-picks">
-              ${state.traderPicks.singole.slice(0, 4).map(p => `
-                <div class="trader-pick" onclick="selectMatch(${p.match.id})">
-                  <div class="trader-pick-info">
-                    <div class="trader-pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                    <div class="trader-pick-league">${p.time} • ${esc(p.league)}</div>
-                  </div>
-                  <div class="trader-pick-bet">
-                    <div class="trader-pick-value">${p.bet.value}</div>
-                    <div class="trader-pick-prob">${p.bet.prob.toFixed(0)}%</div>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-            <div class="trader-strategy">
-              <strong>💡 Strategia:</strong> Punta max 5% del bankroll per singola. Preferisci: <strong>Under, GG, 1 Casa</strong>
-            </div>
-            ` : `
-            <div style="padding: 20px; text-align: center; color: var(--text-dark);">
-              Nessuna singola disponibile oggi con prob ≥70%
-            </div>
-            `}
-          </div>
-        </div>
-      </div>
-      ` : ''}
-
             <div class="home-sections">
           
           <!-- RADDOPPI DEL GIORNO (COMBINAZIONI) -->
@@ -5922,8 +6013,187 @@
             </div>
           </div>
           ` : ''}
+          
+          <!-- VITTORIE CASA DEL GIORNO (>85%) -->
+          ${picks.vittorieCasa.length > 0 ? `
+          <div class="picks-section vittorie-casa">
+            <div class="picks-header">
+              <div class="picks-title"><span class="picks-title-icon">🏠</span> 1 del Giorno (>85%)</div>
+              <span class="picks-count">${picks.vittorieCasa.length} picks</span>
+            </div>
+            <div class="picks-grid">
+              ${picks.vittorieCasa.map(p => `
+                <div class="pick-card ${isInSlip(p.match.id, 'pick_1') ? 'selected' : ''}" 
+                     data-matchid="${p.match.id}" data-market="pick_1" data-value="1" data-prob="${p.prob.toFixed(0)}">
+                  <div class="pick-info">
+                    <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                    <div class="pick-league">${p.time} • ${esc(p.league)}</div>
+                  </div>
+                  <div class="pick-bet">
+                    <span class="pick-value">1</span>
+                    <span class="pick-prob">${p.prob.toFixed(0)}%</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+          
+          <!-- VITTORIE OSPITE DEL GIORNO (>75%) -->
+          ${picks.vittorieOspite.length > 0 ? `
+          <div class="picks-section vittorie-ospite">
+            <div class="picks-header">
+              <div class="picks-title"><span class="picks-title-icon">✈️</span> 2 del Giorno (>75%)</div>
+              <span class="picks-count">${picks.vittorieOspite.length} picks</span>
+            </div>
+            <div class="picks-grid">
+              ${picks.vittorieOspite.map(p => `
+                <div class="pick-card ${isInSlip(p.match.id, 'pick_2') ? 'selected' : ''}" 
+                     data-matchid="${p.match.id}" data-market="pick_2" data-value="2" data-prob="${p.prob.toFixed(0)}">
+                  <div class="pick-info">
+                    <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                    <div class="pick-league">${p.time} • ${esc(p.league)}</div>
+                  </div>
+                  <div class="pick-bet">
+                    <span class="pick-value">2</span>
+                    <span class="pick-prob">${p.prob.toFixed(0)}%</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
         </div>
       `}
+      `;
+    }
+    
+    // === SEZIONE CONSIGLI DEL GIORNO ===
+    function renderConsigliSection() {
+      const picks = state.dailyPicks;
+      const totalPicks = picks.gg.length + picks.vittorieCasa.length + picks.vittorieOspite.length + picks.pareggi.length;
+      
+      return `
+        <div class="consigli-section">
+          <div class="consigli-header">
+            <div class="consigli-title"><span style="color: var(--accent-gold);">💡</span> Consigli del Giorno IA</div>
+            <div class="consigli-badge">${totalPicks} pronostici selezionati</div>
+          </div>
+          
+          ${totalPicks === 0 ? `
+            <div class="live-empty">
+              <div class="live-empty-icon">📊</div>
+              <div>Nessun consiglio disponibile</div>
+              <div style="font-size: 0.8rem; margin-top: 8px; color: var(--text-dark);">
+                Carica le partite di oggi per vedere i consigli IA
+              </div>
+            </div>
+          ` : `
+            <!-- MIGLIORI GG DEL GIORNO -->
+            ${picks.gg.length > 0 ? `
+            <div class="consigli-category">
+              <div class="consigli-category-header">
+                <span class="consigli-category-icon">⚽</span>
+                <span class="consigli-category-title">Migliori GG del Giorno</span>
+                <span class="consigli-category-count">${picks.gg.length} picks</span>
+              </div>
+              <div class="consigli-grid">
+                ${picks.gg.slice(0, 15).map((p, idx) => `
+                  <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
+                    <div class="consiglio-rank">${idx + 1}</div>
+                    <div class="consiglio-info">
+                      <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                      <div class="consiglio-league">${p.time} • ${esc(p.league)}</div>
+                    </div>
+                    <div class="consiglio-bet">
+                      <span class="consiglio-value">GG</span>
+                      <span class="consiglio-prob">${p.prob.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+            
+            <!-- MIGLIORI 1 DEL GIORNO (>85%) -->
+            ${picks.vittorieCasa.length > 0 ? `
+            <div class="consigli-category">
+              <div class="consigli-category-header">
+                <span class="consigli-category-icon">🏠</span>
+                <span class="consigli-category-title">Migliori 1 del Giorno (IA >85%)</span>
+                <span class="consigli-category-count">${picks.vittorieCasa.length} picks</span>
+              </div>
+              <div class="consigli-grid">
+                ${picks.vittorieCasa.slice(0, 15).map((p, idx) => `
+                  <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
+                    <div class="consiglio-rank">${idx + 1}</div>
+                    <div class="consiglio-info">
+                      <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                      <div class="consiglio-league">${p.time} • ${esc(p.league)}</div>
+                    </div>
+                    <div class="consiglio-bet">
+                      <span class="consiglio-value">1</span>
+                      <span class="consiglio-prob">${p.prob.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+            
+            <!-- MIGLIORI 2 DEL GIORNO (>75%) -->
+            ${picks.vittorieOspite.length > 0 ? `
+            <div class="consigli-category">
+              <div class="consigli-category-header">
+                <span class="consigli-category-icon">✈️</span>
+                <span class="consigli-category-title">Migliori 2 del Giorno (IA >75%)</span>
+                <span class="consigli-category-count">${picks.vittorieOspite.length} picks</span>
+              </div>
+              <div class="consigli-grid">
+                ${picks.vittorieOspite.slice(0, 15).map((p, idx) => `
+                  <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
+                    <div class="consiglio-rank">${idx + 1}</div>
+                    <div class="consiglio-info">
+                      <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                      <div class="consiglio-league">${p.time} • ${esc(p.league)}</div>
+                    </div>
+                    <div class="consiglio-bet">
+                      <span class="consiglio-value">2</span>
+                      <span class="consiglio-prob">${p.prob.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+            
+            <!-- MIGLIORI X DEL GIORNO -->
+            ${picks.pareggi.length > 0 ? `
+            <div class="consigli-category">
+              <div class="consigli-category-header">
+                <span class="consigli-category-icon">🎲</span>
+                <span class="consigli-category-title">Migliori X del Giorno (Pareggi probabili)</span>
+                <span class="consigli-category-count">${picks.pareggi.length} picks</span>
+              </div>
+              <div class="consigli-grid">
+                ${picks.pareggi.slice(0, 15).map((p, idx) => `
+                  <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
+                    <div class="consiglio-rank">${idx + 1}</div>
+                    <div class="consiglio-info">
+                      <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                      <div class="consiglio-league">${p.time} • ${esc(p.league)}</div>
+                    </div>
+                    <div class="consiglio-bet">
+                      <span class="consiglio-value">X</span>
+                      <span class="consiglio-prob">${p.prob.toFixed(0)}%</span>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+          `}
+        </div>
       `;
     }
     
@@ -6241,16 +6511,38 @@
           </div>
           
           <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🚩</div><span>Corner & Cartellini</span></div>
+            <div class="card-title"><div class="card-title-icon">🚩</div><span>Corner</span></div>
             <div class="stat-grid">
-              <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.corners.home.toFixed(1)}</div><div class="stat-box-sub">corner</div></div>
-              <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.corners.total.toFixed(1)}</div><div class="stat-box-sub">corner</div></div>
-              <div class="stat-box"><div class="stat-box-label">Ospite</div><div class="stat-box-value">${d.corners.away.toFixed(1)}</div><div class="stat-box-sub">corner</div></div>
+              <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.corners.home.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
+              <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.corners.total.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
+              <div class="stat-box"><div class="stat-box-label">Ospite</div><div class="stat-box-value">${d.corners.away.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
             </div>
-            <div class="stat-grid" style="margin-top:10px">
-              <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.cards.home.toFixed(1)}</div><div class="stat-box-sub">cart.</div></div>
-              <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.cards.total.toFixed(1)}</div><div class="stat-box-sub">cart.</div></div>
-              <div class="stat-box"><div class="stat-box-label">Ospite</div><div class="stat-box-value">${d.cards.away.toFixed(1)}</div><div class="stat-box-sub">cart.</div></div>
+            <div class="ou-lines" style="margin-top: 12px;">
+              ${d.corners.probs ? Object.entries(d.corners.probs).map(([line, p]) => `
+                <div class="ou-line-row">
+                  <span class="ou-line-label">Corner ${line}</span>
+                  <span class="ou-line-over ${p.over >= 55 ? 'highlight' : ''}">O ${p.over.toFixed(0)}%</span>
+                  <span class="ou-line-under ${p.under >= 55 ? 'highlight' : ''}">U ${p.under.toFixed(0)}%</span>
+                </div>
+              `).join('') : ''}
+            </div>
+          </div>
+          
+          <div class="analysis-card">
+            <div class="card-title"><div class="card-title-icon">🟨</div><span>Cartellini</span></div>
+            <div class="stat-grid">
+              <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.cards.home.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
+              <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.cards.total.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
+              <div class="stat-box"><div class="stat-box-label">Ospite</div><div class="stat-box-value">${d.cards.away.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
+            </div>
+            <div class="ou-lines" style="margin-top: 12px;">
+              ${d.cards.probs ? Object.entries(d.cards.probs).map(([line, p]) => `
+                <div class="ou-line-row">
+                  <span class="ou-line-label">Carte ${line}</span>
+                  <span class="ou-line-over ${p.over >= 55 ? 'highlight' : ''}">O ${p.over.toFixed(0)}%</span>
+                  <span class="ou-line-under ${p.under >= 55 ? 'highlight' : ''}">U ${p.under.toFixed(0)}%</span>
+                </div>
+              `).join('') : ''}
             </div>
           </div>
           
@@ -6431,6 +6723,19 @@
                 </div>
               `).join('')}
             </div>
+            <!-- MG CASA / MG OSPITE sotto risultati esatti -->
+            <div class="mg-under-scores">
+              <div class="mg-box-compact">
+                <div class="mg-box-label">🏠 MG ${m.home.name.split(' ')[0]}</div>
+                <div class="mg-box-value">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
+                <div class="mg-box-prob">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
+              </div>
+              <div class="mg-box-compact">
+                <div class="mg-box-label">✈️ MG ${m.away.name.split(' ')[0]}</div>
+                <div class="mg-box-value">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
+                <div class="mg-box-prob">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -6501,7 +6806,8 @@
 
     function attachEvents() {
       // LIVE Tab
-      document.getElementById('liveTab')?.addEventListener('click', toggleLiveMode);
+      // Consigli Tab
+      document.getElementById('consigliTab')?.addEventListener('click', toggleConsigliMode);
       document.getElementById('refreshLive')?.addEventListener('click', loadLiveMatches);
       
       // Date tabs
@@ -6511,6 +6817,7 @@
             state.liveMode = false;
             stopLiveAutoRefresh();
           }
+          state.consigliMode = false; // Disattiva anche consigli mode
           loadMatches(parseInt(tab.dataset.date));
         });
       });
@@ -6643,9 +6950,9 @@
       render();
       await loadMatches(0);
       
-      // Avvia monitoraggio LIVE in background
-      startLiveBackgroundMonitoring();
-      console.log('📡 LIVE background monitoring started');
+      // LIVE monitoring disabilitato (sezione LIVE rimossa)
+      // startLiveBackgroundMonitoring();
+      // console.log('📡 LIVE background monitoring started');
       
       // Controlla risultati dei pronostici pendenti
       await checkPendingResults();
