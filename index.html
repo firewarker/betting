@@ -3047,6 +3047,12 @@
       const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
       const safeBets = []; // Per costruire i raddoppi
       
+      // Raccogli TUTTI i picks con le loro probabilità calcolate come nell'analisi AI
+      const allGG = [];
+      const allOver25 = [];
+      const all1 = [];
+      const all2 = [];
+      
       state.matches.forEach(match => {
         // Skip partite già iniziate o finite
         if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
@@ -3098,11 +3104,35 @@
           matchName: `${match.home.name} vs ${match.away.name}`,
           shortName: `${match.home.name.substring(0,12)} - ${match.away.name.substring(0,12)}`,
           league: `${match.league.country} - ${match.league.name}`,
-          time: formatTime(match.date)
+          time: formatTime(match.date),
+          xgTotal: totXG.toFixed(2),
+          homeXG: homeXG.toFixed(2),
+          awayXG: awayXG.toFixed(2)
         };
         
-        // === PRONOSTICI SICURI PER RADDOPPI (solo campionati TOP e prob >= 70%) ===
+        // === RACCOGLI TUTTI I PICKS PER CAMPIONATI TOP ===
         if (isTopLeague) {
+          // GG - raccogli tutti con prob > 45%
+          if (pBTTS > 45) {
+            allGG.push({ ...matchInfo, bet: 'GG', prob: pBTTS });
+          }
+          
+          // Over 2.5 - raccogli tutti con prob > 40%
+          if (pOver25 > 40) {
+            allOver25.push({ ...matchInfo, bet: 'Over 2.5', prob: pOver25 });
+          }
+          
+          // 1 - raccogli tutti con prob > 40%
+          if (p1X2.home > 40) {
+            all1.push({ ...matchInfo, bet: '1', prob: p1X2.home });
+          }
+          
+          // 2 - raccogli tutti con prob > 20%
+          if (p1X2.away > 20) {
+            all2.push({ ...matchInfo, bet: '2', prob: p1X2.away });
+          }
+          
+          // === PRONOSTICI SICURI PER RADDOPPI ===
           const p1X = p1X2.home + p1X2.draw;
           const pX2 = p1X2.draw + p1X2.away;
           
@@ -3128,29 +3158,10 @@
           }
         }
         
-        // GG del giorno (prob >= 50%) - tutti i campionati
-        if (pBTTS >= 50) {
-          picks.gg.push({ ...matchInfo, bet: 'GG', prob: pBTTS });
-        }
-        
-        // OVER 2.5 del giorno - con xG ragionevole
-        if (pOver25 >= 50 && totXG >= 2.6) {
-          picks.over25.push({ ...matchInfo, bet: 'Over 2.5', prob: pOver25, xgTotal: totXG.toFixed(2) });
-        }
-        
         // PAREGGI del giorno (prob >= 26% - i pareggi hanno sempre prob basse)
+        // Questo usa il calcolo originale per tutti i campionati
         if (p1X2.draw >= 26 && p1X2.home < 55 && p1X2.away < 55) {
           picks.pareggi.push({ ...matchInfo, bet: 'X', prob: p1X2.draw });
-        }
-        
-        // VITTORIE CASA del giorno (IA >60%)
-        if (p1X2.home >= 60) {
-          picks.vittorieCasa.push({ ...matchInfo, bet: '1', prob: p1X2.home });
-        }
-        
-        // VITTORIE OSPITE del giorno (IA >55%)
-        if (p1X2.away >= 55) {
-          picks.vittorieOspite.push({ ...matchInfo, bet: '2', prob: p1X2.away });
         }
         
         // OVER 1° TEMPO - Per partite con xG alto
@@ -3168,16 +3179,18 @@
         }
       });
       
+      // === ORDINA E PRENDI I TOP 20 PER OGNI CATEGORIA ===
+      picks.gg = allGG.sort((a, b) => b.prob - a.prob).slice(0, 20);
+      picks.over25 = allOver25.sort((a, b) => b.prob - a.prob).slice(0, 20);
+      picks.vittorieCasa = all1.sort((a, b) => b.prob - a.prob).slice(0, 20);
+      picks.vittorieOspite = all2.sort((a, b) => b.prob - a.prob).slice(0, 20);
+      
       // === COSTRUISCI RADDOPPI (combinazioni che fanno quota ~2.00) ===
       picks.raddoppi = buildRaddoppi(safeBets);
       
-      // Ordina per probabilità decrescente e limita a 15 per categoria
-      picks.gg = picks.gg.sort((a, b) => b.prob - a.prob).slice(0, 15);
-      picks.over25 = picks.over25.sort((a, b) => b.prob - a.prob).slice(0, 15);
+      // Ordina pareggi e over1T
       picks.pareggi = picks.pareggi.sort((a, b) => b.prob - a.prob).slice(0, 15);
       picks.over1T = picks.over1T.sort((a, b) => b.prob - a.prob).slice(0, 15);
-      picks.vittorieCasa = picks.vittorieCasa.sort((a, b) => b.prob - a.prob).slice(0, 15);
-      picks.vittorieOspite = picks.vittorieOspite.sort((a, b) => b.prob - a.prob).slice(0, 15);
       
       state.dailyPicks = picks;
       console.log('🎯 Daily picks:', Object.keys(picks).map(k => `${k}: ${picks[k].length}`).join(', '));
@@ -5997,10 +6010,11 @@
           ` : ''}
           
           <!-- GG DEL GIORNO -->
+          <!-- TOP 20 GG DEL GIORNO -->
           ${picks.gg.length > 0 ? `
           <div class="picks-section gg">
             <div class="picks-header">
-              <div class="picks-title"><span class="picks-title-icon">⚽</span> GG del Giorno</div>
+              <div class="picks-title"><span class="picks-title-icon">⚽</span> Top 20 GG del Giorno</div>
               <span class="picks-count">${picks.gg.length} picks</span>
             </div>
             <div class="picks-grid">
@@ -6009,7 +6023,7 @@
                      data-matchid="${p.match.id}" data-market="pick_GG" data-value="GG" data-prob="${p.prob.toFixed(0)}">
                   <div class="pick-info">
                     <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                    <div class="pick-league">${p.time} • ${esc(p.league)}</div>
+                    <div class="pick-league">${p.time} • xG: ${p.xgTotal || 'N/A'}</div>
                   </div>
                   <div class="pick-bet">
                     <span class="pick-value">GG</span>
@@ -6021,11 +6035,11 @@
           </div>
           ` : ''}
           
-          <!-- OVER 2.5 DEL GIORNO -->
+          <!-- TOP 20 OVER 2.5 DEL GIORNO -->
           ${picks.over25.length > 0 ? `
           <div class="picks-section over">
             <div class="picks-header">
-              <div class="picks-title"><span class="picks-title-icon">🔥</span> Over 2.5 del Giorno</div>
+              <div class="picks-title"><span class="picks-title-icon">🔥</span> Top 20 Over 2.5</div>
               <span class="picks-count">${picks.over25.length} picks</span>
             </div>
             <div class="picks-grid">
@@ -6096,11 +6110,11 @@
           </div>
           ` : ''}
           
-          <!-- VITTORIE CASA DEL GIORNO (>60%) -->
+          <!-- TOP 20 VITTORIE CASA -->
           ${picks.vittorieCasa.length > 0 ? `
           <div class="picks-section vittorie-casa">
             <div class="picks-header">
-              <div class="picks-title"><span class="picks-title-icon">🏠</span> 1 del Giorno (≥60%)</div>
+              <div class="picks-title"><span class="picks-title-icon">🏠</span> Top 20 Vittorie Casa (1)</div>
               <span class="picks-count">${picks.vittorieCasa.length} picks</span>
             </div>
             <div class="picks-grid">
@@ -6109,7 +6123,7 @@
                      data-matchid="${p.match.id}" data-market="pick_1" data-value="1" data-prob="${p.prob.toFixed(0)}">
                   <div class="pick-info">
                     <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                    <div class="pick-league">${p.time} • ${esc(p.league)}</div>
+                    <div class="pick-league">${p.time} • xG: ${p.homeXG || 'N/A'}</div>
                   </div>
                   <div class="pick-bet">
                     <span class="pick-value">1</span>
@@ -6121,11 +6135,11 @@
           </div>
           ` : ''}
           
-          <!-- VITTORIE OSPITE DEL GIORNO (>55%) -->
+          <!-- TOP 20 VITTORIE OSPITE -->
           ${picks.vittorieOspite.length > 0 ? `
           <div class="picks-section vittorie-ospite">
             <div class="picks-header">
-              <div class="picks-title"><span class="picks-title-icon">✈️</span> 2 del Giorno (≥55%)</div>
+              <div class="picks-title"><span class="picks-title-icon">✈️</span> Top 20 Vittorie Ospite (2)</div>
               <span class="picks-count">${picks.vittorieOspite.length} picks</span>
             </div>
             <div class="picks-grid">
@@ -6134,7 +6148,7 @@
                      data-matchid="${p.match.id}" data-market="pick_2" data-value="2" data-prob="${p.prob.toFixed(0)}">
                   <div class="pick-info">
                     <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                    <div class="pick-league">${p.time} • ${esc(p.league)}</div>
+                    <div class="pick-league">${p.time} • xG: ${p.awayXG || 'N/A'}</div>
                   </div>
                   <div class="pick-bet">
                     <span class="pick-value">2</span>
@@ -6171,21 +6185,21 @@
               </div>
             </div>
           ` : `
-            <!-- MIGLIORI GG DEL GIORNO -->
+            <!-- TOP 20 GG DEL GIORNO -->
             ${picks.gg.length > 0 ? `
             <div class="consigli-category">
               <div class="consigli-category-header">
                 <span class="consigli-category-icon">⚽</span>
-                <span class="consigli-category-title">Migliori GG del Giorno (≥55%)</span>
+                <span class="consigli-category-title">Top 20 GG del Giorno</span>
                 <span class="consigli-category-count">${picks.gg.length} picks</span>
               </div>
               <div class="consigli-grid">
-                ${picks.gg.slice(0, 15).map((p, idx) => `
+                ${picks.gg.slice(0, 20).map((p, idx) => `
                   <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
                     <div class="consiglio-rank">${idx + 1}</div>
                     <div class="consiglio-info">
                       <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                      <div class="consiglio-league">${p.time} • ${esc(p.league)}</div>
+                      <div class="consiglio-league">${p.time} • xG: ${p.xgTotal || 'N/A'}</div>
                     </div>
                     <div class="consiglio-bet">
                       <span class="consiglio-value">GG</span>
@@ -6197,16 +6211,16 @@
             </div>
             ` : ''}
             
-            <!-- MIGLIORI OVER 2.5 DEL GIORNO -->
+            <!-- TOP 20 OVER 2.5 DEL GIORNO -->
             ${picks.over25.length > 0 ? `
             <div class="consigli-category">
               <div class="consigli-category-header">
                 <span class="consigli-category-icon">🔥</span>
-                <span class="consigli-category-title">Migliori Over 2.5 del Giorno (≥55% + xG alto)</span>
+                <span class="consigli-category-title">Top 20 Over 2.5</span>
                 <span class="consigli-category-count">${picks.over25.length} picks</span>
               </div>
               <div class="consigli-grid">
-                ${picks.over25.slice(0, 15).map((p, idx) => `
+                ${picks.over25.slice(0, 20).map((p, idx) => `
                   <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
                     <div class="consiglio-rank">${idx + 1}</div>
                     <div class="consiglio-info">
@@ -6223,21 +6237,21 @@
             </div>
             ` : ''}
             
-            <!-- MIGLIORI 1 DEL GIORNO (>60%) -->
+            <!-- TOP 20 VITTORIE CASA -->
             ${picks.vittorieCasa.length > 0 ? `
             <div class="consigli-category">
               <div class="consigli-category-header">
                 <span class="consigli-category-icon">🏠</span>
-                <span class="consigli-category-title">Migliori 1 del Giorno (IA ≥60%)</span>
+                <span class="consigli-category-title">Top 20 Vittorie Casa (1)</span>
                 <span class="consigli-category-count">${picks.vittorieCasa.length} picks</span>
               </div>
               <div class="consigli-grid">
-                ${picks.vittorieCasa.slice(0, 15).map((p, idx) => `
+                ${picks.vittorieCasa.slice(0, 20).map((p, idx) => `
                   <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
                     <div class="consiglio-rank">${idx + 1}</div>
                     <div class="consiglio-info">
                       <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                      <div class="consiglio-league">${p.time} • ${esc(p.league)}</div>
+                      <div class="consiglio-league">${p.time} • xG: ${p.homeXG || 'N/A'}</div>
                     </div>
                     <div class="consiglio-bet">
                       <span class="consiglio-value">1</span>
@@ -6249,21 +6263,21 @@
             </div>
             ` : ''}
             
-            <!-- MIGLIORI 2 DEL GIORNO (>55%) -->
+            <!-- TOP 20 VITTORIE OSPITE -->
             ${picks.vittorieOspite.length > 0 ? `
             <div class="consigli-category">
               <div class="consigli-category-header">
                 <span class="consigli-category-icon">✈️</span>
-                <span class="consigli-category-title">Migliori 2 del Giorno (IA ≥55%)</span>
+                <span class="consigli-category-title">Top 20 Vittorie Ospite (2)</span>
                 <span class="consigli-category-count">${picks.vittorieOspite.length} picks</span>
               </div>
               <div class="consigli-grid">
-                ${picks.vittorieOspite.slice(0, 15).map((p, idx) => `
+                ${picks.vittorieOspite.slice(0, 20).map((p, idx) => `
                   <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
                     <div class="consiglio-rank">${idx + 1}</div>
                     <div class="consiglio-info">
                       <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                      <div class="consiglio-league">${p.time} • ${esc(p.league)}</div>
+                      <div class="consiglio-league">${p.time} • xG: ${p.awayXG || 'N/A'}</div>
                     </div>
                     <div class="consiglio-bet">
                       <span class="consiglio-value">2</span>
