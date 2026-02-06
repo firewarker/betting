@@ -5,55 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BettingPro - AI Betting Intelligence</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-  
-  <!-- Chart.js per grafici interattivi -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  
   <style>
     :root {
-      --bg-dark: #1a1d29;
-      --bg-card: #22253a;
-      --bg-card-light: #2a2e45;
-      --bg-input: #2f3349;
-      --accent-cyan: #3b82f6;
-      --accent-blue: #60a5fa;
-      --accent-green: #10b981;
-      --accent-yellow: #f59e0b;
+      --bg-dark: #0a0e17;
+      --bg-card: #141d2f;
+      --bg-card-light: #1a2642;
+      --bg-input: #0f172a;
+      --accent-cyan: #f59e0b;
+      --accent-blue: #10b981;
+      --accent-green: #22c55e;
+      --accent-yellow: #fbbf24;
       --accent-red: #ef4444;
       --accent-purple: #8b5cf6;
-      --accent-gold: #fbbf24;
+      --accent-gold: #f59e0b;
       --accent-emerald: #10b981;
-      --text: #f1f5f9;
-      --text-white: #f1f5f9;
+      --text-white: #ffffff;
       --text-gray: #94a3b8;
       --text-dark: #64748b;
       --border: rgba(255,255,255,0.08);
-      --glow-cyan: 0 0 15px rgba(59, 130, 246, 0.3);
-      --glow-gold: 0 0 20px rgba(251, 191, 36, 0.3);
+      --glow-cyan: 0 0 20px rgba(245, 158, 11, 0.3);
+      --glow-gold: 0 0 25px rgba(245, 158, 11, 0.4);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, sans-serif;
       background: var(--bg-dark);
-      background-image: radial-gradient(ellipse at top, rgba(59,130,246,0.08) 0%, transparent 50%),
-                        radial-gradient(ellipse at bottom right, rgba(16,185,129,0.08) 0%, transparent 50%);
+      background-image: radial-gradient(ellipse at top, rgba(245,158,11,0.05) 0%, transparent 50%),
+                        radial-gradient(ellipse at bottom right, rgba(16,185,129,0.05) 0%, transparent 50%);
       color: var(--text-white);
       min-height: 100vh;
       padding-bottom: 100px;
     }
     .header {
-      background: rgba(34,37,58,0.95);
+      background: rgba(12,18,34,0.95);
       backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
       padding: 12px 24px;
       position: sticky;
       top: 0;
       z-index: 100;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
     .header-inner {
       max-width: 1400px;
@@ -121,7 +111,6 @@
       border-radius: 16px;
       padding: 20px;
       margin-bottom: 20px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     .panel-title { font-size: 1rem; font-weight: 700; margin-bottom: 16px; color: var(--accent-cyan); }
     .select-field {
@@ -2477,173 +2466,6 @@
       text-transform: uppercase;
     }
     
-    /* === PERFORMANCE & GRAFICI === */
-    .chart-container {
-      position: relative;
-      background: var(--bg-card);
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 20px;
-      border: 1px solid var(--border);
-    }
-    .chart-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-    }
-    .chart-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--text-white);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .chart-filters {
-      display: flex;
-      gap: 8px;
-    }
-    .chart-filter-btn {
-      padding: 6px 12px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text-gray);
-      font-size: 0.8rem;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .chart-filter-btn:hover {
-      border-color: var(--accent-cyan);
-      color: var(--text-white);
-    }
-    .chart-filter-btn.active {
-      background: var(--accent-cyan);
-      color: white;
-      border-color: var(--accent-cyan);
-    }
-    .chart-canvas-wrapper {
-      position: relative;
-      height: 300px;
-    }
-    canvas {
-      max-height: 100%;
-    }
-    .performance-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-    .performance-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px;
-    }
-    .performance-card-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-    }
-    .performance-card-icon {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.2rem;
-    }
-    .performance-card-title {
-      flex: 1;
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--text-white);
-    }
-    .ml-insights {
-      background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.1));
-      border: 2px solid rgba(139,92,246,0.3);
-      border-radius: 16px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    .ml-insights-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .ml-insights-icon {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      box-shadow: 0 0 20px rgba(139,92,246,0.4);
-    }
-    .ml-insights-title {
-      font-size: 1.2rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .ml-suggestion-card {
-      background: var(--bg-card);
-      border: 1px solid rgba(139,92,246,0.3);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 12px;
-    }
-    .ml-suggestion-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-    .ml-suggestion-market {
-      font-weight: 700;
-      color: var(--accent-purple);
-      font-size: 0.95rem;
-    }
-    .ml-suggestion-status {
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 0.7rem;
-      font-weight: 600;
-    }
-    .ml-suggestion-status.improving {
-      background: rgba(16,185,129,0.2);
-      color: var(--accent-green);
-    }
-    .ml-suggestion-status.declining {
-      background: rgba(239,68,68,0.2);
-      color: var(--accent-red);
-    }
-    .ml-suggestion-status.stable {
-      background: rgba(251,191,36,0.2);
-      color: var(--accent-yellow);
-    }
-    .ml-suggestion-body {
-      font-size: 0.85rem;
-      color: var(--text-gray);
-      line-height: 1.5;
-    }
-    .ml-suggestion-body strong {
-      color: var(--text-white);
-    }
-    
     /* Box Confronto Prima vs Ora */
     .history-compare {
       background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(16,185,129,0.15));
@@ -2748,26 +2570,14 @@
     // BETTINGPRO v5 - COMPLETO CON SCHEDINA E FIREBASE
     // ===================================================
     
-    // ============================================
-    // CONFIG: Backend Proxy (SICURO) o Direct API (INSICURO)
-    // ============================================
-    // IMPORTANTE: Se usi GitHub Pages, devi deployare il backend proxy su Vercel
-    // e cambiare USE_BACKEND_PROXY = true + impostare BACKEND_URL
-    // Vedi README-SECURITY.md per istruzioni
-    
-    const USE_BACKEND_PROXY = false; // Cambia a true quando deployi il backend
-    const BACKEND_URL = 'https://bettingpro-backend.vercel.app'; // SOSTITUISCI con il tuo URL Vercel
-    
     const CONFIG = {
-      // Se usi backend proxy, API_FOOTBALL e FOOTYSTATS punteranno al backend
-      // Altrimenti usano le keys dirette (INSICURO per produzione!)
       API_FOOTBALL: {
-        key: USE_BACKEND_PROXY ? '' : 'aeb2864a3d4dbb8395fa53c83a876a93',
-        baseURL: USE_BACKEND_PROXY ? `${BACKEND_URL}/api/football` : 'https://v3.football.api-sports.io'
+        key: 'aeb2864a3d4dbb8395fa53c83a876a93',
+        baseURL: 'https://v3.football.api-sports.io'
       },
       FOOTYSTATS: {
-        key: USE_BACKEND_PROXY ? '' : 'bec59b6f83404b0bd79c40076be71f6f3abec62afdacf5eeba296f2357993f3e',
-        baseURL: USE_BACKEND_PROXY ? `${BACKEND_URL}/api/footystats` : 'https://api.footystats.org'
+        key: 'bec59b6f83404b0bd79c40076be71f6f3abec62afdacf5eeba296f2357993f3e',
+        baseURL: 'https://api.footystats.org'
       },
       FIREBASE: {
         url: 'https://bettingpro-d0125-default-rtdb.europe-west1.firebasedatabase.app'
@@ -2785,27 +2595,8 @@
     };
     const USER_ID = getUserId();
 
-    // === FIREBASE INITIALIZATION ===
-    const firebaseConfig = {
-      apiKey: "AIzaSyD-D8cbJg8Wo9AUceTVLbLGRw_S9aJXTSw",
-      authDomain: "bettingpro2.firebaseapp.com",
-      projectId: "bettingpro2",
-      storageBucket: "bettingpro2.firebasestorage.app",
-      messagingSenderId: "364517114484",
-      appId: "1:364517114484:web:807d8891ae2aac2e548721"
-    };
-    
-    let db = null;
-    try {
-      firebase.initializeApp(firebaseConfig);
-      db = firebase.firestore();
-      console.log('🔥 Firebase initialized');
-    } catch (e) {
-      console.warn('⚠️ Firebase init failed:', e.message);
-    }
-
     let state = {
-      view: 'leagues', // 'leagues', 'matches', 'analysis', 'performance'
+      view: 'leagues',
       selectedDate: 0, // 0=oggi, -1=ieri, 1=domani, 2=dopodomani
       leagues: [],
       matches: [],
@@ -2843,16 +2634,6 @@
       liveCountdown: 60,
       // Tracking Pronostici
       trackedBets: JSON.parse(localStorage.getItem('bp2_tracked') || '[]'),
-      // Machine Learning Thresholds
-      mlThresholds: JSON.parse(localStorage.getItem('bp2_ml_thresholds') || JSON.stringify({
-        '1': { threshold: 50, accuracy: 0, totalPredictions: 0, correctPredictions: 0 },
-        'X': { threshold: 28, accuracy: 0, totalPredictions: 0, correctPredictions: 0 },
-        '2': { threshold: 50, accuracy: 0, totalPredictions: 0, correctPredictions: 0 },
-        'GG': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0 },
-        'Over 2.5': { threshold: 50, accuracy: 0, totalPredictions: 0, correctPredictions: 0 }
-      })),
-      // Performance Charts Data
-      performanceHistory: JSON.parse(localStorage.getItem('bp2_performance_history') || '[]'),
       // NUOVO: Cache Classifica e Infortunati
       standingsCache: new Map(),
       injuriesCache: new Map(),
@@ -3266,12 +3047,18 @@
       const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
       const safeBets = []; // Per costruire i raddoppi
       
-      // Raccogli i consigli AI per tutte le partite
-      const allAdvices = [];
+      // Raccogli TUTTI i picks con le loro probabilità calcolate come nell'analisi AI
+      const allGG = [];
+      const allOver25 = [];
+      const all1 = [];
+      const all2 = [];
       
       state.matches.forEach(match => {
         // Skip partite già iniziate o finite
         if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
+        
+        // Per i RADDOPPI: solo campionati top
+        const isTopLeague = TOP_LEAGUES.includes(match.league.id);
         
         // Calcolo rapido basato su FootyStats se disponibile
         let fsMatch = null;
@@ -3283,51 +3070,21 @@
           if (state.fsData.has(k)) { fsMatch = state.fsData.get(k); break; }
         }
         
-        // Stima xG base
+        // Stima xG base - AUMENTATI per generare picks anche senza FootyStats
+        // Media Serie A: ~1.4 gol/partita casa, ~1.1 trasferta
         let homeXG = 1.55, awayXG = 1.25;
-        let homeFormMultiplier = 1.0, awayFormMultiplier = 1.0;
-        let dataQuality = 'low'; // low, medium, high
         
         if (fsMatch) {
-          if (fsMatch.home_xg) {
-            homeXG = fsMatch.home_xg;
-            dataQuality = 'high';
-          } else if (fsMatch.home_ppg) {
-            homeXG = fsMatch.home_ppg * 0.8;
-            dataQuality = 'medium';
-          } else if (fsMatch.avg_goals_home) {
-            homeXG = fsMatch.avg_goals_home;
-            dataQuality = 'medium';
-          }
+          if (fsMatch.home_xg) homeXG = fsMatch.home_xg;
+          else if (fsMatch.home_ppg) homeXG = fsMatch.home_ppg * 0.8;
+          else if (fsMatch.avg_goals_home) homeXG = fsMatch.avg_goals_home;
           
-          if (fsMatch.away_xg) {
-            awayXG = fsMatch.away_xg;
-          } else if (fsMatch.away_ppg) {
-            awayXG = fsMatch.away_ppg * 0.7;
-          } else if (fsMatch.avg_goals_away) {
-            awayXG = fsMatch.avg_goals_away;
-          }
-          
-          // PATTERN CASA/TRASFERTA AVANZATO
-          // Analizza performance specifica casa vs trasferta
-          if (fsMatch.home_ppg && fsMatch.away_ppg) {
-            // Se casa ha ppg alto in casa → boost
-            if (fsMatch.home_ppg >= 2.0) homeFormMultiplier = 1.12;
-            else if (fsMatch.home_ppg >= 1.5) homeFormMultiplier = 1.06;
-            else if (fsMatch.home_ppg <= 0.8) homeFormMultiplier = 0.90;
-            
-            // Se ospite ha ppg alto in trasferta → boost
-            if (fsMatch.away_ppg >= 1.8) awayFormMultiplier = 1.10;
-            else if (fsMatch.away_ppg >= 1.2) awayFormMultiplier = 1.04;
-            else if (fsMatch.away_ppg <= 0.6) awayFormMultiplier = 0.88;
-          }
+          if (fsMatch.away_xg) awayXG = fsMatch.away_xg;
+          else if (fsMatch.away_ppg) awayXG = fsMatch.away_ppg * 0.7;
+          else if (fsMatch.avg_goals_away) awayXG = fsMatch.avg_goals_away;
         }
         
-        // Applica moltiplicatori forma
-        homeXG *= homeFormMultiplier;
-        awayXG *= awayFormMultiplier;
-        
-        // Home advantage (casa gioca meglio, trasferta peggio)
+        // Home advantage
         homeXG *= 1.10;
         awayXG *= 0.93;
         
@@ -3340,8 +3097,6 @@
         const p1X2 = quickCalc1X2(homeXG, awayXG);
         const pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
         const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
-        const pOver35 = quickCalcOver(homeXG, awayXG, 3.5);
-        const pUnder25 = 100 - pOver25;
         const pBTTS = quickCalcBTTS(homeXG, awayXG);
         
         const matchInfo = {
@@ -3355,253 +3110,90 @@
           awayXG: awayXG.toFixed(2)
         };
         
-        // === GENERA CONSIGLIO AI RAPIDO (simile a generateAIAdvice) ===
-        const homeStrong = homeXG > 1.8;
-        const awayWeak = awayXG < 0.8;
-        const awayStrong = awayXG > 1.5;
-        const homeWeak = homeXG < 1.0;
-        const highScoring = totXG >= 3.0;
-        const veryHighScoring = totXG >= 3.8;
-        const lowScoring = totXG < 2.2;
-        const balanced = Math.abs(homeXG - awayXG) < 0.5;
-        const ggLikely = pBTTS >= 55 && homeXG > 0.9 && awayXG > 0.9;
-        
-        // Multigoal per squadra (per calcolo X intelligente)
-        const mgHome = quickCalcOver(homeXG, 0, 0.5); // Prob che casa segni almeno 1
-        const mgAway = quickCalcOver(awayXG, 0, 0.5); // Prob che ospite segni almeno 1
-        
-        let aiPick = '';
-        let aiProb = 0;
-        let confidence = 'low';
-        
-        // Logica di selezione (come generateAIAdvice) con soglie più alte
-        if (homeStrong && awayWeak && p1X2.home >= 68) {
-          aiPick = '1 (Vittoria Casa)';
-          aiProb = p1X2.home;
-          confidence = p1X2.home >= 75 ? 'high' : 'medium';
-        }
-        else if (awayStrong && homeWeak && p1X2.away >= 63) {
-          aiPick = '2 (Vittoria Ospite)';
-          aiProb = p1X2.away;
-          confidence = p1X2.away >= 70 ? 'high' : 'medium';
-        }
-        else if (veryHighScoring && pOver25 >= 72) {
-          aiPick = 'Over 2.5';
-          aiProb = pOver25;
-          confidence = pOver25 >= 80 ? 'high' : 'medium';
-        }
-        else if (ggLikely && pBTTS >= 63) {
-          aiPick = 'GG (Entrambe Segnano)';
-          aiProb = pBTTS;
-          confidence = pBTTS >= 72 ? 'high' : 'medium';
-        }
-        else if (pOver15 >= 82) {
-          aiPick = 'Over 1.5';
-          aiProb = pOver15;
-          confidence = pOver15 >= 88 ? 'high' : 'medium';
-        }
-        else if ((p1X2.home + p1X2.draw) >= 82) {
-          aiPick = '1X (Casa o Pareggio)';
-          aiProb = p1X2.home + p1X2.draw;
-          confidence = aiProb >= 88 ? 'high' : 'medium';
-        }
-        // CALCOLO INTELLIGENTE PER X
-        // Se % X è alta, MG squadre basse, Under alto → potrebbe essere X
-        else if (balanced && p1X2.draw >= 30 && mgHome < 68 && mgAway < 68 && pUnder25 >= 58) {
-          aiPick = 'X (Pareggio)';
-          aiProb = p1X2.draw;
-          confidence = p1X2.draw >= 35 ? 'high' : 'medium';
-        }
-        else if (pOver15 >= 75) {
-          aiPick = 'Over 1.5';
-          aiProb = pOver15;
-          confidence = 'low';
-        }
-        
-        // CALCOLO CONFIDENCE FINALE basato su qualità dati + probabilità
-        if (dataQuality === 'high' && aiProb >= 75) confidence = 'high';
-        else if (dataQuality === 'high' && aiProb >= 65) {
-          if (confidence === 'low') confidence = 'medium';
-        }
-        else if (dataQuality === 'low' && confidence === 'high') confidence = 'medium';
-        
-        // Skip pick se probabilità troppo bassa o confidence troppo bassa
-        if (!aiPick || aiProb < 58 || confidence === 'low') return;
-        
-        // Salva il consiglio AI
-        allAdvices.push({
-          ...matchInfo,
-          aiPick,
-          aiProb,
-          confidence,
-          dataQuality,
-          p1X2,
-          pOver25,
-          pBTTS
-        });
-        
-        // === COSTRUISCI RADDOPPI (solo campionati top) ===
-        const isTopLeague = TOP_LEAGUES.includes(match.league.id);
+        // === RACCOGLI TUTTI I PICKS PER CAMPIONATI TOP ===
         if (isTopLeague) {
+          // GG - raccogli tutti con prob > 45%
+          if (pBTTS > 45) {
+            allGG.push({ ...matchInfo, bet: 'GG', prob: pBTTS });
+          }
+          
+          // Over 2.5 - raccogli tutti con prob > 40%
+          if (pOver25 > 40) {
+            allOver25.push({ ...matchInfo, bet: 'Over 2.5', prob: pOver25 });
+          }
+          
+          // 1 - raccogli tutti con prob > 40%
+          if (p1X2.home > 40) {
+            all1.push({ ...matchInfo, bet: '1', prob: p1X2.home });
+          }
+          
+          // 2 - raccogli tutti con prob > 20%
+          if (p1X2.away > 20) {
+            all2.push({ ...matchInfo, bet: '2', prob: p1X2.away });
+          }
+          
+          // === PRONOSTICI SICURI PER RADDOPPI ===
           const p1X = p1X2.home + p1X2.draw;
           const pX2 = p1X2.draw + p1X2.away;
           
-          if (p1X >= 72) safeBets.push({ ...matchInfo, bet: '1X', prob: p1X, odds: (100 / p1X).toFixed(2) });
-          if (pX2 >= 72) safeBets.push({ ...matchInfo, bet: 'X2', prob: pX2, odds: (100 / pX2).toFixed(2) });
-          if (pOver15 >= 75) safeBets.push({ ...matchInfo, bet: 'Over 1.5', prob: pOver15, odds: (100 / pOver15).toFixed(2) });
-          if (p1X2.home >= 65) safeBets.push({ ...matchInfo, bet: '1', prob: p1X2.home, odds: (100 / p1X2.home).toFixed(2) });
-          if (p1X2.away >= 60) safeBets.push({ ...matchInfo, bet: '2', prob: p1X2.away, odds: (100 / p1X2.away).toFixed(2) });
-        }
-      });
-      
-      // === RAGGRUPPA TUTTE LE PROBABILITÀ (NON SOLO IL CONSIGLIO PRINCIPALE) ===
-      // Questa logica prende TUTTE le probabilità dalla sezione "PRONOSTICI AI"
-      // e le raggruppa per categoria (1, X, 2, GG, Over 2.5)
-      allAdvices.forEach(advice => {
-        const { p1X2, pOver25, pBTTS, matchInfo, match, confidence, dataQuality } = advice;
-        
-        // Aggiungi 1 (Vittoria Casa) se probabilità >= 50%
-        if (p1X2.home >= 50) {
-          picks.vittorieCasa.push({
-            ...matchInfo,
-            match,
-            bet: '1',
-            prob: p1X2.home,
-            confidence: p1X2.home >= 70 ? 'high' : (p1X2.home >= 60 ? 'medium' : 'low'),
-            dataQuality
-          });
+          // 1X (casa o pareggio) - abbassato da 78% a 72%
+          if (p1X >= 72) {
+            safeBets.push({ ...matchInfo, bet: '1X', prob: p1X, odds: (100 / p1X).toFixed(2) });
+          }
+          // X2 (pareggio o trasferta) - abbassato da 78% a 72%
+          if (pX2 >= 72) {
+            safeBets.push({ ...matchInfo, bet: 'X2', prob: pX2, odds: (100 / pX2).toFixed(2) });
+          }
+          // Over 1.5 - abbassato da 80% a 75%
+          if (pOver15 >= 75) {
+            safeBets.push({ ...matchInfo, bet: 'Over 1.5', prob: pOver15, odds: (100 / pOver15).toFixed(2) });
+          }
+          // 1 secco molto probabile - abbassato da 73% a 65%
+          if (p1X2.home >= 65) {
+            safeBets.push({ ...matchInfo, bet: '1', prob: p1X2.home, odds: (100 / p1X2.home).toFixed(2) });
+          }
+          // 2 secco molto probabile - abbassato da 70% a 60%
+          if (p1X2.away >= 60) {
+            safeBets.push({ ...matchInfo, bet: '2', prob: p1X2.away, odds: (100 / p1X2.away).toFixed(2) });
+          }
         }
         
-        // === LOGICA AVANZATA PER X (PAREGGIO) ===
-        // Condizioni per un buon pareggio:
-        // 1. Probabilità X alta (>= 25%)
-        // 2. Partita equilibrata (differenza 1X2 bassa)
-        // 3. Risultato esatto 0-0 o 1-1 probabile
-        // 4. Under consigliato (xG totale basso)
-        // 5. Multigol squadre bassi (entrambe faticano a segnare)
-        
-        const totXG = parseFloat(matchInfo.xgTotal);
-        const homeXG = parseFloat(matchInfo.homeXG);
-        const awayXG = parseFloat(matchInfo.awayXG);
-        
-        // Calcola "equilibrio" - differenza tra le 3 probabilità
-        const maxProb = Math.max(p1X2.home, p1X2.draw, p1X2.away);
-        const minProb = Math.min(p1X2.home, p1X2.draw, p1X2.away);
-        const isBalanced = (maxProb - minProb) < 15; // Partita molto equilibrata
-        
-        // Calcola probabilità 0-0 e 1-1 (risultati esatti da pareggio)
-        const p00 = poisson(homeXG, 0) * poisson(awayXG, 0) * 100;
-        const p11 = poisson(homeXG, 1) * poisson(awayXG, 1) * 100;
-        const pDrawScores = p00 + p11; // Probabilità combinata 0-0 o 1-1
-        
-        // Calcola multigol squadre (prob di segnare 0 gol)
-        const pHome0 = poisson(homeXG, 0) * 100;
-        const pAway0 = poisson(awayXG, 0) * 100;
-        const lowScoring = pHome0 > 25 || pAway0 > 25; // Almeno una squadra ha alta prob di 0 gol
-        
-        // Under 2.5 consigliato?
-        const pUnder25 = 100 - pOver25;
-        const underSuggested = pUnder25 > 50;
-        
-        // SCORE X: Somma ponderata dei fattori
-        let xScore = 0;
-        
-        // Base: probabilità X
-        xScore += p1X2.draw * 2; // Peso 2x
-        
-        // Equilibrio 1X2
-        if (isBalanced) xScore += 15;
-        else if ((maxProb - minProb) < 20) xScore += 10;
-        
-        // Risultati esatti pareggio (0-0, 1-1)
-        if (pDrawScores >= 18) xScore += 20; // 0-0 o 1-1 molto probabili
-        else if (pDrawScores >= 12) xScore += 12;
-        else if (pDrawScores >= 8) xScore += 6;
-        
-        // Under consigliato
-        if (underSuggested && totXG < 2.2) xScore += 15;
-        else if (underSuggested) xScore += 8;
-        
-        // Basso xG totale
-        if (totXG < 1.8) xScore += 12;
-        else if (totXG < 2.2) xScore += 6;
-        
-        // Multigol bassi (squadre non segnano)
-        if (lowScoring) xScore += 10;
-        
-        // DECISIONE: Aggiungi X solo se score >= 55 (soglia stringente per pareggi)
-        if (xScore >= 55 && p1X2.draw >= 23) {
-          picks.pareggi.push({
-            ...matchInfo,
-            match,
-            bet: 'X',
-            prob: p1X2.draw,
-            confidence: xScore >= 75 ? 'high' : (xScore >= 65 ? 'medium' : 'low'),
-            dataQuality,
-            xScore: xScore.toFixed(0), // Score per debug
-            pDrawScores: pDrawScores.toFixed(1), // Prob 0-0 + 1-1
-            under: underSuggested
-          });
+        // PAREGGI del giorno (prob >= 26% - i pareggi hanno sempre prob basse)
+        // Questo usa il calcolo originale per tutti i campionati
+        if (p1X2.draw >= 26 && p1X2.home < 55 && p1X2.away < 55) {
+          picks.pareggi.push({ ...matchInfo, bet: 'X', prob: p1X2.draw });
         }
         
-        // Aggiungi 2 (Vittoria Ospite) se probabilità >= 45% (in trasferta è più difficile)
-        if (p1X2.away >= 45) {
-          picks.vittorieOspite.push({
-            ...matchInfo,
-            match,
-            bet: '2',
-            prob: p1X2.away,
-            confidence: p1X2.away >= 65 ? 'high' : (p1X2.away >= 55 ? 'medium' : 'low'),
-            dataQuality
-          });
-        }
+        // OVER 1° TEMPO - Per partite con xG alto
+        // Circa 45% dei gol avviene nel primo tempo
+        const pOver05_1T = quickCalcOver(homeXG * 0.45, awayXG * 0.45, 0.5);
+        const pOver15_1T = quickCalcOver(homeXG * 0.45, awayXG * 0.45, 1.5);
         
-        // Aggiungi GG se probabilità >= 52%
-        if (pBTTS >= 52) {
-          picks.gg.push({
-            ...matchInfo,
-            match,
-            bet: 'GG',
-            prob: pBTTS,
-            confidence: pBTTS >= 70 ? 'high' : (pBTTS >= 60 ? 'medium' : 'low'),
-            dataQuality
-          });
+        // Over 0.5 1T (almeno 1 gol nel primo tempo) - xG >= 2.6
+        if (pOver05_1T >= 70 && totXG >= 2.6) {
+          picks.over1T.push({ ...matchInfo, bet: 'Over 0.5 1T', prob: pOver05_1T, xgTotal: totXG.toFixed(2) });
         }
-        
-        // Aggiungi Over 2.5 se probabilità >= 50%
-        if (pOver25 >= 50) {
-          picks.over25.push({
-            ...matchInfo,
-            match,
-            bet: 'Over 2.5',
-            prob: pOver25,
-            confidence: pOver25 >= 70 ? 'high' : (pOver25 >= 60 ? 'medium' : 'low'),
-            dataQuality
-          });
+        // Over 1.5 1T (almeno 2 gol nel primo tempo) - xG >= 3.5
+        if (pOver15_1T >= 50 && totXG >= 3.5) {
+          picks.over1T.push({ ...matchInfo, bet: 'Over 1.5 1T', prob: pOver15_1T, xgTotal: totXG.toFixed(2) });
         }
       });
       
       // === ORDINA E PRENDI I TOP 20 PER OGNI CATEGORIA ===
-      // Ordina per confidence (high > medium) e poi per probabilità
-      const sortByConfidence = (a, b) => {
-        const confScore = { high: 3, medium: 2, low: 1 };
-        if (confScore[a.confidence] !== confScore[b.confidence]) {
-          return confScore[b.confidence] - confScore[a.confidence];
-        }
-        return b.prob - a.prob;
-      };
+      picks.gg = allGG.sort((a, b) => b.prob - a.prob).slice(0, 20);
+      picks.over25 = allOver25.sort((a, b) => b.prob - a.prob).slice(0, 20);
+      picks.vittorieCasa = all1.sort((a, b) => b.prob - a.prob).slice(0, 20);
+      picks.vittorieOspite = all2.sort((a, b) => b.prob - a.prob).slice(0, 20);
       
-      picks.gg = picks.gg.sort(sortByConfidence).slice(0, 20);
-      picks.over25 = picks.over25.sort(sortByConfidence).slice(0, 20);
-      picks.vittorieCasa = picks.vittorieCasa.sort(sortByConfidence).slice(0, 20);
-      picks.vittorieOspite = picks.vittorieOspite.sort(sortByConfidence).slice(0, 20);
-      picks.pareggi = picks.pareggi.sort(sortByConfidence).slice(0, 20);
-      
-      // === COSTRUISCI RADDOPPI ===
+      // === COSTRUISCI RADDOPPI (combinazioni che fanno quota ~2.00) ===
       picks.raddoppi = buildRaddoppi(safeBets);
       
+      // Ordina pareggi e over1T
+      picks.pareggi = picks.pareggi.sort((a, b) => b.prob - a.prob).slice(0, 15);
+      picks.over1T = picks.over1T.sort((a, b) => b.prob - a.prob).slice(0, 15);
+      
       state.dailyPicks = picks;
-      console.log('🎯 Daily picks (AI):', Object.keys(picks).map(k => `${k}: ${picks[k].length}`).join(', '));
+      console.log('🎯 Daily picks:', Object.keys(picks).map(k => `${k}: ${picks[k].length}`).join(', '));
     }
     
     // Costruisce combinazioni per raddoppi (quota target ~2.00)
@@ -4047,63 +3639,8 @@
       }
     }
 
-    // === CACHING SYSTEM ===
-    const CACHE_DURATIONS = {
-      fixtures: 6 * 60 * 60 * 1000,      // 6 ore
-      statistics: 24 * 60 * 60 * 1000,   // 24 ore
-      standings: 24 * 60 * 60 * 1000,    // 24 ore
-      h2h: 30 * 24 * 60 * 60 * 1000,     // 30 giorni
-      injuries: 12 * 60 * 60 * 1000,     // 12 ore
-      footystats: 6 * 60 * 60 * 1000     // 6 ore
-    };
-    
-    function getCacheKey(source, endpoint, params) {
-      const sortedParams = Object.keys(params).sort().map(k => `${k}=${params[k]}`).join('&');
-      return `cache_${source}_${endpoint}_${sortedParams}`;
-    }
-    
-    function getFromCache(key, maxAge) {
-      try {
-        const cached = localStorage.getItem(key);
-        if (!cached) return null;
-        
-        const { data, timestamp } = JSON.parse(cached);
-        const age = Date.now() - timestamp;
-        
-        if (age < maxAge) {
-          console.log(`✅ Cache HIT: ${key.substring(0, 50)} (${Math.round(age / 60000)}min ago)`);
-          return data;
-        } else {
-          localStorage.removeItem(key);
-          return null;
-        }
-      } catch (e) {
-        return null;
-      }
-    }
-    
-    function saveToCache(key, data) {
-      try {
-        localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
-      } catch (e) {
-        console.warn('Cache save failed');
-      }
-    }
-    
     // === API CALLS ===
     async function callAPIFootball(endpoint, params = {}) {
-      // Determina tipo di cache in base all'endpoint
-      let cacheType = 'fixtures';
-      if (endpoint.includes('statistics')) cacheType = 'statistics';
-      else if (endpoint.includes('standings')) cacheType = 'standings';
-      else if (endpoint.includes('h2h')) cacheType = 'h2h';
-      else if (endpoint.includes('injuries')) cacheType = 'injuries';
-      
-      // Controlla cache
-      const cacheKey = getCacheKey('api-football', endpoint, params);
-      const cached = getFromCache(cacheKey, CACHE_DURATIONS[cacheType]);
-      if (cached) return cached;
-      
       const url = new URL(CONFIG.API_FOOTBALL.baseURL + endpoint);
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
       
@@ -4131,9 +3668,6 @@
         
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        
-        // Salva in cache
-        saveToCache(cacheKey, data);
         
         // Aggiorna lo stato SOLO se era offline
         if (state.api.football !== 'online') {
@@ -4315,11 +3849,6 @@
     }
 
     async function callFootyStats(endpoint, params = {}) {
-      // Controlla cache
-      const cacheKey = getCacheKey('footystats', endpoint, params);
-      const cached = getFromCache(cacheKey, CACHE_DURATIONS.footystats);
-      if (cached) return cached;
-      
       const url = new URL(CONFIG.FOOTYSTATS.baseURL + endpoint);
       url.searchParams.append('key', CONFIG.FOOTYSTATS.key);
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
@@ -4344,9 +3873,6 @@
           const directRes = await fetchWithTimeout(url.toString(), 5000);
           if (directRes.ok) {
             const data = await directRes.json();
-            
-            // Salva in cache
-            saveToCache(cacheKey, data);
             
             if (state.api.footystats !== 'online') {
               state.api.footystats = 'online';
@@ -4376,9 +3902,6 @@
             const res = await fetchWithTimeout(proxyUrl, 10000);
             if (res.ok) {
               const data = await res.json();
-              
-              // Salva in cache
-              saveToCache(cacheKey, data);
               
               if (state.api.footystats !== 'online') {
                 state.api.footystats = 'online';
@@ -4890,10 +4413,10 @@
     }
 
     function calcCorners(homeData, awayData, fsMatch) {
-      // Base: medie tipiche per corner (varia per campionato)
+      // Base: medie italiane tipiche per corner
       let h = 5.2, a = 4.3;
       
-      // Usa dati FootyStats più precisi
+      // FootyStats ha dati più precisi sui corner
       if (fsMatch) {
         if (fsMatch.home_corners && fsMatch.home_corners > 0) h = fsMatch.home_corners;
         else if (fsMatch.team_a_corners_avg && fsMatch.team_a_corners_avg > 0) h = fsMatch.team_a_corners_avg;
@@ -4901,7 +4424,7 @@
         if (fsMatch.away_corners && fsMatch.away_corners > 0) a = fsMatch.away_corners;
         else if (fsMatch.team_b_corners_avg && fsMatch.team_b_corners_avg > 0) a = fsMatch.team_b_corners_avg;
         
-        // Se disponibile media totale
+        // Se disponibile media totale della partita
         if (fsMatch.corners_avg && fsMatch.corners_avg > 0) {
           const fsTotal = fsMatch.corners_avg;
           const ratio = h / (h + a);
@@ -4910,147 +4433,38 @@
         }
       }
       
-      // MIGLIORAMENTO AVANZATO: Più fattori che influenzano i corner
-      
-      // 1. Stile di gioco offensivo → Più attacchi → Più corner
-      if (homeData.goals >= 2.0) h *= 1.12; // Casa molto attaccante
-      else if (homeData.goals >= 1.8) h *= 1.08; // Casa attaccante
-      else if (homeData.goals >= 1.5) h *= 1.04; // Casa discretamente attaccante
-      
-      if (awayData.goals >= 1.8) a *= 1.10; // Ospite molto attaccante
-      else if (awayData.goals >= 1.5) a *= 1.06; // Ospite attaccante
-      else if (awayData.goals >= 1.2) a *= 1.03; // Ospite discretamente attaccante
-      
-      // 2. Difese deboli → Più pressione → Più corner subiti
-      if (homeData.conceded >= 1.8) a *= 1.08; // Casa subisce molto → ospite attacca → ospite fa corner
-      if (awayData.conceded >= 2.0) h *= 1.10; // Ospite subisce molto → casa attacca → casa fa corner
-      
-      // 3. Squadre difensive chiuse generano meno corner (bloccano prima)
-      if (homeData.goals <= 0.9 && homeData.conceded <= 1.0) h *= 0.88; // Casa molto difensiva
-      if (awayData.goals <= 0.8 && awayData.conceded <= 0.9) a *= 0.85; // Ospite molto difensiva
-      
-      // 4. Possesso palla (se disponibile) → Più possesso → Più corner
-      if (fsMatch) {
-        if (fsMatch.team_a_possession && fsMatch.team_a_possession >= 58) h *= 1.06; // Casa domina
-        if (fsMatch.team_b_possession && fsMatch.team_b_possession >= 55) a *= 1.05; // Ospite domina
-      }
-      
-      // 5. Forma recente (xG medio recente indica forma offensiva)
-      const homeForm = (homeData.goals / Math.max(homeData.conceded, 0.5));
-      const awayForm = (awayData.goals / Math.max(awayData.conceded, 0.5));
-      
-      if (homeForm >= 1.8) h *= 1.05; // Casa in forma
-      if (awayForm >= 1.6) a *= 1.04; // Ospite in forma
-      if (homeForm <= 0.6) h *= 0.94; // Casa in crisi
-      if (awayForm <= 0.5) a *= 0.92; // Ospite in crisi
-      
-      h = clamp(2.0, h, 9.0);
-      a = clamp(1.5, a, 8.0);
       const total = h + a;
-      
       const probs = {};
       
-      // MIGLIORAMENTO: Distribuzione Poisson (più accurata per eventi discreti)
+      // Calcolo probabilità con distribuzione normale approssimata
       [8.5, 9.5, 10.5, 11.5].forEach(line => {
-        let pOver = 0;
-        // Calcola probabilità con Poisson
-        for (let i = 0; i <= 20; i++) {
-          const pCorners = (Math.pow(total, i) * Math.exp(-total)) / factorial(i);
-          if (i > line) pOver += pCorners;
-        }
-        pOver *= 100;
-        
+        const diff = total - line;
+        // Deviazione standard tipica per corner: ~2.5
+        const stdDev = 2.5;
+        const zScore = diff / stdDev;
+        // Approssimazione della CDF normale
+        const overProb = 50 + (zScore * 30); // Semplificazione lineare
         probs[line] = { 
-          over: clamp(15, pOver, 85), 
-          under: clamp(15, 100 - pOver, 85) 
+          over: clamp(12, overProb, 88), 
+          under: clamp(12, 100 - overProb, 88) 
         };
       });
       
       return { home: h, away: a, total, probs };
     }
-    
+
     function calcCards(homeData, awayData, fsMatch) {
-      // Base: media cartellini per squadra
-      let h = homeData.cards || 2.1;
-      let a = awayData.cards || 1.9;
-      
-      // Usa dati FootyStats se disponibili
+      let h = homeData.cards, a = awayData.cards;
       if (fsMatch) {
         if (fsMatch.home_cards) h = fsMatch.home_cards;
         if (fsMatch.away_cards) a = fsMatch.away_cards;
       }
-      
-      // MIGLIORAMENTO AVANZATO: Più fattori che influenzano i cartellini
-      
-      // 1. Squadre sotto pressione (subiscono gol) → Più falli disperati → Più cartellini
-      if (homeData.conceded >= 2.0) h *= 1.14; // Casa subisce molto
-      else if (homeData.conceded >= 1.5) h *= 1.10;
-      else if (homeData.conceded >= 1.2) h *= 1.05;
-      
-      if (awayData.conceded >= 2.2) a *= 1.16; // Ospite subisce molto (in trasferta è peggio)
-      else if (awayData.conceded >= 1.8) a *= 1.12;
-      else if (awayData.conceded >= 1.4) a *= 1.07;
-      
-      // 2. Squadre offensive aggressive (molti gol + molti subiti = partite intense = più falli)
-      if (homeData.goals >= 2.0 && homeData.conceded >= 1.3) h *= 1.08;
-      if (awayData.goals >= 1.8 && awayData.conceded >= 1.5) a *= 1.10;
-      
-      // 3. Squadre difensive disciplinate (pochi gol, pochi subiti = gioco controllato = meno falli)
-      if (homeData.goals <= 1.0 && homeData.conceded <= 1.0) h *= 0.88;
-      if (awayData.goals <= 0.8 && awayData.conceded <= 0.8) a *= 0.85;
-      
-      // 4. Ritmo di gioco alto → Più cartellini
-      // Squadre che segnano + subiscono molto = partite aperte e intense
-      const homeIntensity = homeData.goals + homeData.conceded;
-      const awayIntensity = awayData.goals + awayData.conceded;
-      
-      if (homeIntensity >= 3.5) h *= 1.06; // Partite intense casa
-      if (awayIntensity >= 3.2) a *= 1.05; // Partite intense ospite
-      
-      // 5. Partite equilibrate (differenza xG bassa) → Più tensione → Più cartellini
-      const balanceDiff = Math.abs(homeData.goals - awayData.goals);
-      if (balanceDiff <= 0.3) {
-        h *= 1.08; // Partita equilibrata = più tensione
-        a *= 1.08;
-      }
-      
-      // 6. Fattore trasferta: squadre ospiti tendono a fare più falli (non sono a casa)
-      a *= 1.06;
-      
-      // 7. Derby / Rivalità (se entrambe hanno alti cartellini medi)
-      if (h >= 2.3 && a >= 2.1) {
-        h *= 1.10; // Probabilmente partita tesa
-        a *= 1.10;
-      }
-      
-      // 8. Importanza della partita (se squadre con alta media gol = squadre forti = partite importanti)
-      if (homeData.goals >= 1.8 && awayData.goals >= 1.5) {
-        h *= 1.04; // Partita importante
-        a *= 1.04;
-      }
-      
-      h = clamp(1.0, h, 5.0);
-      a = clamp(0.8, a, 4.5);
       const total = h + a;
-      
       const probs = {};
-      
-      // MIGLIORAMENTO: Distribuzione Poisson
       [2.5, 3.5, 4.5, 5.5].forEach(line => {
-        let pOver = 0;
-        // Calcola probabilità con Poisson
-        for (let i = 0; i <= 12; i++) {
-          const pCards = (Math.pow(total, i) * Math.exp(-total)) / factorial(i);
-          if (i > line) pOver += pCards;
-        }
-        pOver *= 100;
-        
-        probs[line] = { 
-          over: clamp(18, pOver, 82), 
-          under: clamp(18, 100 - pOver, 82) 
-        };
+        const diff = total - line;
+        probs[line] = { over: clamp(15, 50 + diff * 13, 85), under: clamp(15, 50 - diff * 13, 85) };
       });
-      
       return { home: h, away: a, total, probs };
     }
 
@@ -6335,189 +5749,6 @@
       saveTrackedBets();
     }
     
-    // === VERIFICA AUTOMATICA RISULTATI ===
-    async function autoVerifyPendingBets() {
-      const pending = state.trackedBets.filter(b => b.status === 'pending');
-      if (pending.length === 0) return;
-      
-      console.log(`🔍 Verifica automatica di ${pending.length} pronostici pendenti...`);
-      
-      for (const bet of pending) {
-        try {
-          // Controlla se la partita è finita (almeno 2 ore fa)
-          const betDate = new Date(bet.timestamp);
-          const now = new Date();
-          const hoursSince = (now - betDate) / (1000 * 60 * 60);
-          
-          // Verifica solo partite che sono iniziate almeno 2 ore fa
-          if (hoursSince < 2) continue;
-          
-          // Ottieni risultato dalla API
-          const data = await apiFootball(`/fixtures?id=${bet.matchId}`);
-          if (!data.response || data.response.length === 0) continue;
-          
-          const fixture = data.response[0];
-          const status = fixture.fixture.status.short;
-          
-          // Partita finita?
-          if (status !== 'FT' && status !== 'AET' && status !== 'PEN') continue;
-          
-          const homeGoals = fixture.goals.home;
-          const awayGoals = fixture.goals.away;
-          const totalGoals = homeGoals + awayGoals;
-          
-          // Verifica risultato basandosi sul tipo di pronostico
-          let isWon = false;
-          const pickLower = bet.pick.toLowerCase();
-          
-          if (pickLower.includes('over 2.5')) {
-            isWon = totalGoals > 2.5;
-          } else if (pickLower.includes('under 2.5')) {
-            isWon = totalGoals < 2.5;
-          } else if (pickLower.includes('over 1.5')) {
-            isWon = totalGoals > 1.5;
-          } else if (pickLower.includes('gg') || pickLower.includes('entrambe segnano')) {
-            isWon = homeGoals > 0 && awayGoals > 0;
-          } else if (pickLower.includes('1 (') || pickLower.includes('vittoria casa')) {
-            isWon = homeGoals > awayGoals;
-          } else if (pickLower.includes('2 (') || pickLower.includes('vittoria ospite')) {
-            isWon = awayGoals > homeGoals;
-          } else if (pickLower.includes('pareggio') || pickLower === 'x') {
-            isWon = homeGoals === awayGoals;
-          }
-          
-          // Aggiorna stato
-          bet.status = isWon ? 'won' : 'lost';
-          bet.result = `${homeGoals}-${awayGoals}`;
-          bet.verified = new Date().toISOString();
-          
-          console.log(`${isWon ? '✅' : '❌'} ${bet.matchName}: ${bet.pick} - ${homeGoals}-${awayGoals}`);
-          
-          // Aggiorna ML thresholds
-          updateMLThresholds(bet.pick, isWon, bet.prob);
-          
-        } catch (e) {
-          console.warn(`Errore verifica bet ${bet.id}:`, e);
-        }
-      }
-      
-      saveTrackedBets();
-      saveTrackingToFirebase();
-      saveMLThresholds();
-      updatePerformanceHistory();
-      
-      console.log('✅ Verifica automatica completata');
-    }
-    
-    // === MACHINE LEARNING: CALIBRAZIONE SOGLIE ===
-    function updateMLThresholds(pick, isWon, prob) {
-      // Normalizza il pick per trovare la categoria giusta
-      const pickLower = pick.toLowerCase();
-      let market = null;
-      
-      if (pickLower.includes('1 (') || pickLower.includes('vittoria casa')) market = '1';
-      else if (pickLower.includes('2 (') || pickLower.includes('vittoria ospite')) market = '2';
-      else if (pickLower.includes('pareggio') || pickLower === 'x') market = 'X';
-      else if (pickLower.includes('gg') || pickLower.includes('entrambe segnano')) market = 'GG';
-      else if (pickLower.includes('over 2.5')) market = 'Over 2.5';
-      
-      if (!market || !state.mlThresholds[market]) return;
-      
-      const ml = state.mlThresholds[market];
-      ml.totalPredictions++;
-      if (isWon) ml.correctPredictions++;
-      
-      ml.accuracy = ml.totalPredictions > 0 
-        ? ((ml.correctPredictions / ml.totalPredictions) * 100).toFixed(1) 
-        : 0;
-      
-      // Calibra soglia automaticamente
-      // Se accuracy < 50%, aumenta soglia (sii più selettivo)
-      // Se accuracy > 70%, diminuisci soglia (puoi essere meno selettivo)
-      if (ml.totalPredictions >= 20) {
-        const currentAccuracy = parseFloat(ml.accuracy);
-        
-        if (currentAccuracy < 50) {
-          ml.threshold = Math.min(ml.threshold + 2, 75); // Max 75%
-        } else if (currentAccuracy > 70 && ml.totalPredictions >= 30) {
-          ml.threshold = Math.max(ml.threshold - 1, 40); // Min 40%
-        }
-      }
-    }
-    
-    function saveMLThresholds() {
-      localStorage.setItem('bp2_ml_thresholds', JSON.stringify(state.mlThresholds));
-    }
-    
-    function getMLInsights() {
-      const insights = [];
-      
-      Object.entries(state.mlThresholds).forEach(([market, data]) => {
-        if (data.totalPredictions < 10) {
-          insights.push({
-            market,
-            status: 'learning',
-            message: `${market}: Raccogliendo dati (${data.totalPredictions}/20 predizioni)`,
-            accuracy: data.accuracy,
-            threshold: data.threshold
-          });
-        } else {
-          const acc = parseFloat(data.accuracy);
-          let status = 'stable';
-          let message = '';
-          
-          if (acc < 50) {
-            status = 'declining';
-            message = `${market}: Performance bassa (${acc}%). Soglia aumentata a ${data.threshold}% per essere più selettivi.`;
-          } else if (acc >= 70) {
-            status = 'improving';
-            message = `${market}: Ottima performance (${acc}%)! Soglia calibrata a ${data.threshold}%.`;
-          } else {
-            message = `${market}: Performance stabile (${acc}%). Soglia: ${data.threshold}%.`;
-          }
-          
-          insights.push({
-            market,
-            status,
-            message,
-            accuracy: acc,
-            threshold: data.threshold,
-            total: data.totalPredictions,
-            correct: data.correctPredictions
-          });
-        }
-      });
-      
-      return insights.sort((a, b) => b.total - a.total);
-    }
-    
-    // === PERFORMANCE HISTORY ===
-    function updatePerformanceHistory() {
-      const today = new Date().toISOString().split('T')[0];
-      const stats = getTrackingStats();
-      
-      // Rimuovi entry di oggi se esiste
-      state.performanceHistory = state.performanceHistory.filter(h => h.date !== today);
-      
-      // Aggiungi nuova entry
-      state.performanceHistory.push({
-        date: today,
-        totalBets: stats.total,
-        won: stats.won,
-        lost: stats.lost,
-        pending: stats.pending,
-        winRate: parseFloat(stats.winRate),
-        byMarket: stats.byPick
-      });
-      
-      // Mantieni solo ultimi 60 giorni
-      if (state.performanceHistory.length > 60) {
-        state.performanceHistory = state.performanceHistory.slice(-60);
-      }
-      
-      localStorage.setItem('bp2_performance_history', JSON.stringify(state.performanceHistory));
-    }
-    
     // === RENDER ===
     function render() {
       document.getElementById('app').innerHTML = `
@@ -6526,18 +5757,12 @@
           ${state.loading ? renderLoading() :
             state.view === 'leagues' ? renderLeagues() :
             state.view === 'matches' ? renderMatches() :
-            state.view === 'performance' ? renderPerformance() :
             renderAnalysis()}
         </main>
         ${renderSlipFloating()}
         ${state.slipModal ? renderSlipModal() : ''}
       `;
       attachEvents();
-      
-      // Inizializza grafici se siamo nella view performance
-      if (state.view === 'performance') {
-        setTimeout(() => initializeCharts(), 100);
-      }
     }
 
     function renderHeader() {
@@ -6559,11 +5784,8 @@
                   <span>Stats</span>
                 </div>
               </div>
-              <button class="settings-btn" onclick="showPerformance()" title="Performance & Analytics">
-                📊
-              </button>
-              <button class="settings-btn" onclick="toggleSettingsPanel()" title="Impostazioni">
-                ⚙️
+              <button class="settings-btn" onclick="toggleSettingsPanel()">
+                ⚙️ <span style="display:none">Impostazioni</span>
               </button>
               <div class="slip-badge" id="openSlip">
                 🎫 ${state.slip.length} pronostici
@@ -6725,285 +5947,6 @@
       return `<div class="loading"><div class="spinner"></div><div class="loading-text">Caricamento...</div></div>`;
     }
 
-    // === RENDER PERFORMANCE VIEW ===
-    function renderPerformance() {
-      const stats = getTrackingStats();
-      const mlInsights = getMLInsights();
-      const history = state.performanceHistory.slice(-30); // Ultimi 30 giorni
-      
-      return `
-        <div class="panel">
-          <div class="panel-title">📊 Performance & Analytics</div>
-          
-          <!-- STATS OVERVIEW -->
-          <div class="stats-overview" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
-            <div class="stats-card">
-              <div class="stats-card-value ${stats.winRate >= 60 ? 'green' : stats.winRate >= 50 ? 'yellow' : 'red'}">
-                ${stats.winRate}%
-              </div>
-              <div class="stats-card-label">Win Rate Totale</div>
-            </div>
-            <div class="stats-card">
-              <div class="stats-card-value green">${stats.won}</div>
-              <div class="stats-card-label">Pronostici Vinti</div>
-            </div>
-            <div class="stats-card">
-              <div class="stats-card-value red">${stats.lost}</div>
-              <div class="stats-card-label">Pronostici Persi</div>
-            </div>
-            <div class="stats-card">
-              <div class="stats-card-value">${stats.total}</div>
-              <div class="stats-card-label">Totale Pronostici</div>
-            </div>
-          </div>
-          
-          <!-- MACHINE LEARNING INSIGHTS -->
-          ${mlInsights.length > 0 ? `
-          <div class="ml-insights">
-            <div class="ml-insights-header">
-              <div class="ml-insights-icon">🤖</div>
-              <div>
-                <div class="ml-insights-title">Machine Learning Insights</div>
-                <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">
-                  Calibrazione automatica delle soglie basata sui risultati storici
-                </div>
-              </div>
-            </div>
-            
-            ${mlInsights.map(insight => `
-              <div class="ml-suggestion-card">
-                <div class="ml-suggestion-header">
-                  <span class="ml-suggestion-market">${insight.market}</span>
-                  <span class="ml-suggestion-status ${insight.status}">${
-                    insight.status === 'improving' ? '📈 In miglioramento' :
-                    insight.status === 'declining' ? '📉 In calo' :
-                    insight.status === 'learning' ? '🎓 Apprendimento' : '➡️ Stabile'
-                  }</span>
-                </div>
-                <div class="ml-suggestion-body">
-                  ${insight.message}
-                  ${insight.total >= 10 ? `<br><small>${insight.correct}/${insight.total} predizioni corrette</small>` : ''}
-                </div>
-              </div>
-            `).join('')}
-          </div>
-          ` : ''}
-          
-          <!-- GRAFICI -->
-          <div class="performance-grid">
-            <!-- Win Rate nel Tempo -->
-            <div class="chart-container" style="grid-column: span 2;">
-              <div class="chart-header">
-                <div class="chart-title">📈 Win Rate nel Tempo (Ultimi 30 giorni)</div>
-              </div>
-              <div class="chart-canvas-wrapper">
-                <canvas id="winRateChart"></canvas>
-              </div>
-            </div>
-            
-            <!-- Performance per Mercato -->
-            <div class="chart-container">
-              <div class="chart-header">
-                <div class="chart-title">🎯 Performance per Mercato</div>
-              </div>
-              <div class="chart-canvas-wrapper">
-                <canvas id="marketPerformanceChart"></canvas>
-              </div>
-            </div>
-            
-            <!-- Distribuzione Risultati -->
-            <div class="chart-container">
-              <div class="chart-header">
-                <div class="chart-title">📊 Distribuzione Risultati</div>
-              </div>
-              <div class="chart-canvas-wrapper">
-                <canvas id="resultsDistributionChart"></canvas>
-              </div>
-            </div>
-          </div>
-          
-          <!-- BOTTONE VERIFICA AUTOMATICA -->
-          <div style="text-align: center; margin-top: 24px;">
-            <button class="btn btn-primary" onclick="manualVerifyBets()" style="padding: 12px 32px; font-size: 1rem;">
-              🔍 Verifica Risultati Pendenti
-            </button>
-            <div style="font-size: 0.75rem; color: var(--text-dark); margin-top: 8px;">
-              Verifica automaticamente i risultati delle partite terminate
-            </div>
-          </div>
-          
-          <!-- BACK BUTTON -->
-          <div style="text-align: center; margin-top: 16px;">
-            <button class="btn btn-secondary" onclick="backToLeagues()">
-              ← Torna ai Campionati
-            </button>
-          </div>
-        </div>
-      `;
-    }
-    
-    // === INITIALIZE CHARTS ===
-    function initializeCharts() {
-      if (!window.Chart) {
-        console.warn('Chart.js non caricato');
-        return;
-      }
-      
-      const history = state.performanceHistory.slice(-30);
-      const stats = getTrackingStats();
-      
-      // Chart.js default colors
-      Chart.defaults.color = '#94a3b8';
-      Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
-      
-      // 1. WIN RATE NEL TEMPO
-      const winRateCtx = document.getElementById('winRateChart');
-      if (winRateCtx && history.length > 0) {
-        new Chart(winRateCtx, {
-          type: 'line',
-          data: {
-            labels: history.map(h => new Date(h.date).toLocaleDateString('it-IT', { month: 'short', day: 'numeric' })),
-            datasets: [{
-              label: 'Win Rate %',
-              data: history.map(h => h.winRate),
-              borderColor: '#3b82f6',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              fill: true,
-              tension: 0.4,
-              pointRadius: 4,
-              pointHoverRadius: 6
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                backgroundColor: '#22253a',
-                titleColor: '#f1f5f9',
-                bodyColor: '#94a3b8',
-                borderColor: 'rgba(255,255,255,0.1)',
-                borderWidth: 1
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 100,
-                grid: { color: 'rgba(255,255,255,0.05)' }
-              },
-              x: {
-                grid: { display: false }
-              }
-            }
-          }
-        });
-      }
-      
-      // 2. PERFORMANCE PER MERCATO
-      const marketCtx = document.getElementById('marketPerformanceChart');
-      if (marketCtx && Object.keys(stats.byPick).length > 0) {
-        const marketData = Object.entries(stats.byPick).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
-        
-        new Chart(marketCtx, {
-          type: 'bar',
-          data: {
-            labels: marketData.map(m => m[0]),
-            datasets: [{
-              label: 'Win Rate %',
-              data: marketData.map(m => parseFloat(m[1].winRate)),
-              backgroundColor: marketData.map(m => {
-                const wr = parseFloat(m[1].winRate);
-                return wr >= 60 ? 'rgba(16, 185, 129, 0.8)' :
-                       wr >= 50 ? 'rgba(251, 191, 36, 0.8)' :
-                       'rgba(239, 68, 68, 0.8)';
-              }),
-              borderRadius: 8,
-              borderSkipped: false
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 100,
-                grid: { color: 'rgba(255,255,255,0.05)' }
-              },
-              x: {
-                grid: { display: false }
-              }
-            }
-          }
-        });
-      }
-      
-      // 3. DISTRIBUZIONE RISULTATI
-      const resultsCtx = document.getElementById('resultsDistributionChart');
-      if (resultsCtx) {
-        new Chart(resultsCtx, {
-          type: 'doughnut',
-          data: {
-            labels: ['Vinti', 'Persi', 'Pendenti'],
-            datasets: [{
-              data: [stats.won, stats.lost, stats.pending],
-              backgroundColor: [
-                'rgba(16, 185, 129, 0.8)',
-                'rgba(239, 68, 68, 0.8)',
-                'rgba(251, 191, 36, 0.8)'
-              ],
-              borderWidth: 0
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'bottom',
-                labels: {
-                  padding: 15,
-                  font: { size: 12 }
-                }
-              }
-            }
-          }
-        });
-      }
-    }
-    
-    function manualVerifyBets() {
-      if (confirm('Vuoi verificare automaticamente i risultati delle partite terminate?\n\nQuesto potrebbe richiedere alcuni minuti.')) {
-        state.loading = true;
-        render();
-        
-        autoVerifyPendingBets().then(() => {
-          state.loading = false;
-          alert('✅ Verifica completata!\n\nI risultati sono stati aggiornati.');
-          render();
-        }).catch(e => {
-          state.loading = false;
-          alert('❌ Errore durante la verifica:\n\n' + e.message);
-          render();
-        });
-      }
-    }
-    
-    function backToLeagues() {
-      state.view = 'leagues';
-      render();
-    }
-    
-    function showPerformance() {
-      state.view = 'performance';
-      render();
-    }
-    
     function renderLeagues() {
       const picks = state.dailyPicks;
       const money = getMoneyStats();
@@ -7032,7 +5975,190 @@
           `}
         </div>
         
-        <!-- HOME SECTIONS - PICKS DEL GIORNO (RIMOSSI TOP 20) -->
+        <!-- HOME SECTIONS - PICKS DEL GIORNO -->
+            <div class="home-sections">
+          
+          <!-- RADDOPPI DEL GIORNO (COMBINAZIONI) -->
+          ${picks.raddoppi.length > 0 ? `
+          <div class="picks-section raddoppi">
+            <div class="picks-header">
+              <div class="picks-title"><span class="picks-title-icon">💰</span> Raddoppi del Giorno</div>
+              <span class="picks-count">${picks.raddoppi.length} combo</span>
+            </div>
+            <div class="raddoppi-grid">
+              ${picks.raddoppi.map((r, idx) => `
+                <div class="raddoppio-card" data-raddoppio="${idx}">
+                  <div class="raddoppio-header">
+                    <span class="raddoppio-badge">🎯 ${r.size} partite</span>
+                    <span class="raddoppio-odds">@${r.totalOdds}</span>
+                  </div>
+                  <div class="raddoppio-bets">
+                    ${r.bets.map(b => `
+                      <div class="raddoppio-bet">
+                        <span class="raddoppio-match">${esc(b.shortName)}</span>
+                        <span class="raddoppio-pick">${b.bet}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                  <div class="raddoppio-footer">
+                    <span class="raddoppio-prob">${r.totalProb}% prob</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+          
+          <!-- GG DEL GIORNO -->
+          <!-- TOP 20 GG DEL GIORNO -->
+          ${picks.gg.length > 0 ? `
+          <div class="picks-section gg">
+            <div class="picks-header">
+              <div class="picks-title"><span class="picks-title-icon">⚽</span> Top 20 GG del Giorno</div>
+              <span class="picks-count">${picks.gg.length} picks</span>
+            </div>
+            <div class="picks-grid">
+              ${picks.gg.map(p => `
+                <div class="pick-card ${isInSlip(p.match.id, 'pick_GG') ? 'selected' : ''}" 
+                     data-matchid="${p.match.id}" data-market="pick_GG" data-value="GG" data-prob="${p.prob.toFixed(0)}">
+                  <div class="pick-info">
+                    <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                    <div class="pick-league">${p.time} • xG: ${p.xgTotal || 'N/A'}</div>
+                  </div>
+                  <div class="pick-bet">
+                    <span class="pick-value">GG</span>
+                    <span class="pick-prob">${p.prob.toFixed(0)}%</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+          
+          <!-- TOP 20 OVER 2.5 DEL GIORNO -->
+          ${picks.over25.length > 0 ? `
+          <div class="picks-section over">
+            <div class="picks-header">
+              <div class="picks-title"><span class="picks-title-icon">🔥</span> Top 20 Over 2.5</div>
+              <span class="picks-count">${picks.over25.length} picks</span>
+            </div>
+            <div class="picks-grid">
+              ${picks.over25.map(p => `
+                <div class="pick-card ${isInSlip(p.match.id, 'pick_O25') ? 'selected' : ''}" 
+                     data-matchid="${p.match.id}" data-market="pick_O25" data-value="Over 2.5" data-prob="${p.prob.toFixed(0)}">
+                  <div class="pick-info">
+                    <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                    <div class="pick-league">${p.time} • xG: ${p.xgTotal}</div>
+                  </div>
+                  <div class="pick-bet">
+                    <span class="pick-value">O 2.5</span>
+                    <span class="pick-prob">${p.prob.toFixed(0)}%</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+          
+          <!-- X DEL GIORNO -->
+          ${picks.pareggi.length > 0 ? `
+          <div class="picks-section pareggi">
+            <div class="picks-header">
+              <div class="picks-title"><span class="picks-title-icon">🎲</span> X del Giorno</div>
+              <span class="picks-count">${picks.pareggi.length} picks</span>
+            </div>
+            <div class="picks-grid">
+              ${picks.pareggi.map(p => `
+                <div class="pick-card ${isInSlip(p.match.id, 'pick_X') ? 'selected' : ''}" 
+                     data-matchid="${p.match.id}" data-market="pick_X" data-value="X" data-prob="${p.prob.toFixed(0)}">
+                  <div class="pick-info">
+                    <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                    <div class="pick-league">${p.time} • ${esc(p.league)}</div>
+                  </div>
+                  <div class="pick-bet">
+                    <span class="pick-value">X</span>
+                    <span class="pick-prob">${p.prob.toFixed(0)}%</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+          
+          <!-- OVER 1° TEMPO DEL GIORNO -->
+          ${picks.over1T.length > 0 ? `
+          <div class="picks-section over1t">
+            <div class="picks-header">
+              <div class="picks-title"><span class="picks-title-icon">⏱️</span> Over 1° Tempo</div>
+              <span class="picks-count">${picks.over1T.length} picks</span>
+            </div>
+            <div class="picks-grid">
+              ${picks.over1T.map(p => `
+                <div class="pick-card ${isInSlip(p.match.id, 'pick_'+p.bet.replace(/\s+/g,'')) ? 'selected' : ''}" 
+                     data-matchid="${p.match.id}" data-market="pick_${p.bet.replace(/\s+/g,'')}" data-value="${p.bet}" data-prob="${p.prob.toFixed(0)}">
+                  <div class="pick-info">
+                    <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                    <div class="pick-league">${p.time} • xG: ${p.xgTotal}</div>
+                  </div>
+                  <div class="pick-bet">
+                    <span class="pick-value">${p.bet}</span>
+                    <span class="pick-prob">${p.prob.toFixed(0)}%</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+          
+          <!-- TOP 20 VITTORIE CASA -->
+          ${picks.vittorieCasa.length > 0 ? `
+          <div class="picks-section vittorie-casa">
+            <div class="picks-header">
+              <div class="picks-title"><span class="picks-title-icon">🏠</span> Top 20 Vittorie Casa (1)</div>
+              <span class="picks-count">${picks.vittorieCasa.length} picks</span>
+            </div>
+            <div class="picks-grid">
+              ${picks.vittorieCasa.map(p => `
+                <div class="pick-card ${isInSlip(p.match.id, 'pick_1') ? 'selected' : ''}" 
+                     data-matchid="${p.match.id}" data-market="pick_1" data-value="1" data-prob="${p.prob.toFixed(0)}">
+                  <div class="pick-info">
+                    <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                    <div class="pick-league">${p.time} • xG: ${p.homeXG || 'N/A'}</div>
+                  </div>
+                  <div class="pick-bet">
+                    <span class="pick-value">1</span>
+                    <span class="pick-prob">${p.prob.toFixed(0)}%</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+          
+          <!-- TOP 20 VITTORIE OSPITE -->
+          ${picks.vittorieOspite.length > 0 ? `
+          <div class="picks-section vittorie-ospite">
+            <div class="picks-header">
+              <div class="picks-title"><span class="picks-title-icon">✈️</span> Top 20 Vittorie Ospite (2)</div>
+              <span class="picks-count">${picks.vittorieOspite.length} picks</span>
+            </div>
+            <div class="picks-grid">
+              ${picks.vittorieOspite.map(p => `
+                <div class="pick-card ${isInSlip(p.match.id, 'pick_2') ? 'selected' : ''}" 
+                     data-matchid="${p.match.id}" data-market="pick_2" data-value="2" data-prob="${p.prob.toFixed(0)}">
+                  <div class="pick-info">
+                    <div class="pick-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
+                    <div class="pick-league">${p.time} • xG: ${p.awayXG || 'N/A'}</div>
+                  </div>
+                  <div class="pick-bet">
+                    <span class="pick-value">2</span>
+                    <span class="pick-prob">${p.prob.toFixed(0)}%</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
         </div>
       `}
       `;
@@ -7163,16 +6289,16 @@
             </div>
             ` : ''}
             
-            <!-- TOP 20 PAREGGI (X) DEL GIORNO -->
+            <!-- MIGLIORI X DEL GIORNO -->
             ${picks.pareggi.length > 0 ? `
             <div class="consigli-category">
               <div class="consigli-category-header">
                 <span class="consigli-category-icon">🎲</span>
-                <span class="consigli-category-title">Top 20 Pareggi (X) del Giorno</span>
+                <span class="consigli-category-title">Migliori X del Giorno (partite equilibrate)</span>
                 <span class="consigli-category-count">${picks.pareggi.length} picks</span>
               </div>
               <div class="consigli-grid">
-                ${picks.pareggi.slice(0, 20).map((p, idx) => `
+                ${picks.pareggi.slice(0, 15).map((p, idx) => `
                   <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
                     <div class="consiglio-rank">${idx + 1}</div>
                     <div class="consiglio-info">
@@ -7754,9 +6880,9 @@
             <div class="predictions-title">⚽ PRONOSTICI AI</div>
             <div class="predictions-subtitle">Clicca per aggiungere alla schedina</div>
             <div class="predictions-legend">
-              <div class="legend-item"><span class="legend-dot high"></span> Alta (&gt;65%)</div>
+              <div class="legend-item"><span class="legend-dot high"></span> Alta (>65%)</div>
               <div class="legend-item"><span class="legend-dot mid"></span> Media (50-65%)</div>
-              <div class="legend-item"><span class="legend-dot low"></span> Bassa (&lt;50%)</div>
+              <div class="legend-item"><span class="legend-dot low"></span> Bassa (<50%)</div>
             </div>
           </div>
           <div class="predictions-grid">
@@ -7964,14 +7090,14 @@
       // startLiveBackgroundMonitoring();
       // console.log('📡 LIVE background monitoring started');
       
-      // Verifica automatica risultati pronostici pendenti
-      await autoVerifyPendingBets();
-      console.log('📊 Pending results auto-verified');
+      // Controlla risultati dei pronostici pendenti
+      await checkPendingResults();
+      console.log('📊 Pending results checked');
       
       // Controlla risultati ogni 10 minuti
       setInterval(() => {
-        autoVerifyPendingBets();
-        console.log('🔄 Auto-verify pending results');
+        checkPendingResults();
+        console.log('🔄 Auto-check pending results');
       }, 10 * 60 * 1000);
     }
 
@@ -7979,4 +7105,3 @@
   </script>
 </body>
 </html>
-
