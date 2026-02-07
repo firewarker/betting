@@ -3242,19 +3242,15 @@
     ];
     
     function calculateDailyPicks() {
-      try {
-        if (!state.matches || state.matches.length === 0) {
-          state.dailyPicks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
-          return;
-        }
-        
-        const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
-        const safeBets = []; // Per costruire i raddoppi
-        
-        // Raccogli i consigli AI per tutte le partite
-        const allAdvices = [];
-        
-        state.matches.forEach(match => {
+      if (state.matches.length === 0) return;
+      
+      const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
+      const safeBets = []; // Per costruire i raddoppi
+      
+      // Raccogli i consigli AI per tutte le partite
+      const allAdvices = [];
+      
+      state.matches.forEach(match => {
         // Skip partite già iniziate o finite
         if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
         
@@ -3336,6 +3332,7 @@
           league: `${match.league.country} - ${match.league.name}`,
           time: formatTime(match.date),
           xgTotal: totXG.toFixed(2),
+          totXG: totXG.toFixed(2),
           homeXG: homeXG.toFixed(2),
           awayXG: awayXG.toFixed(2)
         };
@@ -3465,9 +3462,9 @@
         // 4. Under consigliato (xG totale basso)
         // 5. Multigol squadre bassi (entrambe faticano a segnare)
         
-        const totXG = parseFloat(matchInfo.totXG);
-        const homeXG = parseFloat(matchInfo.homeXG);
-        const awayXG = parseFloat(matchInfo.awayXG);
+        const totXG = parseFloat(matchInfo.totXG || matchInfo.xgTotal || 0);
+        const homeXG = parseFloat(matchInfo.homeXG || 0);
+        const awayXG = parseFloat(matchInfo.awayXG || 0);
         
         // Calcola "equilibrio" - differenza tra le 3 probabilità
         const maxProb = Math.max(p1X2.home, p1X2.draw, p1X2.away);
@@ -3587,11 +3584,6 @@
       
       state.dailyPicks = picks;
       console.log('🎯 Daily picks (AI):', Object.keys(picks).map(k => `${k}: ${picks[k].length}`).join(', '));
-    } catch (error) {
-      console.error('❌ Errore in calculateDailyPicks:', error);
-      // Inizializza con valori vuoti in caso di errore
-      state.dailyPicks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
-    }
     }
     
     // Costruisce combinazioni per raddoppi (quota target ~2.00)
@@ -3697,13 +3689,7 @@
     // === TRADER PICKS ===
     // Calcola i migliori picks per il trader con strategia
     function calculateTraderPicks() {
-      try {
-        if (!state.matches || state.matches.length === 0) {
-          if (!state.traderPicks) {
-            state.traderPicks = { raddoppio: [], singole: [] };
-          }
-          return;
-        }
+      if (state.matches.length === 0) return;
       
       const MIN_PROB_RADDOPPIO = 72;
       const MIN_PROB_SINGOLA = 60;
@@ -3779,12 +3765,6 @@
       console.log('💰 Trader picks:', 
         `Raddoppio: ${state.traderPicks.raddoppio.length}`,
         `Singole: ${state.traderPicks.singole.length}`);
-    } catch (error) {
-      console.error('❌ Errore in calculateTraderPicks:', error);
-      if (!state.traderPicks) {
-        state.traderPicks = { raddoppio: [], singole: [] };
-      }
-    }
     }
 
     // === MONEY MANAGEMENT ===
@@ -3962,7 +3942,7 @@
       console.log('🔍 Controllo stato API...');
       
       // Helper per fetch con timeout
-      const fetchWithTimeout = async (url, options = {}, timeout = 5000) => {
+      const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         try {
@@ -3983,7 +3963,7 @@
             'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
             'x-rapidapi-host': 'v3.football.api-sports.io'
           }
-        }, 8000);
+        }, 5000);
         
         if (res.ok) {
           state.api.football = 'online';
@@ -3998,52 +3978,10 @@
         console.warn('❌ API-Football: OFFLINE', e.message);
       }
       
-      // Check FootyStats
-      try {
-        // Prova prima senza proxy
-        try {
-          const testUrl = `${CONFIG.FOOTYSTATS.baseURL}/test?key=${CONFIG.FOOTYSTATS.key}`;
-          const directRes = await fetchWithTimeout(testUrl, {}, 3000);
-          if (directRes.ok || directRes.status === 404) {
-            state.api.footystats = 'online';
-            localStorage.setItem('api_footystats_status', 'online');
-            console.log('✅ FootyStats: ONLINE (direct)');
-            return;
-          }
-        } catch (e) {
-          // Ignora errori CORS, proviamo con i proxy
-        }
-        
-        const testUrl = `${CONFIG.FOOTYSTATS.baseURL}/test?key=${CONFIG.FOOTYSTATS.key}`;
-        const proxies = [
-          'https://api.allorigins.win/raw?url=',
-          'https://corsproxy.io/?',
-          'https://api.codetabs.com/v1/proxy?quest=',
-          'https://cors-anywhere.herokuapp.com/',
-          'https://thingproxy.freeboard.io/fetch/'
-        ];
-        
-        for (const proxy of proxies) {
-          try {
-            const proxyUrl = proxy + encodeURIComponent(testUrl);
-            const res = await fetchWithTimeout(proxyUrl, {}, 5000);
-            if (res.ok || res.status === 404) {
-              state.api.footystats = 'online';
-              localStorage.setItem('api_footystats_status', 'online');
-              console.log(`✅ FootyStats: ONLINE (proxy: ${proxy})`);
-              return;
-            }
-          } catch (e) {
-            continue;
-          }
-        }
-        
-        throw new Error('FootyStats non disponibile con nessun proxy');
-      } catch (e) {
-        state.api.footystats = 'offline';
-        localStorage.setItem('api_footystats_status', 'offline');
-        console.warn('❌ FootyStats: OFFLINE', e.message);
-      }
+      // Check FootyStats (skip proxy test - troppo lento)
+      state.api.footystats = 'offline';
+      localStorage.setItem('api_footystats_status', 'offline');
+      console.log('⚠️ FootyStats: SKIPPED (check on demand)');
     }
 
     // === CACHING SYSTEM ===
@@ -4107,7 +4045,7 @@
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
       
       // Helper per fetch con timeout
-      const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
+      const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         try {
@@ -4126,7 +4064,7 @@
             'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
             'x-rapidapi-host': 'v3.football.api-sports.io'
           }
-        }, 15000);
+        }, 10000);
         
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -4324,7 +4262,7 @@
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
       
       // Helper per fetch con timeout
-      const fetchWithTimeout = async (url, timeout = 8000) => {
+      const fetchWithTimeout = async (url, timeout = 3000) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         try {
@@ -4340,7 +4278,7 @@
       try {
         // Prova prima senza proxy (potrebbe funzionare)
         try {
-          const directRes = await fetchWithTimeout(url.toString(), 5000);
+          const directRes = await fetchWithTimeout(url.toString(), 3000);
           if (directRes.ok) {
             const data = await directRes.json();
             
@@ -4359,20 +4297,17 @@
           // Ignora errori CORS, proviamo con i proxy
         }
         
-        // Lista di proxy CORS alternativi (aggiornata e ampliata)
+        // Lista di proxy CORS alternativi (ridotta per velocità)
         const proxies = [
           'https://api.allorigins.win/raw?url=',
-          'https://corsproxy.io/?',
-          'https://api.codetabs.com/v1/proxy?quest=',
-          'https://cors-anywhere.herokuapp.com/',
-          'https://thingproxy.freeboard.io/fetch/'
+          'https://corsproxy.io/?'
         ];
         
-        // Prova ogni proxy in sequenza
+        // Prova ogni proxy in sequenza (timeout ridotto)
         for (const proxy of proxies) {
           try {
             const proxyUrl = proxy + encodeURIComponent(url.toString());
-            const res = await fetchWithTimeout(proxyUrl, 10000);
+            const res = await fetchWithTimeout(proxyUrl, 5000);
             if (res.ok) {
               const data = await res.json();
               
@@ -4389,7 +4324,6 @@
               return data;
             }
           } catch (e) {
-            console.log(`❌ Proxy ${proxy} fallito, provo il prossimo...`);
             continue;
           }
         }
@@ -4410,14 +4344,14 @@
 
     // === DATA LOADING ===
     async function loadMatches(dateOffset = 0) {
+      state.loading = true;
+      state.selectedDate = dateOffset;
+      render();
+      
+      const dateStr = getDateString(dateOffset);
+      console.log('📅 Loading matches for:', dateStr);
+      
       try {
-        state.loading = true;
-        state.selectedDate = dateOffset;
-        render();
-        
-        const dateStr = getDateString(dateOffset);
-        console.log('📅 Loading matches for:', dateStr);
-        
         const data = await callAPIFootball('/fixtures', { date: dateStr, timezone: 'Europe/Rome' });
         
         if (data?.response) {
@@ -4454,14 +4388,13 @@
           
           console.log(`✅ Loaded ${state.leagues.length} leagues, ${state.matches.length} matches`);
         } else {
-          console.warn('⚠️ Nessuna partita trovata per', dateStr);
-          state.leagues = [];
+          console.warn('⚠️ No match data received');
           state.matches = [];
+          state.leagues = [];
         }
         
-        // Load FootyStats (con gestione errori)
-        try {
-          const fsData = await callFootyStats('/todays-matches', {});
+        // Load FootyStats (non bloccante)
+        callFootyStats('/todays-matches', {}).then(fsData => {
           if (fsData?.data) {
             fsData.data.forEach(m => {
               if (m.home_name && m.away_name) {
@@ -4473,21 +4406,16 @@
               }
             });
           }
-        } catch (fsError) {
-          console.warn('⚠️ FootyStats non disponibile:', fsError.message);
-        }
+        }).catch(e => console.warn('FootyStats load failed:', e));
         
         // Calcola i picks del giorno
         calculateDailyPicks();
         calculateTraderPicks();
         
-      } catch (error) {
-        console.error('❌ Errore durante il caricamento delle partite:', error);
-        state.leagues = [];
+      } catch (e) {
+        console.error('Load matches error:', e);
         state.matches = [];
-        if (!state.dailyPicks) {
-          state.dailyPicks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
-        }
+        state.leagues = [];
       } finally {
         state.loading = false;
         render();
@@ -6138,9 +6066,22 @@
           
           // Calcola gli alert
           calculateLiveAlerts();
+          
+          // Aggiorna solo il badge senza re-renderizzare tutto
+          updateLiveBadge();
         }
       } catch (e) {
         console.warn('Live background load error:', e);
+      }
+    }
+    
+    function updateLiveBadge() {
+      const badge = document.querySelector('#liveTab');
+      if (badge) {
+        const alertCount = state.liveAlerts.length;
+        const dot = '<span class="live-dot"></span>';
+        const countBadge = alertCount > 0 ? `<span class="live-badge-count">${alertCount}</span>` : '';
+        badge.innerHTML = `${dot} LIVE ${countBadge}`;
       }
     }
     
@@ -7091,22 +7032,7 @@
         <!-- SELEZIONA CAMPIONATO - SPOSTATO IN ALTO -->
         <div class="panel" style="margin-bottom: 16px;">
           <div class="panel-title">📋 Seleziona Campionato (${state.matches.length} partite)</div>
-          ${state.leagues.length === 0 ? `
-            <div class="empty">
-              <div class="empty-icon">📭</div>
-              <div>Nessuna partita disponibile</div>
-              ${state.api.football === 'offline' || state.api.footystats === 'offline' ? `
-                <div style="margin-top: 12px; padding: 12px; background: rgba(251, 113, 113, 0.1); border-radius: 8px; font-size: 0.85rem; color: var(--accent-red);">
-                  ⚠️ Alcune API non sono disponibili.<br>
-                  ${state.api.football === 'offline' ? '• API-Football: Offline<br>' : ''}
-                  ${state.api.footystats === 'offline' ? '• FootyStats: Offline<br>' : ''}
-                  <span style="color: var(--text-gray); font-size: 0.75rem;">
-                    Riprova tra qualche minuto o controlla la tua connessione.
-                  </span>
-                </div>
-              ` : ''}
-            </div>
-          ` : `
+          ${state.leagues.length === 0 ? `<div class="empty"><div class="empty-icon">📭</div>Nessuna partita</div>` : `
             <select class="select-field" id="leagueSelect">
               <option value="">-- Scegli un campionato --</option>
               ${state.leagues.map(l => `<option value="${l.id}">${esc(l.country)} - ${esc(l.name)} (${l.matchCount})</option>`).join('')}
@@ -7897,6 +7823,7 @@
     }
 
     function attachEvents() {
+      // LIVE Tab
       // Consigli Tab
       document.getElementById('consigliTab')?.addEventListener('click', toggleConsigliMode);
       document.getElementById('refreshLive')?.addEventListener('click', loadLiveMatches);
@@ -8030,29 +7957,29 @@
     async function init() {
       console.log('🚀 BettingPro v5 starting...');
       
-      // Check API status FIRST
-      await checkAPIStatus();
-      
+      // Mostra interfaccia subito
       loadSlipFromLocalStorage();
-      
-      // Carica pronostici tracciati da localStorage
       loadTrackingFromLocalStorage();
-      
       render();
-      await loadMatches(0);
       
-      // LIVE monitoring disabilitato (sezione LIVE rimossa)
-      // startLiveBackgroundMonitoring();
-      // console.log('📡 LIVE background monitoring started');
+      // Check API status in background (non bloccante)
+      checkAPIStatus().catch(e => console.warn('API check failed:', e));
       
-      // Verifica automatica risultati pronostici pendenti
-      await autoVerifyPendingBets();
-      console.log('📊 Pending results auto-verified');
+      // Carica partite
+      try {
+        await loadMatches(0);
+      } catch (e) {
+        console.error('Load matches failed:', e);
+        state.loading = false;
+        render();
+      }
+      
+      // Verifica automatica risultati pronostici pendenti (non bloccante)
+      autoVerifyPendingBets().catch(e => console.warn('Auto-verify failed:', e));
       
       // Controlla risultati ogni 10 minuti
       setInterval(() => {
-        autoVerifyPendingBets();
-        console.log('🔄 Auto-verify pending results');
+        autoVerifyPendingBets().catch(e => console.warn('Auto-verify interval failed:', e));
       }, 10 * 60 * 1000);
     }
 
