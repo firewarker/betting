@@ -3242,15 +3242,19 @@
     ];
     
     function calculateDailyPicks() {
-      if (state.matches.length === 0) return;
-      
-      const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
-      const safeBets = []; // Per costruire i raddoppi
-      
-      // Raccogli i consigli AI per tutte le partite
-      const allAdvices = [];
-      
-      state.matches.forEach(match => {
+      try {
+        if (!state.matches || state.matches.length === 0) {
+          state.dailyPicks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
+          return;
+        }
+        
+        const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
+        const safeBets = []; // Per costruire i raddoppi
+        
+        // Raccogli i consigli AI per tutte le partite
+        const allAdvices = [];
+        
+        state.matches.forEach(match => {
         // Skip partite già iniziate o finite
         if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
         
@@ -3583,6 +3587,11 @@
       
       state.dailyPicks = picks;
       console.log('🎯 Daily picks (AI):', Object.keys(picks).map(k => `${k}: ${picks[k].length}`).join(', '));
+    } catch (error) {
+      console.error('❌ Errore in calculateDailyPicks:', error);
+      // Inizializza con valori vuoti in caso di errore
+      state.dailyPicks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
+    }
     }
     
     // Costruisce combinazioni per raddoppi (quota target ~2.00)
@@ -3688,7 +3697,13 @@
     // === TRADER PICKS ===
     // Calcola i migliori picks per il trader con strategia
     function calculateTraderPicks() {
-      if (state.matches.length === 0) return;
+      try {
+        if (!state.matches || state.matches.length === 0) {
+          if (!state.traderPicks) {
+            state.traderPicks = { raddoppio: [], singole: [] };
+          }
+          return;
+        }
       
       const MIN_PROB_RADDOPPIO = 72;
       const MIN_PROB_SINGOLA = 60;
@@ -3764,6 +3779,12 @@
       console.log('💰 Trader picks:', 
         `Raddoppio: ${state.traderPicks.raddoppio.length}`,
         `Singole: ${state.traderPicks.singole.length}`);
+    } catch (error) {
+      console.error('❌ Errore in calculateTraderPicks:', error);
+      if (!state.traderPicks) {
+        state.traderPicks = { raddoppio: [], singole: [] };
+      }
+    }
     }
 
     // === MONEY MANAGEMENT ===
@@ -4389,70 +4410,88 @@
 
     // === DATA LOADING ===
     async function loadMatches(dateOffset = 0) {
-      state.loading = true;
-      state.selectedDate = dateOffset;
-      render();
-      
-      const dateStr = getDateString(dateOffset);
-      console.log('📅 Loading matches for:', dateStr);
-      
-      const data = await callAPIFootball('/fixtures', { date: dateStr, timezone: 'Europe/Rome' });
-      
-      if (data?.response) {
-        const leagueMap = new Map();
-        data.response.forEach(f => {
-          const key = f.league.id;
-          if (!leagueMap.has(key)) {
-            leagueMap.set(key, {
-              id: f.league.id,
-              name: f.league.name,
-              country: f.league.country,
-              logo: f.league.logo,
-              season: f.league.season,
-              matchCount: 0
+      try {
+        state.loading = true;
+        state.selectedDate = dateOffset;
+        render();
+        
+        const dateStr = getDateString(dateOffset);
+        console.log('📅 Loading matches for:', dateStr);
+        
+        const data = await callAPIFootball('/fixtures', { date: dateStr, timezone: 'Europe/Rome' });
+        
+        if (data?.response) {
+          const leagueMap = new Map();
+          data.response.forEach(f => {
+            const key = f.league.id;
+            if (!leagueMap.has(key)) {
+              leagueMap.set(key, {
+                id: f.league.id,
+                name: f.league.name,
+                country: f.league.country,
+                logo: f.league.logo,
+                season: f.league.season,
+                matchCount: 0
+              });
+            }
+            leagueMap.get(key).matchCount++;
+          });
+          
+          state.leagues = Array.from(leagueMap.values())
+            .sort((a, b) => `${a.country} ${a.name}`.localeCompare(`${b.country} ${b.name}`));
+          
+          state.matches = data.response.map(f => ({
+            id: f.fixture.id,
+            date: f.fixture.date,
+            timestamp: f.fixture.timestamp,
+            status: f.fixture.status.short,
+            elapsed: f.fixture.status.elapsed,
+            league: f.league,
+            home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo },
+            away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo },
+            goals: f.goals
+          }));
+          
+          console.log(`✅ Loaded ${state.leagues.length} leagues, ${state.matches.length} matches`);
+        } else {
+          console.warn('⚠️ Nessuna partita trovata per', dateStr);
+          state.leagues = [];
+          state.matches = [];
+        }
+        
+        // Load FootyStats (con gestione errori)
+        try {
+          const fsData = await callFootyStats('/todays-matches', {});
+          if (fsData?.data) {
+            fsData.data.forEach(m => {
+              if (m.home_name && m.away_name) {
+                const keys = [
+                  `${m.home_name.toLowerCase()}_${m.away_name.toLowerCase()}`,
+                  m.home_name.toLowerCase().replace(/\s+/g, '') + '_' + m.away_name.toLowerCase().replace(/\s+/g, '')
+                ];
+                keys.forEach(k => state.fsData.set(k, m));
+              }
             });
           }
-          leagueMap.get(key).matchCount++;
-        });
+        } catch (fsError) {
+          console.warn('⚠️ FootyStats non disponibile:', fsError.message);
+        }
         
-        state.leagues = Array.from(leagueMap.values())
-          .sort((a, b) => `${a.country} ${a.name}`.localeCompare(`${b.country} ${b.name}`));
+        // Calcola i picks del giorno
+        calculateDailyPicks();
+        calculateTraderPicks();
         
-        state.matches = data.response.map(f => ({
-          id: f.fixture.id,
-          date: f.fixture.date,
-          timestamp: f.fixture.timestamp,
-          status: f.fixture.status.short,
-          elapsed: f.fixture.status.elapsed,
-          league: f.league,
-          home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo },
-          away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo },
-          goals: f.goals
-        }));
-        
-        console.log(`✅ Loaded ${state.leagues.length} leagues, ${state.matches.length} matches`);
+      } catch (error) {
+        console.error('❌ Errore durante il caricamento delle partite:', error);
+        state.leagues = [];
+        state.matches = [];
+        if (!state.dailyPicks) {
+          state.dailyPicks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
+        }
+      } finally {
+        state.loading = false;
+        render();
       }
-      
-      // Load FootyStats
-      const fsData = await callFootyStats('/todays-matches', {});
-      if (fsData?.data) {
-        fsData.data.forEach(m => {
-          if (m.home_name && m.away_name) {
-            const keys = [
-              `${m.home_name.toLowerCase()}_${m.away_name.toLowerCase()}`,
-              m.home_name.toLowerCase().replace(/\s+/g, '') + '_' + m.away_name.toLowerCase().replace(/\s+/g, '')
-            ];
-            keys.forEach(k => state.fsData.set(k, m));
-          }
-        });
-      }
-      
-      // Calcola i picks del giorno
-      calculateDailyPicks();
-      calculateTraderPicks();
-      
-      state.loading = false;
-      render();
     }
 
     // === CORNER & CARDS CALCULATIONS ===
@@ -7052,7 +7091,22 @@
         <!-- SELEZIONA CAMPIONATO - SPOSTATO IN ALTO -->
         <div class="panel" style="margin-bottom: 16px;">
           <div class="panel-title">📋 Seleziona Campionato (${state.matches.length} partite)</div>
-          ${state.leagues.length === 0 ? `<div class="empty"><div class="empty-icon">📭</div>Nessuna partita</div>` : `
+          ${state.leagues.length === 0 ? `
+            <div class="empty">
+              <div class="empty-icon">📭</div>
+              <div>Nessuna partita disponibile</div>
+              ${state.api.football === 'offline' || state.api.footystats === 'offline' ? `
+                <div style="margin-top: 12px; padding: 12px; background: rgba(251, 113, 113, 0.1); border-radius: 8px; font-size: 0.85rem; color: var(--accent-red);">
+                  ⚠️ Alcune API non sono disponibili.<br>
+                  ${state.api.football === 'offline' ? '• API-Football: Offline<br>' : ''}
+                  ${state.api.footystats === 'offline' ? '• FootyStats: Offline<br>' : ''}
+                  <span style="color: var(--text-gray); font-size: 0.75rem;">
+                    Riprova tra qualche minuto o controlla la tua connessione.
+                  </span>
+                </div>
+              ` : ''}
+            </div>
+          ` : `
             <select class="select-field" id="leagueSelect">
               <option value="">-- Scegli un campionato --</option>
               ${state.leagues.map(l => `<option value="${l.id}">${esc(l.country)} - ${esc(l.name)} (${l.matchCount})</option>`).join('')}
