@@ -6099,22 +6099,9 @@
           
           // Calcola gli alert
           calculateLiveAlerts();
-          
-          // Aggiorna solo il badge senza re-renderizzare tutto
-          updateLiveBadge();
         }
       } catch (e) {
         console.warn('Live background load error:', e);
-      }
-    }
-    
-    function updateLiveBadge() {
-      const badge = document.querySelector('#liveTab');
-      if (badge) {
-        const alertCount = state.liveAlerts.length;
-        const dot = '<span class="live-dot"></span>';
-        const countBadge = alertCount > 0 ? `<span class="live-badge-count">${alertCount}</span>` : '';
-        badge.innerHTML = `${dot} LIVE ${countBadge}`;
       }
     }
     
@@ -7856,7 +7843,6 @@
     }
 
     function attachEvents() {
-      // LIVE Tab
       // Consigli Tab
       document.getElementById('consigliTab')?.addEventListener('click', toggleConsigliMode);
       document.getElementById('refreshLive')?.addEventListener('click', loadLiveMatches);
