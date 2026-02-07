@@ -4058,20 +4058,22 @@
         }
       };
       
-      // Check API-Football
+      // Check API-Football con CORS proxy
       try {
         const testUrl = `${CONFIG.API_FOOTBALL.baseURL}/status`;
-        const res = await fetchWithTimeout(testUrl, {
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(testUrl);
+        
+        const res = await fetchWithTimeout(proxyUrl, {
           headers: {
             'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
             'x-rapidapi-host': 'v3.football.api-sports.io'
           }
-        }, 5000);
+        }, 8000);
         
         if (res.ok) {
           state.api.football = 'online';
           localStorage.setItem('api_football_status', 'online');
-          console.log('✅ API-Football: ONLINE');
+          console.log('✅ API-Football: ONLINE (via proxy)');
         } else {
           throw new Error('API-Football non disponibile');
         }
@@ -4081,7 +4083,7 @@
         console.warn('❌ API-Football: OFFLINE', e.message);
       }
       
-      // Check FootyStats (skip proxy test - troppo lento)
+      // Check FootyStats (skip - check on demand)
       state.api.footystats = 'offline';
       localStorage.setItem('api_footystats_status', 'offline');
       console.log('⚠️ FootyStats: SKIPPED (check on demand)');
@@ -4162,15 +4164,43 @@
       };
       
       try {
-        const res = await fetchWithTimeout(url.toString(), {
+        // Prova prima chiamata diretta
+        try {
+          const res = await fetchWithTimeout(url.toString(), {
+            headers: {
+              'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
+              'x-rapidapi-host': 'v3.football.api-sports.io'
+            }
+          }, 10000);
+          
+          if (res.ok) {
+            const data = await res.json();
+            saveToCache(cacheKey, data);
+            
+            if (state.api.football !== 'online') {
+              state.api.football = 'online';
+              localStorage.setItem('api_football_status', 'online');
+              render();
+            }
+            
+            return data;
+          }
+        } catch (directError) {
+          // Se fallisce per CORS, prova con proxy
+          console.log('Direct API-Football failed, trying CORS proxy...');
+        }
+        
+        // Fallback: usa CORS proxy
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url.toString());
+        const proxyRes = await fetchWithTimeout(proxyUrl, {
           headers: {
             'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
             'x-rapidapi-host': 'v3.football.api-sports.io'
           }
-        }, 10000);
+        }, 12000);
         
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        if (!proxyRes.ok) throw new Error(`HTTP ${proxyRes.status}`);
+        const data = await proxyRes.json();
         
         // Salva in cache
         saveToCache(cacheKey, data);
@@ -4400,38 +4430,24 @@
           // Ignora errori CORS, proviamo con i proxy
         }
         
-        // Lista di proxy CORS alternativi (ridotta per velocità)
-        const proxies = [
-          'https://api.allorigins.win/raw?url=',
-          'https://corsproxy.io/?'
-        ];
+        // Usa proxy CORS affidabile
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url.toString());
+        const res = await fetchWithTimeout(proxyUrl, 8000);
         
-        // Prova ogni proxy in sequenza (timeout ridotto)
-        for (const proxy of proxies) {
-          try {
-            const proxyUrl = proxy + encodeURIComponent(url.toString());
-            const res = await fetchWithTimeout(proxyUrl, 5000);
-            if (res.ok) {
-              const data = await res.json();
-              
-              // Salva in cache
-              saveToCache(cacheKey, data);
-              
-              if (state.api.footystats !== 'online') {
-                state.api.footystats = 'online';
-                localStorage.setItem('api_footystats_status', 'online');
-                render();
-              }
-              
-              console.log(`✅ FootyStats funziona con proxy: ${proxy}`);
-              return data;
-            }
-          } catch (e) {
-            continue;
-          }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        
+        // Salva in cache
+        saveToCache(cacheKey, data);
+        
+        if (state.api.footystats !== 'online') {
+          state.api.footystats = 'online';
+          localStorage.setItem('api_footystats_status', 'online');
+          render();
         }
         
-        throw new Error('Tutti i proxy CORS hanno fallito');
+        console.log('✅ FootyStats funziona con CORS proxy');
+        return data;
       } catch (e) {
         console.error('FootyStats error:', e);
         
