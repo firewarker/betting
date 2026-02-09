@@ -831,6 +831,9 @@
       transition: all 0.2s ease;
       border: none;
       outline: none;
+      position: relative;
+      z-index: 10;
+      user-select: none;
     }
     .btn-primary {
       background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
@@ -841,6 +844,9 @@
       transform: translateY(-2px);
       box-shadow: 0 6px 20px rgba(6,182,212,0.4);
     }
+    .btn-primary:active {
+      transform: translateY(0);
+    }
     .btn-secondary {
       background: var(--bg-card-light);
       color: var(--text-white);
@@ -849,6 +855,9 @@
     .btn-secondary:hover {
       background: var(--bg-input);
       border-color: var(--accent-cyan);
+    }
+    .btn-secondary:active {
+      transform: scale(0.98);
     }
     
     /* MG PROBABILE BOX */
@@ -7420,7 +7429,7 @@
           
           <!-- BACK BUTTON -->
           <div style="text-align: center; margin-top: 16px;">
-            <button class="btn btn-secondary" id="backFromPerformance">
+            <button class="btn btn-secondary" id="backFromPerformance" onclick="backToLeagues()">
               ← Torna ai Campionati
             </button>
           </div>
@@ -7638,6 +7647,14 @@
     
     function backToLeagues() {
       state.view = 'leagues';
+      state.selectedLeague = null;
+      render();
+    }
+    
+    function backToMatches() {
+      state.view = 'matches';
+      state.selectedMatch = null;
+      state.analysis = null;
       render();
     }
     
@@ -7997,7 +8014,7 @@
       const matches = state.matches.filter(m => m.league.id === state.selectedLeague.id).sort((a, b) => a.timestamp - b.timestamp);
       
       return `
-        <div class="back-btn" id="backToLeagues">← Campionati</div>
+        <div class="back-btn" id="backToLeagues" onclick="backToLeagues()">← Campionati</div>
         <div class="panel">
           <div class="panel-title">⚽ ${esc(state.selectedLeague.country)} - ${esc(state.selectedLeague.name)}</div>
           <div class="matches-list">
@@ -8021,14 +8038,14 @@
     function renderAnalysis() {
       const m = state.selectedMatch;
       const d = state.analysis;
-      if (!d) return `<div class="back-btn" id="backToMatches">← Partite</div><div class="empty">Errore analisi</div>`;
+      if (!d) return `<div class="back-btn" id="backToMatches" onclick="backToMatches()">← Partite</div><div class="empty">Errore analisi</div>`;
       
       // Genera consiglio AI
       const ai = generateAIAdvice(m, d);
       const stat = generateStatisticalAdvice(m, d);
 
       return `
-        <div class="back-btn" id="backToMatches">← Partite</div>
+        <div class="back-btn" id="backToMatches" onclick="backToMatches()">← Partite</div>
         
         <div class="analysis-hero">
           <div class="hero-league">${esc(m.league.country)} • ${esc(m.league.name)} • ${formatDateFull(m.date)} ${formatTime(m.date)}</div>
@@ -8693,6 +8710,7 @@
     window.showPerformance = showPerformance;
     window.toggleSetting = toggleSetting;
     window.backToLeagues = backToLeagues;
+    window.backToMatches = backToMatches;
     window.manualVerifyBets = manualVerifyBets;
     window.trackLiveBet = trackLiveBet;
     window.trackPrematchBet = trackPrematchBet;
