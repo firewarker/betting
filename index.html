@@ -8549,159 +8549,207 @@
     }
 
     function attachEvents() {
-      // LIVE Tab
-      // Consigli Tab
-      // Event listener per date tabs rimosso (consigliTab non più presente)
-      document.getElementById('refreshLive')?.addEventListener('click', loadLiveMatches);
+      // === EVENT DELEGATION - Un solo listener per tutto ===
+      const app = document.getElementById('app');
+      if (!app) return;
       
-      // Date tabs
-      document.querySelectorAll('.date-tab[data-date]').forEach(tab => {
-        tab.addEventListener('click', () => {
+      // Handler per tutti i click
+      app.onclick = function(e) {
+        const target = e.target;
+        
+        // === BACK BUTTONS (priorità massima) ===
+        const backBtn = target.closest('.back-btn, .btn-secondary, #backToLeagues, #backFromPerformance, #backToMatches');
+        if (backBtn) {
+          const text = backBtn.textContent || '';
+          const id = backBtn.id || '';
+          
+          // Torna ai campionati
+          if (id === 'backToLeagues' || id === 'backFromPerformance' || text.includes('Campionati')) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔙 Tornando ai campionati...');
+            state.view = 'leagues';
+            state.selectedLeague = null;
+            render();
+            return false;
+          }
+          
+          // Torna alle partite
+          if (id === 'backToMatches' || text.includes('Partite')) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔙 Tornando alle partite...');
+            state.view = 'matches';
+            state.selectedMatch = null;
+            state.analysis = null;
+            render();
+            return false;
+          }
+        }
+        
+        // === DATE TABS ===
+        const dateTab = target.closest('.date-tab[data-date]');
+        if (dateTab) {
           if (state.liveMode) {
             state.liveMode = false;
             stopLiveAutoRefresh();
           }
-          state.consigliMode = false; // Disattiva anche consigli mode
-          loadMatches(parseInt(tab.dataset.date));
-        });
-      });
-      
-      // League select
-      document.getElementById('leagueSelect')?.addEventListener('change', e => {
-        const id = parseInt(e.target.value);
-        if (id) {
-          state.selectedLeague = state.leagues.find(l => l.id === id);
-          state.view = 'matches';
-          render();
+          state.consigliMode = false;
+          loadMatches(parseInt(dateTab.dataset.date));
+          return;
         }
-      });
-      
-      // Back buttons - TUTTI I PULSANTI PER TORNARE INDIETRO
-      document.getElementById('backToLeagues')?.addEventListener('click', () => {
-        console.log('🔙 backToLeagues clicked (from matches)');
-        state.view = 'leagues';
-        state.selectedLeague = null;
-        render();
-      });
-      
-      document.getElementById('backFromPerformance')?.addEventListener('click', () => {
-        console.log('🔙 backFromPerformance clicked');
-        state.view = 'leagues';
-        state.selectedLeague = null;
-        render();
-      });
-      
-      document.getElementById('backToMatches')?.addEventListener('click', () => {
-        console.log('🔙 backToMatches clicked');
-        state.view = 'matches';
-        state.selectedMatch = null;
-        state.analysis = null;
-        render();
-      });
-      
-      // Gestisci anche i click sui div con classe back-btn
-      document.querySelectorAll('.back-btn').forEach(el => {
-        el.addEventListener('click', () => {
-          console.log('🔙 back-btn clicked:', el.id);
-          if (el.id === 'backToLeagues' || el.id === 'backFromPerformance') {
-            state.view = 'leagues';
-            state.selectedLeague = null;
-          } else if (el.id === 'backToMatches') {
-            state.view = 'matches';
-            state.selectedMatch = null;
-            state.analysis = null;
-          }
-          render();
-        });
-      });
-      
-      // Match items
-      document.querySelectorAll('.match-item').forEach(el => {
-        el.addEventListener('click', () => {
-          const m = state.matches.find(x => x.id === parseInt(el.dataset.id));
+        
+        // === MATCH ITEMS ===
+        const matchItem = target.closest('.match-item[data-id]');
+        if (matchItem) {
+          const m = state.matches.find(x => x.id === parseInt(matchItem.dataset.id));
           if (m) analyzeMatch(m);
-        });
-      });
-      
-      // PICK CARDS nella home - aggiungi alla schedina
-      document.querySelectorAll('.pick-card').forEach(el => {
-        el.addEventListener('click', () => {
-          const matchId = parseInt(el.dataset.matchid);
+          return;
+        }
+        
+        // === PICK CARDS ===
+        const pickCard = target.closest('.pick-card[data-matchid]');
+        if (pickCard) {
+          const matchId = parseInt(pickCard.dataset.matchid);
           const match = state.matches.find(m => m.id === matchId);
           if (match) {
-            addToSlip(match, el.dataset.market, el.dataset.value, parseFloat(el.dataset.prob));
+            addToSlip(match, pickCard.dataset.market, pickCard.dataset.value, parseFloat(pickCard.dataset.prob));
           }
-        });
-      });
-      
-      // RADDOPPI COMBINATI - aggiungi tutte le scommesse alla schedina
-      document.querySelectorAll('.raddoppio-card').forEach(el => {
-        el.addEventListener('click', () => {
-          const idx = parseInt(el.dataset.raddoppio);
+          return;
+        }
+        
+        // === RADDOPPIO CARDS ===
+        const raddoppioCard = target.closest('.raddoppio-card[data-raddoppio]');
+        if (raddoppioCard) {
+          const idx = parseInt(raddoppioCard.dataset.raddoppio);
           const raddoppio = state.dailyPicks.raddoppi[idx];
           if (raddoppio) {
             raddoppio.bets.forEach(b => {
               addToSlip(b.match, 'radd_' + b.bet, b.bet, b.prob);
             });
           }
-        });
-      });
+          return;
+        }
+        
+        // === PREDICTION/COMBO CARDS ===
+        const predCard = target.closest('.prediction-card, .combo-card');
+        if (predCard && state.selectedMatch) {
+          addToSlip(state.selectedMatch, predCard.dataset.market, predCard.dataset.value, parseFloat(predCard.dataset.prob));
+          return;
+        }
+        
+        // === CONSIGLIO CARDS (onclick inline) ===
+        const consiglioCard = target.closest('.consiglio-card[onclick]');
+        if (consiglioCard) {
+          // L'onclick inline gestisce già questo
+          return;
+        }
+        
+        // === SLIP REMOVE ===
+        const removeBtn = target.closest('.slip-item-remove[data-key]');
+        if (removeBtn) {
+          removeFromSlip(removeBtn.dataset.key);
+          return;
+        }
+        
+        // === SLIP BUTTONS ===
+        if (target.id === 'openSlip' || target.id === 'viewSlip' || target.closest('#openSlip, #viewSlip')) {
+          state.slipModal = true;
+          render();
+          return;
+        }
+        if (target.id === 'closeSlip' || target.closest('#closeSlip')) {
+          state.slipModal = false;
+          render();
+          return;
+        }
+        if (target.id === 'clearSlip' || target.closest('#clearSlip')) {
+          clearSlip();
+          return;
+        }
+        if (target.id === 'slipModal') {
+          state.slipModal = false;
+          render();
+          return;
+        }
+        
+        // === REFRESH LIVE ===
+        if (target.id === 'refreshLive' || target.closest('#refreshLive')) {
+          loadLiveMatches();
+          return;
+        }
+        
+        // === BET RESULT BUTTONS ===
+        if (target.id === 'betWin' || target.closest('#betWin')) {
+          recordBetResult(true);
+          return;
+        }
+        if (target.id === 'betLoss' || target.closest('#betLoss')) {
+          recordBetResult(false);
+          return;
+        }
+        if (target.id === 'betReset' || target.closest('#betReset')) {
+          resetMoney();
+          return;
+        }
+        
+        // === COPY SLIP ===
+        if (target.id === 'copySlip' || target.closest('#copySlip')) {
+          const text = state.slip.map(s => `${s.matchName}: ${s.market} ${s.value} (${s.prob}%)`).join('\n');
+          navigator.clipboard.writeText(text);
+          alert('Schedina copiata!');
+          return;
+        }
+      };
       
-      // Predictions click to add (nella pagina analisi)
-      document.querySelectorAll('.prediction-card, .combo-card').forEach(el => {
-        el.addEventListener('click', () => {
-          const m = state.selectedMatch;
-          if (m) addToSlip(m, el.dataset.market, el.dataset.value, parseFloat(el.dataset.prob));
-        });
-      });
+      // === CHANGE EVENTS (devono essere attaccati singolarmente) ===
+      const leagueSelect = document.getElementById('leagueSelect');
+      if (leagueSelect) {
+        leagueSelect.onchange = function(e) {
+          const id = parseInt(e.target.value);
+          if (id) {
+            state.selectedLeague = state.leagues.find(l => l.id === id);
+            state.view = 'matches';
+            render();
+          }
+        };
+      }
       
-      // MONEY MANAGEMENT
-      document.getElementById('bankrollInput')?.addEventListener('change', e => {
-        state.money.bankroll = parseFloat(e.target.value) || 100;
-        saveMoney();
-        render();
-      });
+      const bankrollInput = document.getElementById('bankrollInput');
+      if (bankrollInput) {
+        bankrollInput.onchange = function(e) {
+          state.money.bankroll = parseFloat(e.target.value) || 100;
+          saveMoney();
+          render();
+        };
+      }
       
-      document.getElementById('targetInput')?.addEventListener('change', e => {
-        state.money.target = parseFloat(e.target.value) || 500;
-        saveMoney();
-        render();
-      });
+      const targetInput = document.getElementById('targetInput');
+      if (targetInput) {
+        targetInput.onchange = function(e) {
+          state.money.target = parseFloat(e.target.value) || 500;
+          saveMoney();
+          render();
+        };
+      }
       
-      document.getElementById('totalBetsInput')?.addEventListener('change', e => {
-        state.money.totalBets = parseInt(e.target.value) || 10;
-        saveMoney();
-        render();
-      });
+      const totalBetsInput = document.getElementById('totalBetsInput');
+      if (totalBetsInput) {
+        totalBetsInput.onchange = function(e) {
+          state.money.totalBets = parseInt(e.target.value) || 10;
+          saveMoney();
+          render();
+        };
+      }
       
-      document.getElementById('oddsInput')?.addEventListener('change', e => {
-        state.money.currentOdds = parseFloat(e.target.value) || 1.80;
-        saveMoney();
-        render();
-      });
-      
-      // BET RESULT BUTTONS
-      document.getElementById('betWin')?.addEventListener('click', () => recordBetResult(true));
-      document.getElementById('betLoss')?.addEventListener('click', () => recordBetResult(false));
-      document.getElementById('betReset')?.addEventListener('click', resetMoney);
-      
-      // Slip actions
-      document.getElementById('openSlip')?.addEventListener('click', () => { state.slipModal = true; render(); });
-      document.getElementById('viewSlip')?.addEventListener('click', () => { state.slipModal = true; render(); });
-      document.getElementById('closeSlip')?.addEventListener('click', () => { state.slipModal = false; render(); });
-      document.getElementById('slipModal')?.addEventListener('click', e => { if (e.target.id === 'slipModal') { state.slipModal = false; render(); }});
-      document.getElementById('clearSlip')?.addEventListener('click', clearSlip);
-      
-      document.getElementById('copySlip')?.addEventListener('click', () => {
-        const text = state.slip.map(s => `${s.matchName}: ${s.market} ${s.value} (${s.prob}%)`).join('\n');
-        navigator.clipboard.writeText(text);
-        alert('Schedina copiata!');
-      });
-      
-      // Remove from slip
-      document.querySelectorAll('.slip-item-remove').forEach(btn => {
-        btn.addEventListener('click', () => removeFromSlip(btn.dataset.key));
-      });
+      const oddsInput = document.getElementById('oddsInput');
+      if (oddsInput) {
+        oddsInput.onchange = function(e) {
+          state.money.currentOdds = parseFloat(e.target.value) || 1.80;
+          saveMoney();
+          render();
+        };
+      }
     }
 
     // === GLOBAL FUNCTIONS (for inline onclick handlers) ===
