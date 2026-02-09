@@ -2891,16 +2891,28 @@
     // Funzioni Firebase per salvare/caricare dati utente via REST API
     async function saveToFirebase(path, data) {
       try {
+        // Sanifica i dati prima di salvare (rimuove NaN, Infinity, funzioni)
+        const sanitizedData = JSON.parse(JSON.stringify(data, (key, value) => {
+          if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
+            return 0;
+          }
+          if (typeof value === 'function') {
+            return undefined;
+          }
+          return value;
+        }));
+        
         const response = await fetch(`${CONFIG.FIREBASE.url}/users/${USER_ID}/${path}.json`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          body: JSON.stringify(sanitizedData)
         });
         if (response.ok) {
           console.log(`✅ Salvato su Firebase: ${path}`);
           return true;
         }
-        throw new Error(`HTTP ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       } catch (e) {
         console.warn(`❌ Errore salvataggio Firebase (${path}):`, e.message);
         return false;
@@ -3407,17 +3419,35 @@
     ];
     
     function calculateDailyPicks() {
-      if (state.matches.length === 0) return;
+      if (!state.matches || state.matches.length === 0) {
+        console.log('⚠️ calculateDailyPicks: Nessuna partita disponibile');
+        return;
+      }
+      
+      console.log(`🔄 calculateDailyPicks: Analisi di ${state.matches.length} partite...`);
       
       const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
       const safeBets = []; // Per costruire i raddoppi
       
       // Raccogli i consigli AI per tutte le partite
       const allAdvices = [];
+      let processedCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
       
       state.matches.forEach(match => {
-        // Skip partite già iniziate o finite
-        if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
+        try {
+          // Skip partite già iniziate o finite o senza dati validi
+          if (!match || !match.home || !match.away) {
+            skippedCount++;
+            return;
+          }
+          if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) {
+            skippedCount++;
+            return;
+          }
+          
+          processedCount++;
         
         // Calcolo rapido basato su FootyStats se disponibile
         let fsMatch = null;
@@ -3603,6 +3633,10 @@
           if (p1X2.home >= 65) safeBets.push({ ...matchInfo, bet: '1', prob: p1X2.home, odds: (100 / p1X2.home).toFixed(2) });
           if (p1X2.away >= 60) safeBets.push({ ...matchInfo, bet: '2', prob: p1X2.away, odds: (100 / p1X2.away).toFixed(2) });
         }
+        } catch (err) {
+          errorCount++;
+          console.warn('Errore analisi partita (primo ciclo):', match?.home?.name, 'vs', match?.away?.name, err.message);
+        }
       });
       
       // === RAGGRUPPA TUTTE LE PROBABILITÀ (NON SOLO IL CONSIGLIO PRINCIPALE) ===
@@ -3631,9 +3665,10 @@
         // 4. Under consigliato (xG totale basso)
         // 5. Multigol squadre bassi (entrambe faticano a segnare)
         
-        const totXG = parseFloat(matchInfo.totXG || matchInfo.xgTotal || 0);
-        const homeXG = parseFloat(matchInfo.homeXG || 0);
-        const awayXG = parseFloat(matchInfo.awayXG || 0);
+        // Usa le variabili da matchInfo (non da scope esterno)
+        const totXGVal = parseFloat(matchInfo?.totXG || matchInfo?.xgTotal || 2.5);
+        const homeXGVal = parseFloat(matchInfo?.homeXG || 1.3);
+        const awayXGVal = parseFloat(matchInfo?.awayXG || 1.2);
         
         // Calcola "equilibrio" - differenza tra le 3 probabilità
         const maxProb = Math.max(p1X2.home, p1X2.draw, p1X2.away);
@@ -3641,18 +3676,18 @@
         const isBalanced = (maxProb - minProb) < 15; // Partita molto equilibrata
         
         // Calcola probabilità 0-0 e 1-1 (risultati esatti da pareggio)
-        const p00 = poisson(homeXG, 0) * poisson(awayXG, 0) * 100;
-        const p11 = poisson(homeXG, 1) * poisson(awayXG, 1) * 100;
+        const p00 = poisson(homeXGVal, 0) * poisson(awayXGVal, 0) * 100;
+        const p11 = poisson(homeXGVal, 1) * poisson(awayXGVal, 1) * 100;
         const pDrawScores = p00 + p11; // Probabilità combinata 0-0 o 1-1
         
         // Calcola multigol squadre (prob di segnare 0 gol)
-        const pHome0 = poisson(homeXG, 0) * 100;
-        const pAway0 = poisson(awayXG, 0) * 100;
-        const lowScoring = pHome0 > 25 || pAway0 > 25; // Almeno una squadra ha alta prob di 0 gol
+        const pHome0 = poisson(homeXGVal, 0) * 100;
+        const pAway0 = poisson(awayXGVal, 0) * 100;
+        const lowScoringMatch = pHome0 > 25 || pAway0 > 25; // Almeno una squadra ha alta prob di 0 gol
         
         // Under 2.5 consigliato?
-        const pUnder25 = 100 - pOver25;
-        const underSuggested = pUnder25 > 50;
+        const pUnder25Calc = 100 - pOver25;
+        const underSuggested = pUnder25Calc > 50;
         
         // SCORE X: Somma ponderata dei fattori
         let xScore = 0;
@@ -3670,15 +3705,15 @@
         else if (pDrawScores >= 8) xScore += 6;
         
         // Under consigliato
-        if (underSuggested && totXG < 2.2) xScore += 15;
+        if (underSuggested && totXGVal < 2.2) xScore += 15;
         else if (underSuggested) xScore += 8;
         
         // Basso xG totale
-        if (totXG < 1.8) xScore += 12;
-        else if (totXG < 2.2) xScore += 6;
+        if (totXGVal < 1.8) xScore += 12;
+        else if (totXGVal < 2.2) xScore += 6;
         
         // Multigol bassi (squadre non segnano)
-        if (lowScoring) xScore += 10;
+        if (lowScoringMatch) xScore += 10;
         
         // DECISIONE: Aggiungi X solo se score >= 55 (soglia stringente per pareggi)
         if (xScore >= 55 && p1X2.draw >= 23) {
@@ -3731,6 +3766,8 @@
           });
         }
       });
+      
+      console.log(`📊 calculateDailyPicks: Processate ${processedCount}, Skipped ${skippedCount}, Errori ${errorCount}`);
       
       // === ORDINA E PRENDI I TOP 20 PER OGNI CATEGORIA ===
       // Ordina per confidence (high > medium) e poi per probabilità
@@ -4130,49 +4167,38 @@
     async function checkAPIStatus() {
       console.log('🔍 Controllo stato API...');
       
-      // Helper per fetch con timeout
-      const fetchWithTimeout = async (url, options = {}, timeout = 3000) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-        try {
-          const res = await fetch(url, { ...options, signal: controller.signal });
-          clearTimeout(timeoutId);
-          return res;
-        } catch (e) {
-          clearTimeout(timeoutId);
-          throw e;
-        }
-      };
-      
-      // Check API-Football con CORS proxy
+      // Check API-Football - chiamata diretta senza proxy
+      // L'API api-sports.io supporta CORS con la chiave corretta
       try {
         const testUrl = `${CONFIG.API_FOOTBALL.baseURL}/status`;
-        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(testUrl);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
         
-        const res = await fetchWithTimeout(proxyUrl, {
+        const res = await fetch(testUrl, {
           headers: {
             'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
             'x-rapidapi-host': 'v3.football.api-sports.io'
-          }
-        }, 8000);
+          },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
         
         if (res.ok) {
+          const data = await res.json();
           state.api.football = 'online';
           localStorage.setItem('api_football_status', 'online');
-          console.log('✅ API-Football: ONLINE (via proxy)');
+          console.log('✅ API-Football: ONLINE', data?.response?.requests?.current || '');
         } else {
-          throw new Error('API-Football non disponibile');
+          throw new Error(`HTTP ${res.status}`);
         }
       } catch (e) {
-        state.api.football = 'offline';
-        localStorage.setItem('api_football_status', 'offline');
-        console.warn('❌ API-Football: OFFLINE', e.message);
+        // Non impostiamo offline subito - potrebbe funzionare comunque
+        console.warn('⚠️ API-Football status check failed:', e.message);
+        // Lasciamo lo stato precedente, verrà aggiornato alla prima chiamata reale
       }
       
-      // Check FootyStats (skip - check on demand)
-      state.api.footystats = 'offline';
-      localStorage.setItem('api_footystats_status', 'offline');
-      console.log('⚠️ FootyStats: SKIPPED (check on demand)');
+      // FootyStats - stato offline di default, verificato on-demand
+      console.log('⚠️ FootyStats: Verifico on-demand con prima richiesta');
     }
 
     // === API CALLS ===
