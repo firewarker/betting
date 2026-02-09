@@ -7665,7 +7665,7 @@
     
     function renderLeagues() {
       const picks = state.dailyPicks;
-            
+      
       return `
         <div class="date-tabs">
           ${[-1, 0, 1, 2].map(d => `
@@ -7707,12 +7707,12 @@
                   ${r.bets.map(b => `
                     <div class="raddoppio-bet">
                       <div class="raddoppio-match">${esc(b.shortName)}</div>
-                      <div class="raddoppio-pick">${b.bet} <span style="opacity: 0.7; font-size: 0.75rem;">(${b.prob.toFixed(0)}%)</span></div>
+                      <div class="raddoppio-pick">${b.bet} <span style="opacity: 0.7; font-size: 0.75rem;">(${(b.prob || 0).toFixed(0)}%)</span></div>
                     </div>
                   `).join('')}
                 </div>
                 <div class="raddoppio-footer">
-                  <div class="raddoppio-prob">${r.prob.toFixed(0)}% prob. combinata</div>
+                  <div class="raddoppio-prob">${(r.prob || 0).toFixed(0)}% prob. combinata</div>
                 </div>
               </div>
             `).join('')}
