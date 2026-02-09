@@ -2866,6 +2866,9 @@
       FOOTYSTATS: {
         key: 'bec59b6f83404b0bd79c40076be71f6f3abec62afdacf5eeba296f2357993f3e',
         baseURL: 'https://api.footystats.org'
+      },
+      FIREBASE: {
+        url: 'https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app'
       }
     };
 
@@ -2881,81 +2884,48 @@
     const USER_ID = getUserId();
 
     // ============================================
-    // FIREBASE CONFIGURATION
+    // FIREBASE CONFIGURATION (REST API - più affidabile)
     // ============================================
-    // IMPORTANTE: Configura le seguenti regole nel Firebase Realtime Database
-    // per permettere a ogni utente di leggere/scrivere SOLO i propri dati:
-    //
-    // {
-    //   "rules": {
-    //     "users": {
-    //       "$userId": {
-    //         ".read": "true",
-    //         ".write": "true"
-    //       }
-    //     }
-    //   }
-    // }
-    //
-    // Questo permette:
-    // - Ogni utente ha un ID univoco generato automaticamente
-    // - I dati sono salvati in: users/<user_id>/trackedBets, mlThresholds, performanceHistory
-    // - Chiunque può usare l'app e vedere solo i propri pronostici e statistiche
-    // - Nessun utente può vedere i dati di altri utenti
+    let firebaseEnabled = true;
     
-    let db = null;
-    let firebaseEnabled = false;
-    
-    try {
-      // Configurazione Firebase
-      const firebaseConfig = {
-        databaseURL: 'https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app/'
-      };
-      
-      // Inizializza Firebase
-      firebase.initializeApp(firebaseConfig);
-      db = firebase.database();
-      firebaseEnabled = true;
-      console.log('✅ Firebase inizializzato correttamente');
-      console.log(`👤 User ID: ${USER_ID}`);
-      console.log('☁️ I tuoi dati sono salvati nel cloud e accessibili da qualsiasi dispositivo');
-    } catch (e) {
-      console.warn('⚠️ Firebase non disponibile, uso localStorage:', e.message);
-      firebaseEnabled = false;
-    }
-    
-    // Funzioni Firebase per salvare/caricare dati utente
+    // Funzioni Firebase per salvare/caricare dati utente via REST API
     async function saveToFirebase(path, data) {
-      if (!firebaseEnabled || !db) {
-        console.log('Firebase non disponibile, skippo salvataggio');
-        return;
-      }
-      
       try {
-        await db.ref(`users/${USER_ID}/${path}`).set(data);
-        console.log(`✅ Salvato su Firebase: ${path}`);
+        const response = await fetch(`${CONFIG.FIREBASE.url}/users/${USER_ID}/${path}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (response.ok) {
+          console.log(`✅ Salvato su Firebase: ${path}`);
+          return true;
+        }
+        throw new Error(`HTTP ${response.status}`);
       } catch (e) {
         console.warn(`❌ Errore salvataggio Firebase (${path}):`, e.message);
+        return false;
       }
     }
     
     async function loadFromFirebase(path) {
-      if (!firebaseEnabled || !db) {
-        return null;
-      }
-      
       try {
-        const snapshot = await db.ref(`users/${USER_ID}/${path}`).once('value');
-        const data = snapshot.val();
-        if (data) {
-          console.log(`✅ Caricato da Firebase: ${path}`);
+        const response = await fetch(`${CONFIG.FIREBASE.url}/users/${USER_ID}/${path}.json`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data) {
+            console.log(`✅ Caricato da Firebase: ${path}`);
+          }
+          return data;
         }
-        return data;
+        throw new Error(`HTTP ${response.status}`);
       } catch (e) {
         console.warn(`❌ Errore caricamento Firebase (${path}):`, e.message);
         return null;
       }
     }
+    
+    console.log('✅ Firebase REST API configurato');
+    console.log(`👤 User ID: ${USER_ID}`);
 
     let state = {
       view: 'leagues', // 'leagues', 'matches', 'analysis', 'performance'
@@ -2995,7 +2965,9 @@
       countdownInterval: null,
       liveCountdown: 60,
       // Tracking Pronostici
-      trackedBets: JSON.parse(localStorage.getItem('bp2_tracked') || '[]'),
+      trackedBets: [],
+      // Machine Learning Stats - NUOVO
+      mlStats: JSON.parse(localStorage.getItem('bp2_ml_stats') || '{}'),
       // Machine Learning Thresholds
       mlThresholds: JSON.parse(localStorage.getItem('bp2_ml_thresholds') || JSON.stringify({
         '1': { threshold: 50, accuracy: 0, totalPredictions: 0, correctPredictions: 0 },
@@ -6377,9 +6349,25 @@
     // === TRACKING PRONOSTICI ===
     
     function trackBet(type, matchId, matchName, pick, prob, odds, isLive = false) {
-      // Evita duplicati
-      if (state.trackedBets.some(b => b.matchId === matchId && b.pick === pick)) {
-        console.log('Pronostico già tracciato');
+      // Normalizza il pick per evitare duplicati con formati diversi
+      const normalizedPick = pick.trim();
+      
+      // Evita duplicati - controllo più robusto
+      const isDuplicate = state.trackedBets.some(b => {
+        if (b.matchId !== matchId) return false;
+        const existingPick = b.pick.trim().toLowerCase();
+        const newPick = normalizedPick.toLowerCase();
+        
+        // Match esatto
+        if (existingPick === newPick) return true;
+        
+        // Evita che 1X sia considerato duplicato di X o 1
+        // Ma se esiste già 1X, non aggiungere 1X di nuovo
+        return false;
+      });
+      
+      if (isDuplicate) {
+        console.log('Pronostico già tracciato:', normalizedPick);
         return null;
       }
       
@@ -6388,7 +6376,7 @@
         type, // 'prematch' o 'live'
         matchId,
         matchName,
-        pick,
+        pick: normalizedPick, // Usa il pick normalizzato
         prob: parseFloat(prob),
         odds: parseFloat(odds) || 0,
         isLive,
@@ -6400,13 +6388,7 @@
       state.trackedBets.push(bet);
       saveTrackedBets();
       
-      console.log(`\n✅ BET AGGIUNTO ALL'ARRAY:`);
-      console.log(`   📌 Pick: "${pick}"`);
-      console.log(`   🆔 ID: ${bet.id}`);
-      console.log(`   ⚽ Partita: ${matchName}`);
-      console.log(`   🎲 Prob: ${prob}% | Quota: ${odds}`);
-      console.log(`   📊 MatchID: ${matchId} | Type: ${type}`);
-      console.log(`   📈 Totale bets tracciati: ${state.trackedBets.length}`);
+      console.log('✅ Pronostico tracciato:', normalizedPick, 'per match:', matchId);
       
       render();
       return bet;
@@ -6414,13 +6396,6 @@
     
     // Funzione per tracciare pronostici pre-match
     function trackPrematchBet(matchId, matchName, pick, prob, event) {
-      console.log('\n🎯 trackPrematchBet CHIAMATO:');
-      console.log(`  MatchID: ${matchId}`);
-      console.log(`  MatchName: ${matchName}`);
-      console.log(`  Pick: "${pick}"`);
-      console.log(`  Pick Length: ${pick.length}`);
-      console.log(`  Prob: ${prob}`);
-      
       if (event) event.stopPropagation();
       
       // Stima quota basata sulla probabilità
@@ -6456,8 +6431,6 @@
     }
     
     function saveTrackedBets() {
-      console.log(`💾 Salvataggio ${state.trackedBets.length} bets...`);
-      
       // Salva su localStorage (locale)
       localStorage.setItem('bp2_tracked', JSON.stringify(state.trackedBets));
       
@@ -6465,12 +6438,6 @@
       saveToFirebase('trackedBets', state.trackedBets).catch(e => 
         console.warn('Firebase save trackedBets failed:', e)
       );
-      
-      // Log dettagliato di tutti i bets
-      console.log(`📋 Lista bets salvati:`);
-      state.trackedBets.forEach((b, i) => {
-        console.log(`   ${i+1}. [${b.status}] ${b.pick} - ${b.matchName.substring(0, 30)}...`);
-      });
     }
     
     async function loadTrackingFromLocalStorage() {
@@ -6534,8 +6501,31 @@
       }
     }
     
+    // Carica ML Stats da Firebase
+    async function loadMLStatsFromCloud() {
+      try {
+        const firebaseData = await loadFromFirebase('mlStats');
+        if (firebaseData && typeof firebaseData === 'object') {
+          state.mlStats = firebaseData;
+          localStorage.setItem('bp2_ml_stats', JSON.stringify(firebaseData));
+          console.log('🤖 ML Stats caricate da Firebase:', Object.keys(firebaseData).length, 'categorie');
+          return;
+        }
+        
+        // Fallback su localStorage
+        const saved = localStorage.getItem('bp2_ml_stats');
+        if (saved) {
+          state.mlStats = JSON.parse(saved);
+          console.log('🤖 ML Stats da localStorage');
+        }
+      } catch (e) {
+        console.warn('ML Stats load error:', e);
+      }
+    }
+    
     async function checkPendingResults() {
       const pending = state.trackedBets.filter(b => b.status === 'pending');
+      let updated = false;
       
       for (const bet of pending) {
         try {
@@ -6553,30 +6543,38 @@
               
               // Verifica se ha vinto
               let won = false;
-              const pick = bet.pick.toLowerCase();
+              const pick = bet.pick.toLowerCase().trim();
               
-              // Over/Under
-              if (pick.includes('over 0.5') && totalGoals >= 1) won = true;
-              else if (pick.includes('over 1.5') && totalGoals >= 2) won = true;
+              // Over/Under - ordine specifico per evitare conflitti
+              if (pick.includes('over 3.5') && totalGoals >= 4) won = true;
               else if (pick.includes('over 2.5') && totalGoals >= 3) won = true;
-              else if (pick.includes('over 3.5') && totalGoals >= 4) won = true;
+              else if (pick.includes('over 1.5') && totalGoals >= 2) won = true;
+              else if (pick.includes('over 0.5') && totalGoals >= 1) won = true;
+              else if (pick.includes('under 1.5') && totalGoals < 2) won = true;
               else if (pick.includes('under 2.5') && totalGoals < 3) won = true;
               else if (pick.includes('under 3.5') && totalGoals < 4) won = true;
               // GG/NG
-              else if ((pick.includes('gg') || pick.includes('entrambe segnano')) && homeGoals > 0 && awayGoals > 0) won = true;
-              else if (pick.includes('ng') && (homeGoals === 0 || awayGoals === 0)) won = true;
-              // 1X2 - con supporto per formato esteso "(Vittoria Casa)" ecc.
-              else if ((pick === '1' || pick.startsWith('1 (') || pick.startsWith('1 ')) && homeGoals > awayGoals) won = true;
-              else if ((pick === 'x' || pick.startsWith('x (') || pick === 'pareggio') && homeGoals === awayGoals) won = true;
-              else if ((pick === '2' || pick.startsWith('2 (') || pick.startsWith('2 ')) && homeGoals < awayGoals) won = true;
-              // Doppie chance
-              else if ((pick === '1x' || pick.startsWith('1x (') || pick.startsWith('1x ')) && homeGoals >= awayGoals) won = true;
-              else if ((pick === 'x2' || pick.startsWith('x2 (') || pick.startsWith('x2 ')) && homeGoals <= awayGoals) won = true;
+              else if ((pick === 'gg' || pick.includes('entrambe segnano') || pick === 'goal') && homeGoals > 0 && awayGoals > 0) won = true;
+              else if ((pick === 'ng' || pick.includes('no gol')) && (homeGoals === 0 || awayGoals === 0)) won = true;
+              // DOPPIE CHANCE - IMPORTANTE: verificare PRIMA di 1X2 singoli
+              else if ((pick === '1x' || pick.startsWith('1x ') || pick.startsWith('1x(')) && homeGoals >= awayGoals) won = true;
+              else if ((pick === 'x2' || pick.startsWith('x2 ') || pick.startsWith('x2(')) && homeGoals <= awayGoals) won = true;
+              else if ((pick === '12' || pick.startsWith('12 ') || pick.startsWith('12(')) && homeGoals !== awayGoals) won = true;
+              // 1X2 SINGOLI - verificare dopo le doppie chance
+              else if ((pick === '1' || pick === '1 (vittoria casa)' || (pick.startsWith('1 ') && !pick.startsWith('1x'))) && homeGoals > awayGoals) won = true;
+              else if ((pick === 'x' || pick === 'pareggio' || pick === 'x (pareggio)') && homeGoals === awayGoals) won = true;
+              else if ((pick === '2' || pick === '2 (vittoria ospite)' || (pick.startsWith('2 ') && !pick.startsWith('2x'))) && homeGoals < awayGoals) won = true;
+              // Multigol
+              else if (pick.includes('multigol 1-3') && totalGoals >= 1 && totalGoals <= 3) won = true;
+              else if (pick.includes('multigol 2-4') && totalGoals >= 2 && totalGoals <= 4) won = true;
+              else if (pick.includes('multigol 2-5') && totalGoals >= 2 && totalGoals <= 5) won = true;
               // Segna
               else if (pick.includes('segna') && totalGoals > 0) won = true;
               else if (pick.includes('gol 2°') && totalGoals > 0) won = true;
               
               updateBetResult(bet.id, won ? 'won' : 'lost', result);
+              updated = true;
+              console.log(`📊 Risultato verificato: ${bet.matchName} - ${pick} = ${won ? 'VINTO' : 'PERSO'} (${result})`);
             }
           }
         } catch (e) {
@@ -6584,7 +6582,109 @@
         }
       }
       
-      render();
+      if (updated) {
+        // Aggiorna ML con i nuovi risultati
+        updateMLFromResults();
+        render();
+      }
+    }
+    
+    // === MACHINE LEARNING - Aggiorna soglie in base ai risultati ===
+    function updateMLFromResults() {
+      const completedBets = state.trackedBets.filter(b => b.status !== 'pending');
+      if (completedBets.length < 5) return; // Serve un minimo di dati
+      
+      // Calcola win rate per ogni tipo di pick
+      const pickStats = {};
+      
+      // Categorie di pick da analizzare
+      const categories = [
+        { patterns: ['over 2.5'], key: 'over25' },
+        { patterns: ['over 1.5'], key: 'over15' },
+        { patterns: ['gg', 'entrambe segnano', 'goal'], key: 'gg' },
+        { patterns: ['ng', 'no gol'], key: 'ng' },
+        { patterns: ['1x'], key: '1x' },
+        { patterns: ['x2'], key: 'x2' },
+        { patterns: ['under 2.5'], key: 'under25' }
+      ];
+      
+      categories.forEach(cat => {
+        const bets = completedBets.filter(b => {
+          const pick = b.pick.toLowerCase();
+          return cat.patterns.some(p => pick.includes(p) || pick === p);
+        });
+        
+        if (bets.length >= 3) {
+          const won = bets.filter(b => b.status === 'won').length;
+          const total = bets.length;
+          const winRate = (won / total) * 100;
+          
+          pickStats[cat.key] = {
+            total,
+            won,
+            winRate: winRate.toFixed(1),
+            // Suggerimento soglia basato su win rate
+            suggestedThreshold: Math.max(50, Math.min(85, 100 - winRate + 10))
+          };
+        }
+      });
+      
+      // Salva statistiche ML
+      state.mlStats = pickStats;
+      
+      // Salva su localStorage
+      localStorage.setItem('bp2_ml_stats', JSON.stringify(pickStats));
+      
+      // Salva su Firebase
+      saveToFirebase('mlStats', pickStats).catch(e => 
+        console.warn('Firebase save mlStats failed:', e)
+      );
+      
+      // Aggiorna anche i threshold ML in base ai risultati
+      updateMLThresholdsFromStats(pickStats);
+      
+      console.log('🤖 ML Stats aggiornate:', pickStats);
+    }
+    
+    // Aggiorna i threshold ML in base alle statistiche
+    function updateMLThresholdsFromStats(pickStats) {
+      const mapping = {
+        'over25': 'Over 2.5',
+        'over15': 'Over 1.5',
+        'gg': 'GG',
+        '1x': '1X',
+        'x2': 'X2',
+        'under25': 'Under 2.5'
+      };
+      
+      Object.entries(pickStats).forEach(([key, stats]) => {
+        const thresholdKey = mapping[key];
+        if (thresholdKey && state.mlThresholds[thresholdKey]) {
+          // Aggiorna accuracy e predizioni
+          state.mlThresholds[thresholdKey].accuracy = parseFloat(stats.winRate);
+          state.mlThresholds[thresholdKey].totalPredictions = stats.total;
+          state.mlThresholds[thresholdKey].correctPredictions = stats.won;
+          
+          // Suggerisci nuova soglia se win rate è buono
+          if (stats.total >= 10 && parseFloat(stats.winRate) >= 55) {
+            // Abbassa leggermente la soglia se sta andando bene
+            const currentThreshold = state.mlThresholds[thresholdKey].threshold;
+            state.mlThresholds[thresholdKey].threshold = Math.max(45, currentThreshold - 2);
+          } else if (stats.total >= 10 && parseFloat(stats.winRate) < 45) {
+            // Alza la soglia se sta andando male
+            const currentThreshold = state.mlThresholds[thresholdKey].threshold;
+            state.mlThresholds[thresholdKey].threshold = Math.min(75, currentThreshold + 3);
+          }
+        }
+      });
+      
+      // Salva i threshold aggiornati
+      localStorage.setItem('bp2_ml_thresholds', JSON.stringify(state.mlThresholds));
+      saveToFirebase('mlThresholds', state.mlThresholds).catch(e => 
+        console.warn('Firebase save mlThresholds failed:', e)
+      );
+      
+      console.log('🤖 ML Thresholds aggiornati');
     }
     
     function getTrackingStats() {
@@ -6615,28 +6715,60 @@
         };
       });
       
-      // Per tipo di pick
-      const pickTypes = [
-        { key: 'over 0.5', label: 'Over 0.5' },
-        { key: 'over 1.5', label: 'Over 1.5' },
-        { key: 'over 2.5', label: 'Over 2.5' },
-        { key: 'over 3.5', label: 'Over 3.5' },
-        { key: 'under', label: 'Under' },
-        { key: 'gg', label: 'GG' },
-        { key: 'entrambe segnano', label: 'GG' },
-        { key: '1 (', label: '1 (Vittoria Casa)' },
-        { key: '2 (', label: '2 (Vittoria Ospite)' },
-        { key: '1x', label: '1X' },
-        { key: 'x2', label: 'X2' },
-        { key: 'pareggio', label: 'X (Pareggio)' }
+      // Per tipo di pick - CORRETTO per evitare sovrapposizioni
+      // Funzione helper per matchare esattamente il tipo di pick
+      const matchPick = (pick, patterns) => {
+        const p = pick.toLowerCase().trim();
+        return patterns.some(pattern => {
+          if (pattern.startsWith('^')) {
+            // Match esatto all'inizio
+            return p.startsWith(pattern.slice(1));
+          } else if (pattern.endsWith('$')) {
+            // Match esatto alla fine
+            return p.endsWith(pattern.slice(0, -1));
+          } else if (pattern.includes('|exact|')) {
+            // Match esatto
+            return p === pattern.replace('|exact|', '');
+          } else {
+            // Match contains
+            return p.includes(pattern);
+          }
+        });
+      };
+      
+      const pickCategories = [
+        { patterns: ['over 0.5'], label: 'Over 0.5', excludePatterns: [] },
+        { patterns: ['over 1.5'], label: 'Over 1.5', excludePatterns: [] },
+        { patterns: ['over 2.5'], label: 'Over 2.5', excludePatterns: [] },
+        { patterns: ['over 3.5'], label: 'Over 3.5', excludePatterns: [] },
+        { patterns: ['under 1.5', 'under 2.5', 'under 3.5'], label: 'Under', excludePatterns: [] },
+        { patterns: ['|exact|gg', 'entrambe segnano', '|exact|goal'], label: 'GG', excludePatterns: ['multigol'] },
+        { patterns: ['|exact|ng', 'no gol'], label: 'NG', excludePatterns: [] },
+        { patterns: ['^1x', '1x '], label: '1X', excludePatterns: [] },
+        { patterns: ['^x2', 'x2 '], label: 'X2', excludePatterns: [] },
+        { patterns: ['|exact|1', '^1 (', '1 (vittoria'], label: '1 (Casa)', excludePatterns: ['1x', 'over 1', 'under 1', 'multigol 1'] },
+        { patterns: ['|exact|2', '^2 (', '2 (vittoria'], label: '2 (Ospite)', excludePatterns: ['x2', 'over 2', 'under 2', 'multigol 2'] },
+        { patterns: ['|exact|x', 'pareggio', 'x (pareggio)'], label: 'X (Pareggio)', excludePatterns: ['1x', 'x2'] },
+        { patterns: ['multigol'], label: 'Multigol', excludePatterns: [] }
       ];
-      pickTypes.forEach(pickType => {
-        const bets = state.trackedBets.filter(b => b.pick.toLowerCase().includes(pickType.key));
+      
+      pickCategories.forEach(cat => {
+        const bets = state.trackedBets.filter(b => {
+          const pick = b.pick.toLowerCase().trim();
+          // Verifica che matchi almeno un pattern
+          const matches = matchPick(pick, cat.patterns);
+          // Verifica che non sia escluso
+          const excluded = cat.excludePatterns.length > 0 && 
+            cat.excludePatterns.some(ex => pick.includes(ex));
+          return matches && !excluded;
+        });
+        
         const won = bets.filter(b => b.status === 'won').length;
         const lost = bets.filter(b => b.status === 'lost').length;
         const total = won + lost;
+        
         if (bets.length > 0) {
-          stats.byPick[pickType.label] = {
+          stats.byPick[cat.label] = {
             total: bets.length,
             won,
             lost,
@@ -6668,17 +6800,20 @@
       
       console.log(`🔍 Verifica automatica di ${pending.length} pronostici pendenti...`);
       
-      let verified = 0;
-      
       for (const bet of pending) {
         try {
-          // Controlla quando è stato tracciato
+          // Controlla se la partita è finita (almeno 2 ore fa)
           const betDate = new Date(bet.timestamp);
           const now = new Date();
           const hoursSince = (now - betDate) / (1000 * 60 * 60);
           
-          console.log(`⏳ Verifica bet #${bet.id}: ${bet.matchName} (tracciato ${hoursSince.toFixed(1)}h fa)`);
-          console.log(`  📌 Pick: ${bet.pick} | Prob: ${bet.prob}% | MatchID: ${bet.matchId}`);
+          console.log(`⏳ Verifica bet: ${bet.matchName} (${hoursSince.toFixed(1)}h fa)`);
+          
+          // Verifica solo partite che sono iniziate almeno 2 ore fa
+          if (hoursSince < 2) {
+            console.log(`  ⏸️ Troppo recente, skippo (serve ${(2 - hoursSince).toFixed(1)}h)`);
+            continue;
+          }
           
           // Ottieni risultato dalla API
           console.log(`  📡 Richiedo dati fixture ${bet.matchId}...`);
@@ -6691,17 +6826,13 @@
           
           const fixture = data.response[0];
           const status = fixture.fixture.status.short;
-          const homeTeam = fixture.teams.home.name;
-          const awayTeam = fixture.teams.away.name;
-          console.log(`  📊 Status: ${status} | ${homeTeam} vs ${awayTeam}`);
+          console.log(`  📊 Status partita: ${status}`);
           
           // Partita finita?
           if (status !== 'FT' && status !== 'AET' && status !== 'PEN') {
-            console.log(`  ⏸️ Partita in corso o non ancora iniziata (status: ${status})`);
+            console.log(`  ⏸️ Partita non ancora finita (status: ${status})`);
             continue;
           }
-          
-          console.log(`  ✅ Partita TERMINATA! Verifico risultato...`);
           
           const homeGoals = fixture.goals.home;
           const awayGoals = fixture.goals.away;
@@ -6751,41 +6882,33 @@
           bet.status = isWon ? 'won' : 'lost';
           bet.result = `${homeGoals}-${awayGoals}`;
           bet.verified = new Date().toISOString();
-          verified++;
           
-          console.log(`  ${isWon ? '✅ VINTO' : '❌ PERSO'}: ${bet.pick} con risultato ${homeGoals}-${awayGoals}`);
+          console.log(`${isWon ? '✅' : '❌'} ${bet.matchName}: ${bet.pick} - ${homeGoals}-${awayGoals}`);
           
           // Aggiorna ML thresholds
           updateMLThresholds(bet.pick, isWon, bet.prob);
           
         } catch (e) {
-          console.warn(`❌ Errore verifica bet #${bet.id}:`, e.message);
+          console.warn(`Errore verifica bet ${bet.id}:`, e);
         }
       }
       
-      console.log(`\n📊 SUMMARY VERIFICA:`);
-      console.log(`  - Pronostici verificati: ${verified}/${pending.length}`);
-      console.log(`  - Pronostici ancora pendenti: ${pending.length - verified}`);
+      saveTrackedBets();
+      saveMLThresholds();
+      updatePerformanceHistory();
       
-      if (verified > 0) {
-        // Salva solo se abbiamo verificato almeno 1 bet
-        saveTrackedBets();
-        saveMLThresholds();
-        updatePerformanceHistory();
-        
-        // Calcola nuove statistiche
-        const stats = getTrackingStats();
-        console.log(`  - Win Rate aggiornato: ${stats.winRate}%`);
-        console.log(`  - Totale vinti: ${stats.won}`);
-        console.log(`  - Totale persi: ${stats.lost}`);
-        
-        // Aggiorna interfaccia se siamo nella view performance
-        if (state.view === 'performance') {
-          render();
-        }
+      // Aggiorna interfaccia se siamo nella view performance
+      if (state.view === 'performance') {
+        render();
       }
       
-      console.log('✅ Verifica automatica completata\n');
+      console.log('✅ Verifica automatica completata');
+      
+      // Mostra summary se ci sono stati aggiornamenti
+      const updated = pending.filter(b => b.status !== 'pending').length;
+      if (updated > 0) {
+        console.log(`📊 Aggiornati ${updated} pronostici - Win Rate aggiornato`);
+      }
     }
     
     // === MACHINE LEARNING: CALIBRAZIONE SOGLIE ===
@@ -7393,26 +7516,17 @@
     }
     
     function manualVerifyBets() {
-      const pending = state.trackedBets.filter(b => b.status === 'pending');
-      
-      if (pending.length === 0) {
-        alert('ℹ️ Non ci sono pronostici pendenti da verificare.');
-        return;
-      }
-      
-      if (confirm(`Vuoi verificare ${pending.length} pronostic${pending.length > 1 ? 'i' : 'o'} pendente?\n\nQuesto potrebbe richiedere alcuni minuti.`)) {
-        console.log('🔄 Verifica manuale avviata...');
+      if (confirm('Vuoi verificare automaticamente i risultati delle partite terminate?\n\nQuesto potrebbe richiedere alcuni minuti.')) {
         state.loading = true;
         render();
         
         autoVerifyPendingBets().then(() => {
           state.loading = false;
           const stats = getTrackingStats();
-          alert(`✅ Verifica completata!\n\n📊 Statistiche:\nWin Rate: ${stats.winRate}%\nVinti: ${stats.won}\nPersi: ${stats.lost}\nPendenti: ${stats.pending}\n\n💡 Controlla la console per i dettagli`);
+          alert(`✅ Verifica completata!\n\nWin Rate: ${stats.winRate}%\nVinti: ${stats.won}\nPersi: ${stats.lost}\nPendenti: ${stats.pending}`);
           render();
         }).catch(e => {
           state.loading = false;
-          console.error('Errore verifica:', e);
           alert('❌ Errore durante la verifica:\n\n' + e.message);
           render();
         });
@@ -7422,7 +7536,7 @@
     // === DEBUG FUNCTIONS ===
     window.debugTracking = function() {
       const stats = getTrackingStats();
-      console.log('\n=== 📊 TRACKING SYSTEM DEBUG ===');
+      console.log('=== 📊 TRACKING SYSTEM DEBUG ===');
       console.log(`Total Bets: ${stats.total}`);
       console.log(`Won: ${stats.won} | Lost: ${stats.lost} | Pending: ${stats.pending}`);
       console.log(`Win Rate: ${stats.winRate}%`);
@@ -7437,84 +7551,10 @@
         console.log(`Latest: ${latest.date} - WR: ${latest.winRate}% (${latest.won}W/${latest.lost}L)`);
       }
       console.log('\n=== 🎯 TRACKED BETS ===');
-      if (state.trackedBets.length === 0) {
-        console.log('Nessun pronostico tracciato');
-      } else {
-        state.trackedBets.forEach((bet, idx) => {
-          const betDate = new Date(bet.timestamp);
-          const hoursSince = ((new Date() - betDate) / (1000 * 60 * 60)).toFixed(1);
-          const statusEmoji = bet.status === 'won' ? '✅' : bet.status === 'lost' ? '❌' : '⏳';
-          console.log(`${idx + 1}. ${statusEmoji} [${bet.status.toUpperCase()}] ${bet.matchName}`);
-          console.log(`   Pick: ${bet.pick} (${bet.prob}%) | MatchID: ${bet.matchId}`);
-          console.log(`   Tracciato: ${hoursSince}h fa | ${bet.result || 'Attesa risultato'}`);
-        });
-      }
-      console.log('\n💡 Comandi utili:');
-      console.log('   debugTracking() - Mostra questo debug');
-      console.log('   debugFirebase() - Info Firebase');
-      console.log('   manualVerifyBets() - Verifica manuale risultati');
-      console.log('   checkDuplicates() - Controlla bets duplicati');
-      console.log('\n');
-    };
-    
-    window.checkDuplicates = function() {
-      console.log('\n=== 🔍 CONTROLLO DUPLICATI ===');
-      const duplicates = [];
-      const seen = new Map();
-      
       state.trackedBets.forEach((bet, idx) => {
-        const key = `${bet.matchId}_${bet.pick}`;
-        if (seen.has(key)) {
-          duplicates.push({
-            index1: seen.get(key),
-            index2: idx,
-            matchId: bet.matchId,
-            matchName: bet.matchName,
-            pick: bet.pick
-          });
-        } else {
-          seen.set(key, idx);
-        }
+        console.log(`${idx + 1}. [${bet.status.toUpperCase()}] ${bet.matchName} → ${bet.pick} (${bet.prob}%)`);
       });
-      
-      if (duplicates.length === 0) {
-        console.log('✅ Nessun duplicato trovato');
-      } else {
-        console.log(`⚠️ Trovati ${duplicates.length} duplicati:`);
-        duplicates.forEach(d => {
-          console.log(`\n   Duplicato: ${d.pick} per ${d.matchName}`);
-          console.log(`   Indici: ${d.index1} e ${d.index2}`);
-          console.log(`   MatchID: ${d.matchId}`);
-        });
-      }
-      
-      // Controlla anche picks simili (es. "1X" e "X")
-      console.log('\n=== 🔍 CONTROLLO PICKS SIMILI PER STESSA PARTITA ===');
-      const byMatch = new Map();
-      state.trackedBets.forEach(bet => {
-        if (!byMatch.has(bet.matchId)) {
-          byMatch.set(bet.matchId, []);
-        }
-        byMatch.get(bet.matchId).push(bet.pick);
-      });
-      
-      let found = false;
-      byMatch.forEach((picks, matchId) => {
-        if (picks.length > 1) {
-          found = true;
-          const match = state.trackedBets.find(b => b.matchId === matchId);
-          console.log(`\n   ⚠️ Partita con ${picks.length} picks diversi:`);
-          console.log(`   Match: ${match.matchName}`);
-          console.log(`   MatchID: ${matchId}`);
-          console.log(`   Picks: ${picks.join(', ')}`);
-        }
-      });
-      
-      if (!found) {
-        console.log('✅ Nessuna partita con picks multipli');
-      }
-      
-      console.log('\n');
+      console.log('\n💡 Tip: Scrivi debugTracking() in console per vedere queste info');
     };
     
     window.debugFirebase = function() {
@@ -7564,18 +7604,14 @@
       
       return `
         <div class="date-tabs">
-          <div class="date-tab consigli-tab ${state.consigliMode ? 'active' : ''}" id="consigliTab">
-            <span style="color: var(--accent-gold);">💡</span> CONSIGLI ${(picks.gg.length + picks.vittorieCasa.length + picks.vittorieOspite.length + picks.pareggi.length) > 0 ? `<span class="live-badge-count">${picks.gg.length + picks.vittorieCasa.length + picks.vittorieOspite.length + picks.pareggi.length}</span>` : ''}
-          </div>
           ${[-1, 0, 1, 2].map(d => `
-            <div class="date-tab ${!state.consigliMode && state.selectedDate === d ? 'active' : ''}" data-date="${d}">
+            <div class="date-tab ${state.selectedDate === d ? 'active' : ''}" data-date="${d}">
               ${getDateLabel(d)} ${d !== 0 ? `(${formatDate(getDateString(d))})` : ''}
             </div>
           `).join('')}
         </div>
         
-        ${state.consigliMode ? renderConsigliSection() : `
-        <!-- SELEZIONA CAMPIONATO - SPOSTATO IN ALTO -->
+        <!-- SELEZIONA CAMPIONATO -->
         <div class="panel" style="margin-bottom: 16px;">
           <div class="panel-title">📋 Seleziona Campionato (${state.matches.length} partite)</div>
           ${state.leagues.length === 0 ? `<div class="empty"><div class="empty-icon">📭</div>Nessuna partita</div>` : `
@@ -7586,9 +7622,88 @@
           `}
         </div>
         
-        <!-- HOME SECTIONS - PICKS DEL GIORNO (RIMOSSI TOP 20) -->
+        <!-- RADDOPPI DEL GIORNO -->
+        ${picks.raddoppi.length > 0 ? `
+        <div class="panel" style="margin-bottom: 20px; border: 1px solid var(--accent-green); background: linear-gradient(135deg, rgba(16,185,129,0.05), rgba(34,197,94,0.02));">
+          <div class="panel-title" style="color: var(--accent-green); display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.3rem;">💰</span> Raddoppi del Giorno
+            <span style="background: var(--accent-green); color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">${picks.raddoppi.length} COMBO</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">
+            Combinazioni ad alta probabilità con quota target ~2.00
+          </div>
+          <div class="raddoppi-grid">
+            ${picks.raddoppi.map((r, idx) => `
+              <div class="raddoppio-card" data-raddoppio="${idx}">
+                <div class="raddoppio-header">
+                  <span class="raddoppio-badge">COMBO #${idx + 1}</span>
+                  <span class="raddoppio-odds">@ ${r.totalOdds}</span>
+                </div>
+                <div class="raddoppio-bets">
+                  ${r.bets.map(b => `
+                    <div class="raddoppio-bet">
+                      <div class="raddoppio-match">${esc(b.shortName)}</div>
+                      <div class="raddoppio-pick">${b.bet} <span style="opacity: 0.7; font-size: 0.75rem;">(${b.prob.toFixed(0)}%)</span></div>
+                    </div>
+                  `).join('')}
+                </div>
+                <div class="raddoppio-footer">
+                  <div class="raddoppio-prob">${r.prob.toFixed(0)}% prob. combinata</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
         </div>
-      `}
+        ` : `
+        <!-- PLACEHOLDER QUANDO NON CI SONO RADDOPPI -->
+        <div class="panel" style="margin-bottom: 20px; text-align: center; padding: 40px 20px;">
+          <div style="font-size: 4rem; margin-bottom: 16px;">⚽</div>
+          <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-white); margin-bottom: 8px;">Analisi in corso...</div>
+          <div style="font-size: 0.9rem; color: var(--text-gray); max-width: 400px; margin: 0 auto;">
+            I raddoppi del giorno appariranno qui quando saranno disponibili partite con probabilità elevate.
+          </div>
+          <div style="margin-top: 20px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+            <div style="background: var(--bg-card-light); padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border);">
+              <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-cyan);">${state.matches.length}</div>
+              <div style="font-size: 0.7rem; color: var(--text-dark);">Partite caricate</div>
+            </div>
+            <div style="background: var(--bg-card-light); padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border);">
+              <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-green);">${state.leagues.length}</div>
+              <div style="font-size: 0.7rem; color: var(--text-dark);">Campionati</div>
+            </div>
+            <div style="background: var(--bg-card-light); padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border);">
+              <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-gold);">${picks.gg.length + picks.over25.length}</div>
+              <div style="font-size: 0.7rem; color: var(--text-dark);">Picks trovati</div>
+            </div>
+          </div>
+        </div>
+        `}
+        
+        <!-- QUICK STATS -->
+        ${(picks.gg.length > 0 || picks.over25.length > 0 || picks.vittorieCasa.length > 0) ? `
+        <div class="panel" style="margin-bottom: 20px;">
+          <div class="panel-title">📊 Quick Stats del Giorno</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+            <div style="background: var(--bg-card-light); padding: 16px; border-radius: 12px; text-align: center; border: 1px solid var(--border);">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent-cyan);">${picks.gg.length}</div>
+              <div style="font-size: 0.75rem; color: var(--text-gray);">⚽ GG Trovati</div>
+            </div>
+            <div style="background: var(--bg-card-light); padding: 16px; border-radius: 12px; text-align: center; border: 1px solid var(--border);">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent-red);">${picks.over25.length}</div>
+              <div style="font-size: 0.75rem; color: var(--text-gray);">🔥 Over 2.5</div>
+            </div>
+            <div style="background: var(--bg-card-light); padding: 16px; border-radius: 12px; text-align: center; border: 1px solid var(--border);">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent-green);">${picks.vittorieCasa.length}</div>
+              <div style="font-size: 0.75rem; color: var(--text-gray);">🏠 Vittorie Casa</div>
+            </div>
+            <div style="background: var(--bg-card-light); padding: 16px; border-radius: 12px; text-align: center; border: 1px solid var(--border);">
+              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent-purple);">${picks.pareggi.length}</div>
+              <div style="font-size: 0.75rem; color: var(--text-gray);">🎲 Pareggi</div>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+        
       `;
     }
     
@@ -8371,7 +8486,7 @@
     function attachEvents() {
       // LIVE Tab
       // Consigli Tab
-      document.getElementById('consigliTab')?.addEventListener('click', toggleConsigliMode);
+      // Event listener per date tabs rimosso (consigliTab non più presente)
       document.getElementById('refreshLive')?.addEventListener('click', loadLiveMatches);
       
       // Date tabs
@@ -8525,9 +8640,14 @@
       Promise.all([
         loadTrackingFromLocalStorage(),
         loadMLThresholdsFromCloud(),
+        loadMLStatsFromCloud(),
         loadPerformanceHistoryFromCloud()
       ]).then(() => {
         console.log('✅ Dati utente caricati da cloud');
+        // Aggiorna ML stats con i dati tracciati
+        if (state.trackedBets.length >= 5) {
+          updateMLFromResults();
+        }
         render(); // Re-render con dati Firebase
       }).catch(e => console.warn('Cloud data load partial failure:', e));
       
@@ -8557,6 +8677,7 @@
           console.log('🔄 Sync automatico con Firebase...');
           saveToFirebase('trackedBets', state.trackedBets).catch(e => console.warn('Auto-sync failed:', e));
           saveToFirebase('mlThresholds', state.mlThresholds).catch(e => console.warn('Auto-sync ML failed:', e));
+          saveToFirebase('mlStats', state.mlStats).catch(e => console.warn('Auto-sync mlStats failed:', e));
           saveToFirebase('performanceHistory', state.performanceHistory).catch(e => console.warn('Auto-sync perf failed:', e));
         }
       }, 5 * 60 * 1000);
