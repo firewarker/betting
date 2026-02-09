@@ -2982,6 +2982,9 @@
     console.log('✅ Firebase REST API configurato');
     console.log(`👤 User ID: ${USER_ID}`);
 
+    // Traccia chart instances per evitare errori di duplicazione
+    let chartInstances = {};
+
     let state = {
       view: 'leagues', // 'leagues', 'matches', 'analysis', 'performance'
       selectedDate: 0, // 0=oggi, -1=ieri, 1=domani, 2=dopodomani
@@ -7443,18 +7446,32 @@
         console.warn('Chart.js non caricato');
         return;
       }
-      
+
+      // === DISTRUGGI I CHART ESISTENTI ===
+      if (chartInstances.winRate) {
+        chartInstances.winRate.destroy();
+        chartInstances.winRate = null;
+      }
+      if (chartInstances.market) {
+        chartInstances.market.destroy();
+        chartInstances.market = null;
+      }
+      if (chartInstances.results) {
+        chartInstances.results.destroy();
+        chartInstances.results = null;
+      }
+
       const history = state.performanceHistory.slice(-30);
       const stats = getTrackingStats();
-      
+
       // Chart.js default colors
       Chart.defaults.color = '#94a3b8';
       Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
-      
+
       // 1. WIN RATE NEL TEMPO
       const winRateCtx = document.getElementById('winRateChart');
       if (winRateCtx && history.length > 0) {
-        new Chart(winRateCtx, {
+        chartInstances.winRate = new Chart(winRateCtx, {
           type: 'line',
           data: {
             labels: history.map(h => new Date(h.date).toLocaleDateString('it-IT', { month: 'short', day: 'numeric' })),
@@ -7495,13 +7512,13 @@
           }
         });
       }
-      
+
       // 2. PERFORMANCE PER MERCATO
       const marketCtx = document.getElementById('marketPerformanceChart');
       if (marketCtx && Object.keys(stats.byPick).length > 0) {
         const marketData = Object.entries(stats.byPick).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
-        
-        new Chart(marketCtx, {
+
+        chartInstances.market = new Chart(marketCtx, {
           type: 'bar',
           data: {
             labels: marketData.map(m => m[0]),
@@ -7537,11 +7554,11 @@
           }
         });
       }
-      
+
       // 3. DISTRIBUZIONE RISULTATI
       const resultsCtx = document.getElementById('resultsDistributionChart');
       if (resultsCtx) {
-        new Chart(resultsCtx, {
+        chartInstances.results = new Chart(resultsCtx, {
           type: 'doughnut',
           data: {
             labels: ['Vinti', 'Persi', 'Pendenti'],
@@ -7665,6 +7682,7 @@
     
     function renderLeagues() {
       const picks = state.dailyPicks;
+      const money = getMoneyStats();
       
       return `
         <div class="date-tabs">
@@ -7707,12 +7725,12 @@
                   ${r.bets.map(b => `
                     <div class="raddoppio-bet">
                       <div class="raddoppio-match">${esc(b.shortName)}</div>
-                      <div class="raddoppio-pick">${b.bet} <span style="opacity: 0.7; font-size: 0.75rem;">(${(b.prob || 0).toFixed(0)}%)</span></div>
+                      <div class="raddoppio-pick">${b.bet} <span style="opacity: 0.7; font-size: 0.75rem;">(${b.prob.toFixed(0)}%)</span></div>
                     </div>
                   `).join('')}
                 </div>
                 <div class="raddoppio-footer">
-                  <div class="raddoppio-prob">${(r.prob || 0).toFixed(0)}% prob. combinata</div>
+                  <div class="raddoppio-prob">${r.prob.toFixed(0)}% prob. combinata</div>
                 </div>
               </div>
             `).join('')}
