@@ -817,6 +817,40 @@
       background: rgba(6,182,212,0.1);
     }
     
+    /* BUTTON STYLES */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+      outline: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      color: white;
+      box-shadow: 0 4px 12px rgba(6,182,212,0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(6,182,212,0.4);
+    }
+    .btn-secondary {
+      background: var(--bg-card-light);
+      color: var(--text-white);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: var(--bg-input);
+      border-color: var(--accent-cyan);
+    }
+    
     /* MG PROBABILE BOX */
     .mg-best-box {
       background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.08));
@@ -6825,24 +6859,24 @@
       }
       
       console.log(`🔍 Verifica automatica di ${pending.length} pronostici pendenti...`);
+      let updatedCount = 0;
       
       for (const bet of pending) {
         try {
-          // Controlla se la partita è finita (almeno 2 ore fa)
+          // Controlla se la partita è finita (almeno 30 minuti fa - tempo sufficiente per fine match)
           const betDate = new Date(bet.timestamp);
           const now = new Date();
-          const hoursSince = (now - betDate) / (1000 * 60 * 60);
+          const minutesSince = (now - betDate) / (1000 * 60);
           
-          console.log(`⏳ Verifica bet: ${bet.matchName} (${hoursSince.toFixed(1)}h fa)`);
+          console.log(`⏳ Verifica bet: ${bet.matchName} (${(minutesSince/60).toFixed(1)}h fa)`);
           
-          // Verifica solo partite che sono iniziate almeno 2 ore fa
-          if (hoursSince < 2) {
-            console.log(`  ⏸️ Troppo recente, skippo (serve ${(2 - hoursSince).toFixed(1)}h)`);
+          // Verifica solo partite che sono iniziate almeno 30 minuti fa
+          if (minutesSince < 30) {
+            console.log(`  ⏸️ Troppo recente, skippo`);
             continue;
           }
           
           // Ottieni risultato dalla API
-          console.log(`  📡 Richiedo dati fixture ${bet.matchId}...`);
           const data = await callAPIFootball('/fixtures', { id: bet.matchId });
           
           if (!data?.response || data.response.length === 0) {
@@ -6852,10 +6886,9 @@
           
           const fixture = data.response[0];
           const status = fixture.fixture.status.short;
-          console.log(`  📊 Status partita: ${status}`);
           
           // Partita finita?
-          if (status !== 'FT' && status !== 'AET' && status !== 'PEN') {
+          if (!['FT', 'AET', 'PEN'].includes(status)) {
             console.log(`  ⏸️ Partita non ancora finita (status: ${status})`);
             continue;
           }
@@ -6866,75 +6899,64 @@
           
           // Verifica risultato basandosi sul tipo di pronostico
           let isWon = false;
-          const pickLower = bet.pick.toLowerCase();
+          const pickLower = bet.pick.toLowerCase().trim();
           
-          // IMPORTANTE: Ordine dei check è importante (più specifico prima)
-          if (pickLower.includes('over 3.5')) {
-            isWon = totalGoals > 3.5;
-          } else if (pickLower.includes('over 2.5')) {
-            isWon = totalGoals > 2.5;
-          } else if (pickLower.includes('over 1.5')) {
-            isWon = totalGoals > 1.5;
-          } else if (pickLower.includes('over 0.5')) {
-            isWon = totalGoals > 0.5;
-          } else if (pickLower.includes('under 3.5')) {
-            isWon = totalGoals < 3.5;
-          } else if (pickLower.includes('under 2.5')) {
-            isWon = totalGoals < 2.5;
-          } else if (pickLower.includes('under 1.5')) {
-            isWon = totalGoals < 1.5;
-          } else if (pickLower.includes('gg') || pickLower.includes('entrambe segnano') || pickLower.includes('both teams')) {
-            isWon = homeGoals > 0 && awayGoals > 0;
-          } else if (pickLower.includes('ng') || pickLower.includes('no goal')) {
-            isWon = homeGoals === 0 || awayGoals === 0;
-          } else if (pickLower.includes('1 (') || pickLower.includes('vittoria casa') || pickLower.includes('home win')) {
-            isWon = homeGoals > awayGoals;
-          } else if (pickLower.includes('2 (') || pickLower.includes('vittoria ospite') || pickLower.includes('away win')) {
-            isWon = awayGoals > homeGoals;
-          } else if (pickLower.includes('pareggio') || pickLower === 'x' || pickLower.includes('x (') || pickLower.includes('draw')) {
-            isWon = homeGoals === awayGoals;
-          } else if (pickLower.includes('1x')) {
-            isWon = homeGoals >= awayGoals;
-          } else if (pickLower.includes('x2')) {
-            isWon = awayGoals >= homeGoals;
-          } else if (pickLower.includes('12') || pickLower.includes('no pareggio')) {
-            isWon = homeGoals !== awayGoals;
-          } else {
-            // Pick non riconosciuto - log per debug
+          // IMPORTANTE: Ordine dei check - più specifico prima
+          if (pickLower.includes('over 3.5')) isWon = totalGoals >= 4;
+          else if (pickLower.includes('over 2.5')) isWon = totalGoals >= 3;
+          else if (pickLower.includes('over 1.5')) isWon = totalGoals >= 2;
+          else if (pickLower.includes('over 0.5')) isWon = totalGoals >= 1;
+          else if (pickLower.includes('under 1.5')) isWon = totalGoals < 2;
+          else if (pickLower.includes('under 2.5')) isWon = totalGoals < 3;
+          else if (pickLower.includes('under 3.5')) isWon = totalGoals < 4;
+          else if (pickLower === 'gg' || pickLower.includes('entrambe segnano') || pickLower === 'goal') isWon = homeGoals > 0 && awayGoals > 0;
+          else if (pickLower === 'ng' || pickLower.includes('no gol')) isWon = homeGoals === 0 || awayGoals === 0;
+          // Doppie chance PRIMA delle singole
+          else if (pickLower === '1x' || pickLower.startsWith('1x ')) isWon = homeGoals >= awayGoals;
+          else if (pickLower === 'x2' || pickLower.startsWith('x2 ')) isWon = homeGoals <= awayGoals;
+          else if (pickLower === '12' || pickLower.includes('no pareggio')) isWon = homeGoals !== awayGoals;
+          // 1X2 singoli
+          else if (pickLower === '1' || pickLower.includes('vittoria casa') || pickLower.includes('1 (')) isWon = homeGoals > awayGoals;
+          else if (pickLower === '2' || pickLower.includes('vittoria ospite') || pickLower.includes('2 (')) isWon = homeGoals < awayGoals;
+          else if (pickLower === 'x' || pickLower === 'pareggio' || pickLower.includes('x (')) isWon = homeGoals === awayGoals;
+          else {
             console.warn(`⚠️ Pick type non riconosciuto: "${bet.pick}"`);
+            continue;
           }
           
           // Aggiorna stato
           bet.status = isWon ? 'won' : 'lost';
           bet.result = `${homeGoals}-${awayGoals}`;
           bet.verified = new Date().toISOString();
+          updatedCount++;
           
           console.log(`${isWon ? '✅' : '❌'} ${bet.matchName}: ${bet.pick} - ${homeGoals}-${awayGoals}`);
           
           // Aggiorna ML thresholds
           updateMLThresholds(bet.pick, isWon, bet.prob);
           
+          // Piccola pausa per evitare rate limiting
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
         } catch (e) {
           console.warn(`Errore verifica bet ${bet.id}:`, e);
         }
       }
       
-      saveTrackedBets();
-      saveMLThresholds();
-      updatePerformanceHistory();
-      
-      // Aggiorna interfaccia se siamo nella view performance
-      if (state.view === 'performance') {
-        render();
+      // Salva solo se ci sono stati aggiornamenti
+      if (updatedCount > 0) {
+        saveTrackedBets();
+        saveMLThresholds();
+        updatePerformanceHistory();
+        updateMLFromResults();
+        
+        console.log(`📊 Aggiornati ${updatedCount} pronostici`);
       }
+      
+      // Aggiorna interfaccia
+      render();
       
       console.log('✅ Verifica automatica completata');
-      
-      // Mostra summary se ci sono stati aggiornamenti
-      const updated = pending.filter(b => b.status !== 'pending').length;
-      if (updated > 0) {
-        console.log(`📊 Aggiornati ${updated} pronostici - Win Rate aggiornato`);
-      }
     }
     
     // === MACHINE LEARNING: CALIBRAZIONE SOGLIE ===
