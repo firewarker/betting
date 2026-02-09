@@ -9,6 +9,10 @@
   <!-- Chart.js per grafici interattivi -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  
   <style>
     :root {
       /* Colori moderni con alto contrasto */
@@ -2876,7 +2880,82 @@
     };
     const USER_ID = getUserId();
 
-    // Firebase RIMOSSO - Usiamo solo localStorage per performance
+    // ============================================
+    // FIREBASE CONFIGURATION
+    // ============================================
+    // IMPORTANTE: Configura le seguenti regole nel Firebase Realtime Database
+    // per permettere a ogni utente di leggere/scrivere SOLO i propri dati:
+    //
+    // {
+    //   "rules": {
+    //     "users": {
+    //       "$userId": {
+    //         ".read": "true",
+    //         ".write": "true"
+    //       }
+    //     }
+    //   }
+    // }
+    //
+    // Questo permette:
+    // - Ogni utente ha un ID univoco generato automaticamente
+    // - I dati sono salvati in: users/<user_id>/trackedBets, mlThresholds, performanceHistory
+    // - Chiunque può usare l'app e vedere solo i propri pronostici e statistiche
+    // - Nessun utente può vedere i dati di altri utenti
+    
+    let db = null;
+    let firebaseEnabled = false;
+    
+    try {
+      // Configurazione Firebase
+      const firebaseConfig = {
+        databaseURL: 'https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app/'
+      };
+      
+      // Inizializza Firebase
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      firebaseEnabled = true;
+      console.log('✅ Firebase inizializzato correttamente');
+      console.log(`👤 User ID: ${USER_ID}`);
+      console.log('☁️ I tuoi dati sono salvati nel cloud e accessibili da qualsiasi dispositivo');
+    } catch (e) {
+      console.warn('⚠️ Firebase non disponibile, uso localStorage:', e.message);
+      firebaseEnabled = false;
+    }
+    
+    // Funzioni Firebase per salvare/caricare dati utente
+    async function saveToFirebase(path, data) {
+      if (!firebaseEnabled || !db) {
+        console.log('Firebase non disponibile, skippo salvataggio');
+        return;
+      }
+      
+      try {
+        await db.ref(`users/${USER_ID}/${path}`).set(data);
+        console.log(`✅ Salvato su Firebase: ${path}`);
+      } catch (e) {
+        console.warn(`❌ Errore salvataggio Firebase (${path}):`, e.message);
+      }
+    }
+    
+    async function loadFromFirebase(path) {
+      if (!firebaseEnabled || !db) {
+        return null;
+      }
+      
+      try {
+        const snapshot = await db.ref(`users/${USER_ID}/${path}`).once('value');
+        const data = snapshot.val();
+        if (data) {
+          console.log(`✅ Caricato da Firebase: ${path}`);
+        }
+        return data;
+      } catch (e) {
+        console.warn(`❌ Errore caricamento Firebase (${path}):`, e.message);
+        return null;
+      }
+    }
 
     let state = {
       view: 'leagues', // 'leagues', 'matches', 'analysis', 'performance'
@@ -6321,12 +6400,27 @@
       state.trackedBets.push(bet);
       saveTrackedBets();
       
+      console.log(`\n✅ BET AGGIUNTO ALL'ARRAY:`);
+      console.log(`   📌 Pick: "${pick}"`);
+      console.log(`   🆔 ID: ${bet.id}`);
+      console.log(`   ⚽ Partita: ${matchName}`);
+      console.log(`   🎲 Prob: ${prob}% | Quota: ${odds}`);
+      console.log(`   📊 MatchID: ${matchId} | Type: ${type}`);
+      console.log(`   📈 Totale bets tracciati: ${state.trackedBets.length}`);
+      
       render();
       return bet;
     }
     
     // Funzione per tracciare pronostici pre-match
     function trackPrematchBet(matchId, matchName, pick, prob, event) {
+      console.log('\n🎯 trackPrematchBet CHIAMATO:');
+      console.log(`  MatchID: ${matchId}`);
+      console.log(`  MatchName: ${matchName}`);
+      console.log(`  Pick: "${pick}"`);
+      console.log(`  Pick Length: ${pick.length}`);
+      console.log(`  Prob: ${prob}`);
+      
       if (event) event.stopPropagation();
       
       // Stima quota basata sulla probabilità
@@ -6362,18 +6456,81 @@
     }
     
     function saveTrackedBets() {
+      console.log(`💾 Salvataggio ${state.trackedBets.length} bets...`);
+      
+      // Salva su localStorage (locale)
       localStorage.setItem('bp2_tracked', JSON.stringify(state.trackedBets));
+      
+      // Salva su Firebase (cloud) - async, non bloccante
+      saveToFirebase('trackedBets', state.trackedBets).catch(e => 
+        console.warn('Firebase save trackedBets failed:', e)
+      );
+      
+      // Log dettagliato di tutti i bets
+      console.log(`📋 Lista bets salvati:`);
+      state.trackedBets.forEach((b, i) => {
+        console.log(`   ${i+1}. [${b.status}] ${b.pick} - ${b.matchName.substring(0, 30)}...`);
+      });
     }
     
-    function loadTrackingFromLocalStorage() {
-      // Usa solo localStorage
+    async function loadTrackingFromLocalStorage() {
+      // Prova prima Firebase (cloud), poi localStorage (locale)
       try {
+        // 1. Carica da Firebase se disponibile
+        const firebaseData = await loadFromFirebase('trackedBets');
+        if (firebaseData && Array.isArray(firebaseData)) {
+          state.trackedBets = firebaseData;
+          console.log(`📊 Caricati ${firebaseData.length} pronostici da Firebase`);
+          return;
+        }
+        
+        // 2. Fallback su localStorage
         const saved = localStorage.getItem('bp2_tracked');
         if (saved) {
           state.trackedBets = JSON.parse(saved);
+          console.log(`📊 Caricati ${state.trackedBets.length} pronostici da localStorage`);
+          
+          // Sincronizza con Firebase se disponibile
+          if (firebaseEnabled && state.trackedBets.length > 0) {
+            saveToFirebase('trackedBets', state.trackedBets).catch(e => 
+              console.warn('Firebase sync failed:', e)
+            );
+          }
         }
       } catch (e) {
-        console.warn('localStorage tracking load error:', e);
+        console.warn('Tracking load error:', e);
+      }
+    }
+    
+    async function loadMLThresholdsFromCloud() {
+      try {
+        const firebaseData = await loadFromFirebase('mlThresholds');
+        if (firebaseData && typeof firebaseData === 'object') {
+          state.mlThresholds = firebaseData;
+          console.log('🤖 ML Thresholds caricati da Firebase');
+          return;
+        }
+        
+        // Fallback già fatto in state init con localStorage
+        console.log('🤖 ML Thresholds da localStorage (Firebase non disponibile)');
+      } catch (e) {
+        console.warn('ML Thresholds load error:', e);
+      }
+    }
+    
+    async function loadPerformanceHistoryFromCloud() {
+      try {
+        const firebaseData = await loadFromFirebase('performanceHistory');
+        if (firebaseData && Array.isArray(firebaseData)) {
+          state.performanceHistory = firebaseData;
+          console.log(`📈 Performance History caricato da Firebase (${firebaseData.length} records)`);
+          return;
+        }
+        
+        // Fallback già fatto in state init con localStorage
+        console.log('📈 Performance History da localStorage (Firebase non disponibile)');
+      } catch (e) {
+        console.warn('Performance History load error:', e);
       }
     }
     
@@ -6504,29 +6661,47 @@
     // === VERIFICA AUTOMATICA RISULTATI ===
     async function autoVerifyPendingBets() {
       const pending = state.trackedBets.filter(b => b.status === 'pending');
-      if (pending.length === 0) return;
+      if (pending.length === 0) {
+        console.log('✅ Nessun pronostico pendente da verificare');
+        return;
+      }
       
       console.log(`🔍 Verifica automatica di ${pending.length} pronostici pendenti...`);
       
+      let verified = 0;
+      
       for (const bet of pending) {
         try {
-          // Controlla se la partita è finita (almeno 2 ore fa)
+          // Controlla quando è stato tracciato
           const betDate = new Date(bet.timestamp);
           const now = new Date();
           const hoursSince = (now - betDate) / (1000 * 60 * 60);
           
-          // Verifica solo partite che sono iniziate almeno 2 ore fa
-          if (hoursSince < 2) continue;
+          console.log(`⏳ Verifica bet #${bet.id}: ${bet.matchName} (tracciato ${hoursSince.toFixed(1)}h fa)`);
+          console.log(`  📌 Pick: ${bet.pick} | Prob: ${bet.prob}% | MatchID: ${bet.matchId}`);
           
           // Ottieni risultato dalla API
+          console.log(`  📡 Richiedo dati fixture ${bet.matchId}...`);
           const data = await callAPIFootball('/fixtures', { id: bet.matchId });
-          if (!data?.response || data.response.length === 0) continue;
+          
+          if (!data?.response || data.response.length === 0) {
+            console.log(`  ❌ Nessun dato ricevuto per fixture ${bet.matchId}`);
+            continue;
+          }
           
           const fixture = data.response[0];
           const status = fixture.fixture.status.short;
+          const homeTeam = fixture.teams.home.name;
+          const awayTeam = fixture.teams.away.name;
+          console.log(`  📊 Status: ${status} | ${homeTeam} vs ${awayTeam}`);
           
           // Partita finita?
-          if (status !== 'FT' && status !== 'AET' && status !== 'PEN') continue;
+          if (status !== 'FT' && status !== 'AET' && status !== 'PEN') {
+            console.log(`  ⏸️ Partita in corso o non ancora iniziata (status: ${status})`);
+            continue;
+          }
+          
+          console.log(`  ✅ Partita TERMINATA! Verifico risultato...`);
           
           const homeGoals = fixture.goals.home;
           const awayGoals = fixture.goals.away;
@@ -6536,42 +6711,81 @@
           let isWon = false;
           const pickLower = bet.pick.toLowerCase();
           
-          if (pickLower.includes('over 2.5')) {
+          // IMPORTANTE: Ordine dei check è importante (più specifico prima)
+          if (pickLower.includes('over 3.5')) {
+            isWon = totalGoals > 3.5;
+          } else if (pickLower.includes('over 2.5')) {
             isWon = totalGoals > 2.5;
-          } else if (pickLower.includes('under 2.5')) {
-            isWon = totalGoals < 2.5;
           } else if (pickLower.includes('over 1.5')) {
             isWon = totalGoals > 1.5;
-          } else if (pickLower.includes('gg') || pickLower.includes('entrambe segnano')) {
+          } else if (pickLower.includes('over 0.5')) {
+            isWon = totalGoals > 0.5;
+          } else if (pickLower.includes('under 3.5')) {
+            isWon = totalGoals < 3.5;
+          } else if (pickLower.includes('under 2.5')) {
+            isWon = totalGoals < 2.5;
+          } else if (pickLower.includes('under 1.5')) {
+            isWon = totalGoals < 1.5;
+          } else if (pickLower.includes('gg') || pickLower.includes('entrambe segnano') || pickLower.includes('both teams')) {
             isWon = homeGoals > 0 && awayGoals > 0;
-          } else if (pickLower.includes('1 (') || pickLower.includes('vittoria casa')) {
+          } else if (pickLower.includes('ng') || pickLower.includes('no goal')) {
+            isWon = homeGoals === 0 || awayGoals === 0;
+          } else if (pickLower.includes('1 (') || pickLower.includes('vittoria casa') || pickLower.includes('home win')) {
             isWon = homeGoals > awayGoals;
-          } else if (pickLower.includes('2 (') || pickLower.includes('vittoria ospite')) {
+          } else if (pickLower.includes('2 (') || pickLower.includes('vittoria ospite') || pickLower.includes('away win')) {
             isWon = awayGoals > homeGoals;
-          } else if (pickLower.includes('pareggio') || pickLower === 'x') {
+          } else if (pickLower.includes('pareggio') || pickLower === 'x' || pickLower.includes('x (') || pickLower.includes('draw')) {
             isWon = homeGoals === awayGoals;
+          } else if (pickLower.includes('1x')) {
+            isWon = homeGoals >= awayGoals;
+          } else if (pickLower.includes('x2')) {
+            isWon = awayGoals >= homeGoals;
+          } else if (pickLower.includes('12') || pickLower.includes('no pareggio')) {
+            isWon = homeGoals !== awayGoals;
+          } else {
+            // Pick non riconosciuto - log per debug
+            console.warn(`⚠️ Pick type non riconosciuto: "${bet.pick}"`);
           }
           
           // Aggiorna stato
           bet.status = isWon ? 'won' : 'lost';
           bet.result = `${homeGoals}-${awayGoals}`;
           bet.verified = new Date().toISOString();
+          verified++;
           
-          console.log(`${isWon ? '✅' : '❌'} ${bet.matchName}: ${bet.pick} - ${homeGoals}-${awayGoals}`);
+          console.log(`  ${isWon ? '✅ VINTO' : '❌ PERSO'}: ${bet.pick} con risultato ${homeGoals}-${awayGoals}`);
           
           // Aggiorna ML thresholds
           updateMLThresholds(bet.pick, isWon, bet.prob);
           
         } catch (e) {
-          console.warn(`Errore verifica bet ${bet.id}:`, e);
+          console.warn(`❌ Errore verifica bet #${bet.id}:`, e.message);
         }
       }
       
-      saveTrackedBets();
-      saveMLThresholds();
-      updatePerformanceHistory();
+      console.log(`\n📊 SUMMARY VERIFICA:`);
+      console.log(`  - Pronostici verificati: ${verified}/${pending.length}`);
+      console.log(`  - Pronostici ancora pendenti: ${pending.length - verified}`);
       
-      console.log('✅ Verifica automatica completata');
+      if (verified > 0) {
+        // Salva solo se abbiamo verificato almeno 1 bet
+        saveTrackedBets();
+        saveMLThresholds();
+        updatePerformanceHistory();
+        
+        // Calcola nuove statistiche
+        const stats = getTrackingStats();
+        console.log(`  - Win Rate aggiornato: ${stats.winRate}%`);
+        console.log(`  - Totale vinti: ${stats.won}`);
+        console.log(`  - Totale persi: ${stats.lost}`);
+        
+        // Aggiorna interfaccia se siamo nella view performance
+        if (state.view === 'performance') {
+          render();
+        }
+      }
+      
+      console.log('✅ Verifica automatica completata\n');
     }
     
     // === MACHINE LEARNING: CALIBRAZIONE SOGLIE ===
@@ -6580,19 +6794,33 @@
       const pickLower = pick.toLowerCase();
       let market = null;
       
-      if (pickLower.includes('1 (') || pickLower.includes('vittoria casa')) market = '1';
-      else if (pickLower.includes('2 (') || pickLower.includes('vittoria ospite')) market = '2';
-      else if (pickLower.includes('pareggio') || pickLower === 'x' || pickLower.includes('x (')) market = 'X';
-      else if (pickLower.includes('gg') || pickLower.includes('entrambe segnano')) market = 'GG';
-      else if (pickLower.includes('over 2.5')) market = 'Over 2.5';
+      // IMPORTANTE: Ordine dei check - più specifico prima
+      if (pickLower.includes('over 2.5')) market = 'Over 2.5';
       else if (pickLower.includes('over 1.5')) market = 'Over 1.5';
+      else if (pickLower.includes('over 3.5') || pickLower.includes('over 0.5')) {
+        // Over 3.5 e Over 0.5 non sono nei mlThresholds di default, skippa
+        console.log(`ML: Skipping unsupported market for pick "${pick}"`);
+        return;
+      }
+      else if (pickLower.includes('gg') || pickLower.includes('entrambe segnano') || pickLower.includes('both teams')) market = 'GG';
+      else if (pickLower.includes('1 (') || pickLower.includes('vittoria casa') || pickLower.includes('home win')) market = '1';
+      else if (pickLower.includes('2 (') || pickLower.includes('vittoria ospite') || pickLower.includes('away win')) market = '2';
+      else if (pickLower.includes('pareggio') || pickLower === 'x' || pickLower.includes('x (') || pickLower.includes('draw')) market = 'X';
+      else if (pickLower.includes('under') || pickLower.includes('1x') || pickLower.includes('x2') || pickLower.includes('12')) {
+        // Altri mercati non tracciati nel ML di default
+        console.log(`ML: Skipping market for pick "${pick}"`);
+        return;
+      }
       
       if (!market || !state.mlThresholds[market]) {
-        console.warn(`ML: Market not found for pick "${pick}"`);
+        console.warn(`ML: Market "${market}" not found for pick "${pick}"`);
         return;
       }
       
       const ml = state.mlThresholds[market];
+      const oldThreshold = ml.threshold;
+      const oldAccuracy = ml.accuracy;
+      
       ml.totalPredictions++;
       if (isWon) ml.correctPredictions++;
       
@@ -6612,10 +6840,19 @@
           ml.threshold = Math.max(ml.threshold - 1, 40); // Min 40%
         }
       }
+      
+      // Log dettagliato per debug
+      console.log(`🤖 ML Update [${market}]: ${isWon ? 'WIN ✅' : 'LOSS ❌'} | Accuracy: ${oldAccuracy}% → ${ml.accuracy}% (${ml.correctPredictions}/${ml.totalPredictions}) | Threshold: ${oldThreshold}% ${ml.threshold !== oldThreshold ? '→ ' + ml.threshold + '%' : ''}`);
     }
     
     function saveMLThresholds() {
+      // Salva su localStorage (locale)
       localStorage.setItem('bp2_ml_thresholds', JSON.stringify(state.mlThresholds));
+      
+      // Salva su Firebase (cloud) - async, non bloccante
+      saveToFirebase('mlThresholds', state.mlThresholds).catch(e => 
+        console.warn('Firebase save mlThresholds failed:', e)
+      );
     }
     
     function getMLInsights() {
@@ -6685,6 +6922,11 @@
       }
       
       localStorage.setItem('bp2_performance_history', JSON.stringify(state.performanceHistory));
+      
+      // Salva su Firebase (cloud) - async, non bloccante
+      saveToFirebase('performanceHistory', state.performanceHistory).catch(e => 
+        console.warn('Firebase save performanceHistory failed:', e)
+      );
     }
     
     // === RENDER ===
@@ -6726,6 +6968,10 @@
                 <div class="status-item">
                   <span class="status-dot ${state.api.footystats}"></span>
                   <span>Stats</span>
+                </div>
+                <div class="status-item" title="Firebase Cloud Storage">
+                  <span class="status-dot ${firebaseEnabled ? 'online' : 'offline'}"></span>
+                  <span>Cloud</span>
                 </div>
               </div>
               <button class="settings-btn" onclick="showPerformance()" title="Performance & Analytics">
@@ -7147,21 +7393,160 @@
     }
     
     function manualVerifyBets() {
-      if (confirm('Vuoi verificare automaticamente i risultati delle partite terminate?\n\nQuesto potrebbe richiedere alcuni minuti.')) {
+      const pending = state.trackedBets.filter(b => b.status === 'pending');
+      
+      if (pending.length === 0) {
+        alert('ℹ️ Non ci sono pronostici pendenti da verificare.');
+        return;
+      }
+      
+      if (confirm(`Vuoi verificare ${pending.length} pronostic${pending.length > 1 ? 'i' : 'o'} pendente?\n\nQuesto potrebbe richiedere alcuni minuti.`)) {
+        console.log('🔄 Verifica manuale avviata...');
         state.loading = true;
         render();
         
         autoVerifyPendingBets().then(() => {
           state.loading = false;
-          alert('✅ Verifica completata!\n\nI risultati sono stati aggiornati.');
+          const stats = getTrackingStats();
+          alert(`✅ Verifica completata!\n\n📊 Statistiche:\nWin Rate: ${stats.winRate}%\nVinti: ${stats.won}\nPersi: ${stats.lost}\nPendenti: ${stats.pending}\n\n💡 Controlla la console per i dettagli`);
           render();
         }).catch(e => {
           state.loading = false;
+          console.error('Errore verifica:', e);
           alert('❌ Errore durante la verifica:\n\n' + e.message);
           render();
         });
       }
     }
+    
+    // === DEBUG FUNCTIONS ===
+    window.debugTracking = function() {
+      const stats = getTrackingStats();
+      console.log('\n=== 📊 TRACKING SYSTEM DEBUG ===');
+      console.log(`Total Bets: ${stats.total}`);
+      console.log(`Won: ${stats.won} | Lost: ${stats.lost} | Pending: ${stats.pending}`);
+      console.log(`Win Rate: ${stats.winRate}%`);
+      console.log('\n=== 🤖 MACHINE LEARNING STATUS ===');
+      Object.entries(state.mlThresholds).forEach(([market, data]) => {
+        console.log(`[${market}] Accuracy: ${data.accuracy}% (${data.correctPredictions}/${data.totalPredictions}) | Threshold: ${data.threshold}%`);
+      });
+      console.log('\n=== 📈 PERFORMANCE HISTORY ===');
+      console.log(`Records: ${state.performanceHistory.length}`);
+      if (state.performanceHistory.length > 0) {
+        const latest = state.performanceHistory[state.performanceHistory.length - 1];
+        console.log(`Latest: ${latest.date} - WR: ${latest.winRate}% (${latest.won}W/${latest.lost}L)`);
+      }
+      console.log('\n=== 🎯 TRACKED BETS ===');
+      if (state.trackedBets.length === 0) {
+        console.log('Nessun pronostico tracciato');
+      } else {
+        state.trackedBets.forEach((bet, idx) => {
+          const betDate = new Date(bet.timestamp);
+          const hoursSince = ((new Date() - betDate) / (1000 * 60 * 60)).toFixed(1);
+          const statusEmoji = bet.status === 'won' ? '✅' : bet.status === 'lost' ? '❌' : '⏳';
+          console.log(`${idx + 1}. ${statusEmoji} [${bet.status.toUpperCase()}] ${bet.matchName}`);
+          console.log(`   Pick: ${bet.pick} (${bet.prob}%) | MatchID: ${bet.matchId}`);
+          console.log(`   Tracciato: ${hoursSince}h fa | ${bet.result || 'Attesa risultato'}`);
+        });
+      }
+      console.log('\n💡 Comandi utili:');
+      console.log('   debugTracking() - Mostra questo debug');
+      console.log('   debugFirebase() - Info Firebase');
+      console.log('   manualVerifyBets() - Verifica manuale risultati');
+      console.log('   checkDuplicates() - Controlla bets duplicati');
+      console.log('\n');
+    };
+    
+    window.checkDuplicates = function() {
+      console.log('\n=== 🔍 CONTROLLO DUPLICATI ===');
+      const duplicates = [];
+      const seen = new Map();
+      
+      state.trackedBets.forEach((bet, idx) => {
+        const key = `${bet.matchId}_${bet.pick}`;
+        if (seen.has(key)) {
+          duplicates.push({
+            index1: seen.get(key),
+            index2: idx,
+            matchId: bet.matchId,
+            matchName: bet.matchName,
+            pick: bet.pick
+          });
+        } else {
+          seen.set(key, idx);
+        }
+      });
+      
+      if (duplicates.length === 0) {
+        console.log('✅ Nessun duplicato trovato');
+      } else {
+        console.log(`⚠️ Trovati ${duplicates.length} duplicati:`);
+        duplicates.forEach(d => {
+          console.log(`\n   Duplicato: ${d.pick} per ${d.matchName}`);
+          console.log(`   Indici: ${d.index1} e ${d.index2}`);
+          console.log(`   MatchID: ${d.matchId}`);
+        });
+      }
+      
+      // Controlla anche picks simili (es. "1X" e "X")
+      console.log('\n=== 🔍 CONTROLLO PICKS SIMILI PER STESSA PARTITA ===');
+      const byMatch = new Map();
+      state.trackedBets.forEach(bet => {
+        if (!byMatch.has(bet.matchId)) {
+          byMatch.set(bet.matchId, []);
+        }
+        byMatch.get(bet.matchId).push(bet.pick);
+      });
+      
+      let found = false;
+      byMatch.forEach((picks, matchId) => {
+        if (picks.length > 1) {
+          found = true;
+          const match = state.trackedBets.find(b => b.matchId === matchId);
+          console.log(`\n   ⚠️ Partita con ${picks.length} picks diversi:`);
+          console.log(`   Match: ${match.matchName}`);
+          console.log(`   MatchID: ${matchId}`);
+          console.log(`   Picks: ${picks.join(', ')}`);
+        }
+      });
+      
+      if (!found) {
+        console.log('✅ Nessuna partita con picks multipli');
+      }
+      
+      console.log('\n');
+    };
+    
+    window.debugFirebase = function() {
+      console.log('=== ☁️ FIREBASE DEBUG ===');
+      console.log(`Status: ${firebaseEnabled ? '✅ ONLINE' : '❌ OFFLINE'}`);
+      console.log(`User ID: ${USER_ID}`);
+      console.log(`Database URL: https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app/`);
+      console.log(`Firebase Path: users/${USER_ID}/`);
+      
+      if (firebaseEnabled && db) {
+        console.log('\n📥 Caricamento dati da Firebase...');
+        
+        Promise.all([
+          loadFromFirebase('trackedBets'),
+          loadFromFirebase('mlThresholds'),
+          loadFromFirebase('performanceHistory')
+        ]).then(([bets, ml, perf]) => {
+          console.log('\n✅ Dati Firebase:');
+          console.log(`  Tracked Bets: ${bets ? (Array.isArray(bets) ? bets.length : 'Invalid') : 'Nessuno'}`);
+          console.log(`  ML Thresholds: ${ml ? Object.keys(ml).length + ' mercati' : 'Nessuno'}`);
+          console.log(`  Performance History: ${perf ? (Array.isArray(perf) ? perf.length + ' records' : 'Invalid') : 'Nessuno'}`);
+        }).catch(e => {
+          console.error('❌ Errore caricamento:', e);
+        });
+      } else {
+        console.log('\n⚠️ Firebase non disponibile - dati salvati solo in localStorage');
+      }
+      
+      console.log('\n💡 Tips:');
+      console.log('  - debugFirebase() per vedere questo status');
+      console.log('  - debugTracking() per vedere i dati locali');
+    };
     
     function backToLeagues() {
       state.view = 'leagues';
@@ -8129,12 +8514,22 @@
     
     // === INIT ===
     async function init() {
-      console.log('🚀 BettingPro v5 starting...');
+      console.log('🚀 BettingPro v6 + Firebase starting...');
+      console.log(`👤 User ID: ${USER_ID}`);
       
-      // Mostra interfaccia subito
+      // Mostra interfaccia subito con dati localStorage
       loadSlipFromLocalStorage();
-      loadTrackingFromLocalStorage();
       render();
+      
+      // Carica dati da Firebase in background (non bloccante)
+      Promise.all([
+        loadTrackingFromLocalStorage(),
+        loadMLThresholdsFromCloud(),
+        loadPerformanceHistoryFromCloud()
+      ]).then(() => {
+        console.log('✅ Dati utente caricati da cloud');
+        render(); // Re-render con dati Firebase
+      }).catch(e => console.warn('Cloud data load partial failure:', e));
       
       // Check API status in background (non bloccante)
       checkAPIStatus().catch(e => console.warn('API check failed:', e));
@@ -8155,6 +8550,16 @@
       setInterval(() => {
         autoVerifyPendingBets().catch(e => console.warn('Auto-verify interval failed:', e));
       }, 10 * 60 * 1000);
+      
+      // Sync con Firebase ogni 5 minuti (backup automatico)
+      setInterval(() => {
+        if (firebaseEnabled) {
+          console.log('🔄 Sync automatico con Firebase...');
+          saveToFirebase('trackedBets', state.trackedBets).catch(e => console.warn('Auto-sync failed:', e));
+          saveToFirebase('mlThresholds', state.mlThresholds).catch(e => console.warn('Auto-sync ML failed:', e));
+          saveToFirebase('performanceHistory', state.performanceHistory).catch(e => console.warn('Auto-sync perf failed:', e));
+        }
+      }, 5 * 60 * 1000);
     }
 
     init();
