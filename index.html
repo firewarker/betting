@@ -2883,11 +2883,263 @@
       margin-top: 4px;
     }
     
+    /* === AUTH / LOGIN STYLES === */
+    .auth-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .auth-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(139,92,246,0.3);
+    }
+    .auth-btn.logged-in {
+      background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+    }
+    .user-email {
+      font-size: 0.75rem;
+      color: var(--text-gray);
+      padding: 4px 10px;
+      background: var(--bg-card);
+      border-radius: 8px;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .login-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease;
+    }
+    .login-modal {
+      background: var(--bg-card);
+      border-radius: 20px;
+      width: 90%;
+      max-width: 420px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .login-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .login-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--text-white);
+    }
+    .login-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text-gray);
+      cursor: pointer;
+    }
+    .login-body {
+      padding: 24px;
+    }
+    .login-info {
+      color: var(--text-gray);
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .login-error {
+      background: rgba(239,68,68,0.15);
+      color: var(--accent-red);
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .login-input {
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-input);
+      color: var(--text-white);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .login-input:focus {
+      border-color: var(--accent-cyan);
+    }
+    .login-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .login-btn {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .login-btn.primary {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      color: white;
+    }
+    .login-btn.primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(6,182,212,0.4);
+    }
+    .login-btn.secondary {
+      background: var(--bg-input);
+      color: var(--text-gray);
+      border: 1px solid var(--border);
+    }
+    .login-btn.secondary:hover {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+    .login-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .login-note {
+      margin-top: 20px;
+      padding: 16px;
+      background: var(--bg-input);
+      border-radius: 10px;
+      font-size: 0.8rem;
+      color: var(--text-gray);
+    }
+    .login-note p { margin: 0 0 8px 0; }
+    .login-note ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .login-note li {
+      margin: 4px 0;
+    }
+    
+    /* === PRONOSTICI AI LIST === */
+    .pronostici-ai-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    .pronostico-ai-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: var(--bg-card-light);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: all 0.2s ease;
+    }
+    .pronostico-ai-item:hover {
+      border-color: var(--accent-cyan);
+      transform: translateX(4px);
+      box-shadow: 0 4px 12px rgba(2,132,199,0.1);
+    }
+    .pronostico-ai-left {
+      flex: 1;
+      min-width: 0;
+    }
+    .pronostico-ai-league {
+      font-size: 0.7rem;
+      color: var(--text-dark);
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pronostico-ai-match {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pronostico-ai-time {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      min-width: 45px;
+    }
+    .pronostico-ai-teams {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-white);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pronostico-ai-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .pronostico-ai-pick {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pronostico-ai-prob {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--accent-green);
+      min-width: 45px;
+      text-align: right;
+    }
+    
     @media (max-width: 600px) {
       .stats-overview { grid-template-columns: repeat(2, 1fr); }
       .history-stats { grid-template-columns: repeat(2, 1fr); }
       .history-compare-grid { grid-template-columns: 1fr; gap: 8px; }
       .history-compare-arrow { transform: rotate(90deg); }
+      .auth-btn span { display: none; }
+      .user-email { display: none; }
+      .pronostico-ai-match { flex-direction: column; align-items: flex-start; gap: 2px; }
+      .pronostico-ai-teams { font-size: 0.75rem; }
+      .pronostico-ai-pick { padding: 4px 10px; font-size: 0.7rem; }
+      .pronostico-ai-prob { font-size: 0.85rem; min-width: 35px; }
     }
   </style>
 </head>
@@ -2895,7 +3147,7 @@
   <div id="app"></div>
   <script>
     // ===================================================
-    // BETTINGPRO v5 - COMPLETO CON SCHEDINA E FIREBASE
+    // BETTINGPRO v6 - CON ML AVANZATO E FIREBASE AUTH
     // ===================================================
     
     // ============================================
@@ -2911,20 +3163,289 @@
         baseURL: 'https://api.footystats.org'
       },
       FIREBASE: {
-        url: 'https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app'
+        url: 'https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app',
+        apiKey: 'AIzaSyDYmw4z8H1F3FoOBkVNjbQrs-GTnpHwSD4',
+        authDomain: 'bettingpro2-9f1d9.firebaseapp.com',
+        projectId: 'bettingpro2-9f1d9'
       }
     };
 
-    // Generate unique user ID
+    // ============================================
+    // AUTHENTICATION STATE
+    // ============================================
+    let authState = {
+      isLoggedIn: false,
+      user: null,
+      email: null,
+      showLoginModal: false,
+      loginError: null,
+      isLoading: false
+    };
+
+    // User ID - usa email se loggato, altrimenti ID casuale locale
     const getUserId = () => {
+      // Se loggato, usa l'email hashata come ID
+      if (authState.isLoggedIn && authState.email) {
+        return 'auth_' + btoa(authState.email).replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
+      }
+      // Altrimenti usa ID locale (per utenti non registrati)
       let id = localStorage.getItem('bettingpro_uid');
       if (!id) {
-        id = 'user_' + Math.random().toString(36).substr(2, 9);
+        id = 'local_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('bettingpro_uid', id);
       }
       return id;
     };
-    const USER_ID = getUserId();
+    
+    // USER_ID sarà aggiornato dopo il login
+    let USER_ID = getUserId();
+    
+    // ============================================
+    // FIREBASE AUTHENTICATION FUNCTIONS
+    // ============================================
+    
+    // Login con Email/Password usando Firebase REST API
+    async function firebaseLogin(email, password) {
+      authState.isLoading = true;
+      authState.loginError = null;
+      render();
+      
+      try {
+        const response = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${CONFIG.FIREBASE.apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email,
+              password: password,
+              returnSecureToken: true
+            })
+          }
+        );
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error.message);
+        }
+        
+        // Login riuscito
+        authState.isLoggedIn = true;
+        authState.user = data;
+        authState.email = data.email;
+        authState.showLoginModal = false;
+        authState.loginError = null;
+        
+        // Aggiorna USER_ID
+        USER_ID = getUserId();
+        
+        // Salva stato login
+        localStorage.setItem('bettingpro_auth', JSON.stringify({
+          email: data.email,
+          idToken: data.idToken,
+          refreshToken: data.refreshToken,
+          expiresAt: Date.now() + (parseInt(data.expiresIn) * 1000)
+        }));
+        
+        console.log('✅ Login riuscito:', data.email);
+        
+        // Ricarica i dati da Firebase con il nuovo USER_ID
+        await loadAllDataFromFirebase();
+        
+      } catch (error) {
+        console.error('❌ Login fallito:', error);
+        authState.loginError = translateFirebaseError(error.message);
+      } finally {
+        authState.isLoading = false;
+        render();
+      }
+    }
+    
+    // Registrazione nuovo utente
+    async function firebaseRegister(email, password) {
+      authState.isLoading = true;
+      authState.loginError = null;
+      render();
+      
+      try {
+        const response = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${CONFIG.FIREBASE.apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email,
+              password: password,
+              returnSecureToken: true
+            })
+          }
+        );
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error.message);
+        }
+        
+        // Registrazione riuscita - effettua login automatico
+        authState.isLoggedIn = true;
+        authState.user = data;
+        authState.email = data.email;
+        authState.showLoginModal = false;
+        
+        USER_ID = getUserId();
+        
+        localStorage.setItem('bettingpro_auth', JSON.stringify({
+          email: data.email,
+          idToken: data.idToken,
+          refreshToken: data.refreshToken,
+          expiresAt: Date.now() + (parseInt(data.expiresIn) * 1000)
+        }));
+        
+        console.log('✅ Registrazione riuscita:', data.email);
+        
+        // Migra dati locali al nuovo account cloud
+        await migrateLocalDataToCloud();
+        
+      } catch (error) {
+        console.error('❌ Registrazione fallita:', error);
+        authState.loginError = translateFirebaseError(error.message);
+      } finally {
+        authState.isLoading = false;
+        render();
+      }
+    }
+    
+    // Logout
+    function firebaseLogout() {
+      authState.isLoggedIn = false;
+      authState.user = null;
+      authState.email = null;
+      localStorage.removeItem('bettingpro_auth');
+      
+      // Torna all'ID locale
+      USER_ID = getUserId();
+      
+      console.log('👋 Logout effettuato');
+      render();
+    }
+    
+    // Ripristina sessione salvata
+    async function restoreAuthSession() {
+      const savedAuth = localStorage.getItem('bettingpro_auth');
+      if (!savedAuth) return false;
+      
+      try {
+        const auth = JSON.parse(savedAuth);
+        
+        // Verifica se il token è scaduto
+        if (auth.expiresAt < Date.now()) {
+          // Prova a rinnovare il token
+          const response = await fetch(
+            `https://securetoken.googleapis.com/v1/token?key=${CONFIG.FIREBASE.apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                grant_type: 'refresh_token',
+                refresh_token: auth.refreshToken
+              })
+            }
+          );
+          
+          const data = await response.json();
+          
+          if (data.error) {
+            throw new Error('Token refresh failed');
+          }
+          
+          // Aggiorna token
+          auth.idToken = data.id_token;
+          auth.refreshToken = data.refresh_token;
+          auth.expiresAt = Date.now() + (parseInt(data.expires_in) * 1000);
+          
+          localStorage.setItem('bettingpro_auth', JSON.stringify(auth));
+        }
+        
+        authState.isLoggedIn = true;
+        authState.email = auth.email;
+        USER_ID = getUserId();
+        
+        console.log('🔄 Sessione ripristinata:', auth.email);
+        return true;
+        
+      } catch (error) {
+        console.warn('⚠️ Ripristino sessione fallito:', error);
+        localStorage.removeItem('bettingpro_auth');
+        return false;
+      }
+    }
+    
+    // Migra dati locali al cloud dopo registrazione
+    async function migrateLocalDataToCloud() {
+      console.log('📤 Migrazione dati locali al cloud...');
+      
+      // Salva tutti i dati esistenti con il nuovo USER_ID
+      if (state.trackedBets.length > 0) {
+        await saveToFirebase('trackedBets', state.trackedBets);
+      }
+      if (Object.keys(state.mlThresholds).length > 0) {
+        await saveToFirebase('mlThresholds', state.mlThresholds);
+      }
+      if (Object.keys(state.mlStats).length > 0) {
+        await saveToFirebase('mlStats', state.mlStats);
+      }
+      if (state.performanceHistory.length > 0) {
+        await saveToFirebase('performanceHistory', state.performanceHistory);
+      }
+      
+      console.log('✅ Migrazione completata');
+    }
+    
+    // Carica tutti i dati da Firebase
+    async function loadAllDataFromFirebase() {
+      console.log('📥 Caricamento dati da Firebase...');
+      
+      try {
+        const [tracked, ml, mlStats, perf] = await Promise.all([
+          loadFromFirebase('trackedBets'),
+          loadFromFirebase('mlThresholds'),
+          loadFromFirebase('mlStats'),
+          loadFromFirebase('performanceHistory')
+        ]);
+        
+        if (tracked) state.trackedBets = tracked;
+        if (ml) state.mlThresholds = ml;
+        if (mlStats) state.mlStats = mlStats;
+        if (perf) state.performanceHistory = perf;
+        
+        console.log('✅ Dati caricati da Firebase');
+      } catch (error) {
+        console.warn('⚠️ Errore caricamento dati:', error);
+      }
+    }
+    
+    // Traduci errori Firebase in italiano
+    function translateFirebaseError(error) {
+      const errors = {
+        'EMAIL_NOT_FOUND': 'Email non trovata',
+        'INVALID_PASSWORD': 'Password errata',
+        'INVALID_EMAIL': 'Email non valida',
+        'WEAK_PASSWORD': 'Password troppo debole (minimo 6 caratteri)',
+        'EMAIL_EXISTS': 'Email già registrata',
+        'TOO_MANY_ATTEMPTS_TRY_LATER': 'Troppi tentativi. Riprova più tardi',
+        'INVALID_LOGIN_CREDENTIALS': 'Credenziali non valide'
+      };
+      return errors[error] || error;
+    }
+    
+    // Mostra/nascondi modal login
+    function toggleLoginModal() {
+      authState.showLoginModal = !authState.showLoginModal;
+      authState.loginError = null;
+      render();
+    }
 
     // ============================================
     // FIREBASE CONFIGURATION (REST API - più affidabile)
@@ -3023,21 +3544,26 @@
       trackedBets: [],
       // Machine Learning Stats - NUOVO
       mlStats: JSON.parse(localStorage.getItem('bp2_ml_stats') || '{}'),
-      // Machine Learning Thresholds
+      // Machine Learning Thresholds - AMPLIATO con più mercati
       mlThresholds: JSON.parse(localStorage.getItem('bp2_ml_thresholds') || JSON.stringify({
-        '1': { threshold: 50, accuracy: 0, totalPredictions: 0, correctPredictions: 0 },
-        'X': { threshold: 28, accuracy: 0, totalPredictions: 0, correctPredictions: 0 },
-        '2': { threshold: 50, accuracy: 0, totalPredictions: 0, correctPredictions: 0 },
-        'GG': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0 },
-        'Over 2.5': { threshold: 50, accuracy: 0, totalPredictions: 0, correctPredictions: 0 },
-        'Over 1.5': { threshold: 65, accuracy: 0, totalPredictions: 0, correctPredictions: 0 }
+        '1': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'X': { threshold: 28, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        '2': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'GG': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'NG': { threshold: 50, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'Over 2.5': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'Under 2.5': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'Over 1.5': { threshold: 65, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'Over 3.5': { threshold: 60, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        '1X': { threshold: 70, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'X2': { threshold: 70, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] }
       })),
       // Performance Charts Data
       performanceHistory: JSON.parse(localStorage.getItem('bp2_performance_history') || '[]'),
       // NUOVO: Cache Classifica e Infortunati
       standingsCache: new Map(),
       injuriesCache: new Map(),
-      // NUOVO: Impostazioni soglie configurabili
+      // NUOVO: Impostazioni soglie configurabili (queste sono le soglie MANUALI, separate dal ML)
       settings: JSON.parse(localStorage.getItem('bp2_settings') || JSON.stringify({
         thresholds: {
           '1': 50,
@@ -3049,7 +3575,8 @@
         },
         showInjuries: true,
         showStandings: true,
-        autoRefresh: true
+        autoRefresh: true,
+        useMLThresholds: true // NUOVO: usa soglie ML invece di manuali
       })),
       settingsOpen: false,
 
@@ -3461,6 +3988,53 @@
       2, 3, 848, // Champions, Europa League, Conference
     ];
     
+    // ============================================
+    // ML THRESHOLD HELPER - Ottiene la soglia adattiva
+    // ============================================
+    function getMLThreshold(market) {
+      // Se useMLThresholds è attivo E abbiamo dati ML per questo mercato
+      if (state.settings.useMLThresholds && state.mlThresholds[market]) {
+        const ml = state.mlThresholds[market];
+        
+        // Se abbiamo almeno 10 predizioni, usa la soglia calibrata
+        if (ml.totalPredictions >= 10) {
+          return ml.threshold;
+        }
+      }
+      
+      // Altrimenti usa le soglie di default
+      const defaults = {
+        '1': 55, '2': 55, 'X': 28,
+        'GG': 55, 'NG': 50,
+        'Over 2.5': 55, 'Under 2.5': 55,
+        'Over 1.5': 65, 'Over 3.5': 60,
+        '1X': 70, 'X2': 70
+      };
+      return defaults[market] || 50;
+    }
+    
+    // Ottiene la confidence basata su storico ML
+    function getMLConfidence(market, prob) {
+      const ml = state.mlThresholds[market];
+      if (!ml || ml.totalPredictions < 10) return 'medium';
+      
+      const accuracy = parseFloat(ml.accuracy);
+      const streak = ml.streak || 0;
+      
+      // Alta confidence se:
+      // - Probabilità molto sopra la soglia
+      // - Buona accuracy storica
+      // - Streak positivo recente
+      if (prob >= ml.threshold + 15 && accuracy >= 60 && streak >= 2) {
+        return 'high';
+      } else if (prob >= ml.threshold + 5 && accuracy >= 50) {
+        return 'medium';
+      } else if (accuracy < 45 || streak <= -3) {
+        return 'low';
+      }
+      return 'medium';
+    }
+    
     function calculateDailyPicks() {
       if (!state.matches || state.matches.length === 0) {
         console.log('⚠️ calculateDailyPicks: Nessuna partita disponibile');
@@ -3468,6 +4042,7 @@
       }
       
       console.log(`🔄 calculateDailyPicks: Analisi di ${state.matches.length} partite...`);
+      console.log(`🤖 ML Attivo: ${state.settings.useMLThresholds ? 'SÌ' : 'NO'}`);
       
       const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
       const safeBets = []; // Per costruire i raddoppi
@@ -3598,45 +4173,54 @@
         let aiProb = 0;
         let confidence = 'low';
         
-        // Logica di selezione (come generateAIAdvice) con soglie più alte
-        if (homeStrong && awayWeak && p1X2.home >= 68) {
+        // === SOGLIE ML ADATTIVE ===
+        const th1 = getMLThreshold('1');
+        const th2 = getMLThreshold('2');
+        const thX = getMLThreshold('X');
+        const thGG = getMLThreshold('GG');
+        const thOver25 = getMLThreshold('Over 2.5');
+        const thOver15 = getMLThreshold('Over 1.5');
+        const th1X = getMLThreshold('1X');
+        
+        // Logica di selezione CON SOGLIE ML ADATTIVE
+        if (homeStrong && awayWeak && p1X2.home >= th1 + 13) {
           aiPick = '1 (Vittoria Casa)';
           aiProb = p1X2.home;
-          confidence = p1X2.home >= 75 ? 'high' : 'medium';
+          confidence = getMLConfidence('1', p1X2.home);
         }
-        else if (awayStrong && homeWeak && p1X2.away >= 63) {
+        else if (awayStrong && homeWeak && p1X2.away >= th2 + 8) {
           aiPick = '2 (Vittoria Ospite)';
           aiProb = p1X2.away;
-          confidence = p1X2.away >= 70 ? 'high' : 'medium';
+          confidence = getMLConfidence('2', p1X2.away);
         }
-        else if (veryHighScoring && pOver25 >= 72) {
+        else if (veryHighScoring && pOver25 >= thOver25 + 17) {
           aiPick = 'Over 2.5';
           aiProb = pOver25;
-          confidence = pOver25 >= 80 ? 'high' : 'medium';
+          confidence = getMLConfidence('Over 2.5', pOver25);
         }
-        else if (ggLikely && pBTTS >= 63) {
+        else if (ggLikely && pBTTS >= thGG + 8) {
           aiPick = 'GG (Entrambe Segnano)';
           aiProb = pBTTS;
-          confidence = pBTTS >= 72 ? 'high' : 'medium';
+          confidence = getMLConfidence('GG', pBTTS);
         }
-        else if (pOver15 >= 82) {
+        else if (pOver15 >= thOver15 + 17) {
           aiPick = 'Over 1.5';
           aiProb = pOver15;
-          confidence = pOver15 >= 88 ? 'high' : 'medium';
+          confidence = getMLConfidence('Over 1.5', pOver15);
         }
-        else if ((p1X2.home + p1X2.draw) >= 82) {
+        else if ((p1X2.home + p1X2.draw) >= th1X + 12) {
           aiPick = '1X (Casa o Pareggio)';
           aiProb = p1X2.home + p1X2.draw;
-          confidence = aiProb >= 88 ? 'high' : 'medium';
+          confidence = getMLConfidence('1X', aiProb);
         }
         // CALCOLO INTELLIGENTE PER X
         // Se % X è alta, MG squadre basse, Under alto → potrebbe essere X
-        else if (balanced && p1X2.draw >= 30 && mgHome < 68 && mgAway < 68 && pUnder25 >= 58) {
+        else if (balanced && p1X2.draw >= thX + 2 && mgHome < 68 && mgAway < 68 && pUnder25 >= 58) {
           aiPick = 'X (Pareggio)';
           aiProb = p1X2.draw;
-          confidence = p1X2.draw >= 35 ? 'high' : 'medium';
+          confidence = getMLConfidence('X', p1X2.draw);
         }
-        else if (pOver15 >= 75) {
+        else if (pOver15 >= thOver15 + 10) {
           aiPick = 'Over 1.5';
           aiProb = pOver15;
           confidence = 'medium';
@@ -3649,8 +4233,9 @@
         }
         else if (dataQuality === 'low' && confidence === 'high') confidence = 'medium';
         
-        // Skip pick se probabilità troppo bassa (soglia abbassata per mostrare più consigli)
-        if (!aiPick || aiProb < 50) return;
+        // Skip pick se probabilità troppo bassa (usa soglia ML minima)
+        const minThreshold = Math.min(th1, th2, thX, thGG, thOver25) - 5;
+        if (!aiPick || aiProb < minThreshold) return;
         
         // Salva il consiglio AI
         allAdvices.push({
@@ -6971,58 +7556,97 @@
     // === MACHINE LEARNING: CALIBRAZIONE SOGLIE ===
     function updateMLThresholds(pick, isWon, prob) {
       // Normalizza il pick per trovare la categoria giusta
-      const pickLower = pick.toLowerCase();
+      const pickLower = pick.toLowerCase().trim();
       let market = null;
       
       // IMPORTANTE: Ordine dei check - più specifico prima
-      if (pickLower.includes('over 2.5')) market = 'Over 2.5';
+      // Over/Under
+      if (pickLower.includes('over 3.5')) market = 'Over 3.5';
+      else if (pickLower.includes('over 2.5')) market = 'Over 2.5';
       else if (pickLower.includes('over 1.5')) market = 'Over 1.5';
-      else if (pickLower.includes('over 3.5') || pickLower.includes('over 0.5')) {
-        // Over 3.5 e Over 0.5 non sono nei mlThresholds di default, skippa
-        console.log(`ML: Skipping unsupported market for pick "${pick}"`);
-        return;
-      }
+      else if (pickLower.includes('under 2.5')) market = 'Under 2.5';
+      else if (pickLower.includes('under 3.5')) market = 'Under 3.5';
+      // GG/NG
       else if (pickLower.includes('gg') || pickLower.includes('entrambe segnano') || pickLower.includes('both teams')) market = 'GG';
-      else if (pickLower.includes('1 (') || pickLower.includes('vittoria casa') || pickLower.includes('home win')) market = '1';
-      else if (pickLower.includes('2 (') || pickLower.includes('vittoria ospite') || pickLower.includes('away win')) market = '2';
+      else if (pickLower.includes('ng') || pickLower.includes('no gol') || pickLower.includes('nessuna')) market = 'NG';
+      // Doppie chance (PRIMA delle singole!)
+      else if (pickLower === '1x' || pickLower.includes('1x ') || pickLower.includes('casa o pareggio')) market = '1X';
+      else if (pickLower === 'x2' || pickLower.includes('x2 ') || pickLower.includes('pareggio o ospite')) market = 'X2';
+      // Risultati esatti
+      else if (pickLower.includes('1 (') || pickLower === '1' || pickLower.includes('vittoria casa') || pickLower.includes('home win')) market = '1';
+      else if (pickLower.includes('2 (') || pickLower === '2' || pickLower.includes('vittoria ospite') || pickLower.includes('away win')) market = '2';
       else if (pickLower.includes('pareggio') || pickLower === 'x' || pickLower.includes('x (') || pickLower.includes('draw')) market = 'X';
-      else if (pickLower.includes('under') || pickLower.includes('1x') || pickLower.includes('x2') || pickLower.includes('12')) {
-        // Altri mercati non tracciati nel ML di default
-        console.log(`ML: Skipping market for pick "${pick}"`);
+      
+      // Se mercato non trovato o non supportato, skippa
+      if (!market) {
+        console.log(`🤖 ML: Mercato non riconosciuto per "${pick}"`);
         return;
       }
       
-      if (!market || !state.mlThresholds[market]) {
-        console.warn(`ML: Market "${market}" not found for pick "${pick}"`);
-        return;
+      // Se il mercato non esiste ancora in mlThresholds, crealo
+      if (!state.mlThresholds[market]) {
+        state.mlThresholds[market] = {
+          threshold: 55,
+          accuracy: 0,
+          totalPredictions: 0,
+          correctPredictions: 0,
+          streak: 0,
+          lastResults: []
+        };
       }
       
       const ml = state.mlThresholds[market];
       const oldThreshold = ml.threshold;
       const oldAccuracy = ml.accuracy;
       
+      // Aggiorna statistiche
       ml.totalPredictions++;
-      if (isWon) ml.correctPredictions++;
+      if (isWon) {
+        ml.correctPredictions++;
+        ml.streak = (ml.streak >= 0) ? ml.streak + 1 : 1; // Reset o incrementa streak positivo
+      } else {
+        ml.streak = (ml.streak <= 0) ? ml.streak - 1 : -1; // Reset o decrementa streak negativo
+      }
       
+      // Salva ultimi 10 risultati
+      if (!ml.lastResults) ml.lastResults = [];
+      ml.lastResults.push(isWon ? 1 : 0);
+      if (ml.lastResults.length > 10) ml.lastResults.shift();
+      
+      // Calcola accuracy
       ml.accuracy = ml.totalPredictions > 0 
         ? ((ml.correctPredictions / ml.totalPredictions) * 100).toFixed(1) 
         : 0;
       
-      // Calibra soglia automaticamente
-      // Se accuracy < 50%, aumenta soglia (sii più selettivo)
-      // Se accuracy > 70%, diminuisci soglia (puoi essere meno selettivo)
-      if (ml.totalPredictions >= 20) {
+      // === CALIBRAZIONE SOGLIA INTELLIGENTE ===
+      // Basata su accuracy globale + trend recente
+      if (ml.totalPredictions >= 15) {
         const currentAccuracy = parseFloat(ml.accuracy);
+        const recentAccuracy = ml.lastResults.length >= 5 
+          ? (ml.lastResults.slice(-5).reduce((a, b) => a + b, 0) / 5) * 100
+          : currentAccuracy;
         
-        if (currentAccuracy < 50) {
-          ml.threshold = Math.min(ml.threshold + 2, 75); // Max 75%
-        } else if (currentAccuracy > 70 && ml.totalPredictions >= 30) {
-          ml.threshold = Math.max(ml.threshold - 1, 40); // Min 40%
+        // Se accuracy bassa E trend negativo → aumenta molto la soglia
+        if (currentAccuracy < 45 && recentAccuracy < 40) {
+          ml.threshold = Math.min(ml.threshold + 4, 80);
+        }
+        // Se accuracy sotto 50% → aumenta soglia
+        else if (currentAccuracy < 50) {
+          ml.threshold = Math.min(ml.threshold + 2, 75);
+        }
+        // Se accuracy molto alta E trend positivo → diminuisci soglia
+        else if (currentAccuracy > 70 && recentAccuracy > 70 && ml.totalPredictions >= 25) {
+          ml.threshold = Math.max(ml.threshold - 2, 35);
+        }
+        // Se accuracy buona → leggera diminuzione
+        else if (currentAccuracy > 60 && ml.totalPredictions >= 20) {
+          ml.threshold = Math.max(ml.threshold - 1, 40);
         }
       }
       
       // Log dettagliato per debug
-      console.log(`🤖 ML Update [${market}]: ${isWon ? 'WIN ✅' : 'LOSS ❌'} | Accuracy: ${oldAccuracy}% → ${ml.accuracy}% (${ml.correctPredictions}/${ml.totalPredictions}) | Threshold: ${oldThreshold}% ${ml.threshold !== oldThreshold ? '→ ' + ml.threshold + '%' : ''}`);
+      const trendEmoji = ml.streak > 0 ? '📈' : (ml.streak < 0 ? '📉' : '➖');
+      console.log(`🤖 ML Update [${market}]: ${isWon ? 'WIN ✅' : 'LOSS ❌'} | Accuracy: ${oldAccuracy}% → ${ml.accuracy}% (${ml.correctPredictions}/${ml.totalPredictions}) | Threshold: ${oldThreshold}% ${ml.threshold !== oldThreshold ? '→ ' + ml.threshold + '%' : ''} | Streak: ${ml.streak} ${trendEmoji}`);
     }
     
     function saveMLThresholds() {
@@ -7043,7 +7667,7 @@
           insights.push({
             market,
             status: 'learning',
-            message: `${market}: Raccogliendo dati (${data.totalPredictions}/20 predizioni)`,
+            message: `${market}: Raccogliendo dati (${data.totalPredictions}/15 predizioni)`,
             accuracy: data.accuracy,
             threshold: data.threshold
           });
@@ -7132,6 +7756,10 @@
     }
 
     function renderHeader() {
+      const userDisplay = authState.isLoggedIn 
+        ? `<span class="user-email" title="${authState.email}">👤 ${authState.email.split('@')[0]}</span>`
+        : '';
+      
       return `
         <header class="header">
           <div class="header-inner">
@@ -7154,6 +7782,10 @@
                   <span>Cloud</span>
                 </div>
               </div>
+              ${userDisplay}
+              <button class="auth-btn ${authState.isLoggedIn ? 'logged-in' : ''}" onclick="${authState.isLoggedIn ? 'firebaseLogout()' : 'toggleLoginModal()'}" title="${authState.isLoggedIn ? 'Esci' : 'Accedi per sincronizzare su tutti i dispositivi'}">
+                ${authState.isLoggedIn ? '🚪 Esci' : '🔐 Accedi'}
+              </button>
               <button class="settings-btn" onclick="showPerformance()" title="Performance & Analytics">
                 📊
               </button>
@@ -7167,7 +7799,77 @@
           </div>
         </header>
         ${renderSettingsPanel()}
+        ${authState.showLoginModal ? renderLoginModal() : ''}
       `;
+    }
+    
+    function renderLoginModal() {
+      return `
+        <div class="login-modal-overlay" onclick="toggleLoginModal()">
+          <div class="login-modal" onclick="event.stopPropagation()">
+            <div class="login-header">
+              <h2>🔐 Accedi a BettingPro</h2>
+              <button class="login-close" onclick="toggleLoginModal()">×</button>
+            </div>
+            <div class="login-body">
+              <p class="login-info">Accedi per sincronizzare i tuoi pronostici su tutti i dispositivi</p>
+              
+              ${authState.loginError ? `<div class="login-error">❌ ${authState.loginError}</div>` : ''}
+              
+              <div class="login-form">
+                <input type="email" id="loginEmail" placeholder="Email" class="login-input" />
+                <input type="password" id="loginPassword" placeholder="Password" class="login-input" />
+                
+                <div class="login-buttons">
+                  <button class="login-btn primary" onclick="handleLogin()" ${authState.isLoading ? 'disabled' : ''}>
+                    ${authState.isLoading ? '⏳ Attendere...' : '🔑 Accedi'}
+                  </button>
+                  <button class="login-btn secondary" onclick="handleRegister()" ${authState.isLoading ? 'disabled' : ''}>
+                    ${authState.isLoading ? '⏳ Attendere...' : '📝 Registrati'}
+                  </button>
+                </div>
+              </div>
+              
+              <div class="login-note">
+                <p>💡 <strong>Nota:</strong> La registrazione è gratuita e ti permette di:</p>
+                <ul>
+                  <li>✅ Sincronizzare i pronostici tracciati su tutti i dispositivi</li>
+                  <li>✅ Mantenere le statistiche ML personalizzate</li>
+                  <li>✅ Accedere alla cronologia ovunque</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Handler per login/registrazione (chiamati dal modal)
+    function handleLogin() {
+      const email = document.getElementById('loginEmail')?.value;
+      const password = document.getElementById('loginPassword')?.value;
+      if (email && password) {
+        firebaseLogin(email, password);
+      } else {
+        authState.loginError = 'Inserisci email e password';
+        render();
+      }
+    }
+    
+    function handleRegister() {
+      const email = document.getElementById('loginEmail')?.value;
+      const password = document.getElementById('loginPassword')?.value;
+      if (email && password) {
+        if (password.length < 6) {
+          authState.loginError = 'La password deve avere almeno 6 caratteri';
+          render();
+          return;
+        }
+        firebaseRegister(email, password);
+      } else {
+        authState.loginError = 'Inserisci email e password';
+        render();
+      }
     }
     
     function renderSettingsPanel() {
@@ -7743,185 +8445,138 @@
         </div>
         `}
         
-        <!-- QUICK STATS -->
-        ${(picks.gg.length > 0 || picks.over25.length > 0 || picks.vittorieCasa.length > 0) ? `
-        <div class="panel" style="margin-bottom: 20px;">
-          <div class="panel-title">📊 Quick Stats del Giorno</div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
-            <div style="background: var(--bg-card-light); padding: 16px; border-radius: 12px; text-align: center; border: 1px solid var(--border);">
-              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent-cyan);">${picks.gg.length}</div>
-              <div style="font-size: 0.75rem; color: var(--text-gray);">⚽ GG Trovati</div>
-            </div>
-            <div style="background: var(--bg-card-light); padding: 16px; border-radius: 12px; text-align: center; border: 1px solid var(--border);">
-              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent-red);">${picks.over25.length}</div>
-              <div style="font-size: 0.75rem; color: var(--text-gray);">🔥 Over 2.5</div>
-            </div>
-            <div style="background: var(--bg-card-light); padding: 16px; border-radius: 12px; text-align: center; border: 1px solid var(--border);">
-              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent-green);">${picks.vittorieCasa.length}</div>
-              <div style="font-size: 0.75rem; color: var(--text-gray);">🏠 Vittorie Casa</div>
-            </div>
-            <div style="background: var(--bg-card-light); padding: 16px; border-radius: 12px; text-align: center; border: 1px solid var(--border);">
-              <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent-purple);">${picks.pareggi.length}</div>
-              <div style="font-size: 0.75rem; color: var(--text-gray);">🎲 Pareggi</div>
-            </div>
-          </div>
-        </div>
-        ` : ''}
+        <!-- PRONOSTICI AI DEL GIORNO -->
+        ${renderPronosticiAIList(picks)}
         
       `;
     }
     
-    // === SEZIONE CONSIGLI DEL GIORNO ===
-    function renderConsigliSection() {
-      const picks = state.dailyPicks;
-      const totalPicks = picks.gg.length + picks.vittorieCasa.length + picks.vittorieOspite.length + picks.pareggi.length + picks.over25.length;
+    // === NUOVA FUNZIONE: Lista Pronostici AI ===
+    function renderPronosticiAIList(picks) {
+      // Combina tutti i pronostici in una lista unica
+      const allPicks = [];
+      
+      // Aggiungi GG
+      picks.gg.forEach(p => {
+        if (p.prob >= 84) {
+          allPicks.push({
+            match: p.match,
+            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
+            time: p.time,
+            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
+            pick: 'GG',
+            prob: p.prob,
+            icon: '⚽',
+            color: 'var(--accent-cyan)'
+          });
+        }
+      });
+      
+      // Aggiungi Over 2.5
+      picks.over25.forEach(p => {
+        if (p.prob >= 84) {
+          allPicks.push({
+            match: p.match,
+            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
+            time: p.time,
+            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
+            pick: 'Over 2.5',
+            prob: p.prob,
+            icon: '🔥',
+            color: 'var(--accent-red)'
+          });
+        }
+      });
+      
+      // Aggiungi Vittorie Casa (1)
+      picks.vittorieCasa.forEach(p => {
+        if (p.prob >= 84) {
+          allPicks.push({
+            match: p.match,
+            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
+            time: p.time,
+            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
+            pick: '1',
+            prob: p.prob,
+            icon: '🏠',
+            color: 'var(--accent-green)'
+          });
+        }
+      });
+      
+      // Aggiungi Vittorie Ospite (2)
+      picks.vittorieOspite.forEach(p => {
+        if (p.prob >= 84) {
+          allPicks.push({
+            match: p.match,
+            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
+            time: p.time,
+            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
+            pick: '2',
+            prob: p.prob,
+            icon: '✈️',
+            color: 'var(--accent-blue)'
+          });
+        }
+      });
+      
+      // Aggiungi Pareggi (X)
+      picks.pareggi.forEach(p => {
+        if (p.prob >= 84) {
+          allPicks.push({
+            match: p.match,
+            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
+            time: p.time,
+            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
+            pick: 'X',
+            prob: p.prob,
+            icon: '🎲',
+            color: 'var(--accent-purple)'
+          });
+        }
+      });
+      
+      // Ordina per probabilità decrescente
+      allPicks.sort((a, b) => b.prob - a.prob);
+      
+      if (allPicks.length === 0) {
+        return `
+          <div class="panel" style="margin-bottom: 20px; text-align: center; padding: 30px;">
+            <div style="font-size: 2.5rem; margin-bottom: 12px;">🤖</div>
+            <div style="font-size: 1rem; color: var(--text-gray);">Nessun pronostico AI disponibile (min 84%)</div>
+            <div style="font-size: 0.8rem; color: var(--text-dark); margin-top: 8px;">Carica le partite per vedere i consigli</div>
+          </div>
+        `;
+      }
       
       return `
-        <div class="consigli-section">
-          <div class="consigli-header">
-            <div class="consigli-title"><span style="color: var(--accent-gold);">💡</span> Consigli del Giorno IA</div>
-            <div class="consigli-badge">${totalPicks} pronostici selezionati</div>
+        <div class="panel" style="margin-bottom: 20px;">
+          <div class="panel-title" style="display: flex; align-items: center; justify-content: space-between;">
+            <span>🤖 Pronostici AI del Giorno</span>
+            <span style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">${allPicks.length} PICKS</span>
           </div>
-          
-          ${totalPicks === 0 ? `
-            <div class="live-empty">
-              <div class="live-empty-icon">📊</div>
-              <div>Nessun consiglio disponibile</div>
-              <div style="font-size: 0.8rem; margin-top: 8px; color: var(--text-dark);">
-                Carica le partite di oggi per vedere i consigli IA
-              </div>
-            </div>
-          ` : `
-            <!-- TOP 20 GG DEL GIORNO -->
-            ${picks.gg.length > 0 ? `
-            <div class="consigli-category">
-              <div class="consigli-category-header">
-                <span class="consigli-category-icon">⚽</span>
-                <span class="consigli-category-title">Top 20 GG del Giorno</span>
-                <span class="consigli-category-count">${picks.gg.length} picks</span>
-              </div>
-              <div class="consigli-grid">
-                ${picks.gg.slice(0, 20).map((p, idx) => `
-                  <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
-                    <div class="consiglio-rank">${idx + 1}</div>
-                    <div class="consiglio-info">
-                      <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                      <div class="consiglio-league">${p.time} • xG: ${p.xgTotal || 'N/A'}</div>
-                    </div>
-                    <div class="consiglio-bet">
-                      <span class="consiglio-value">GG</span>
-                      <span class="consiglio-prob">${p.prob.toFixed(0)}%</span>
-                    </div>
+          <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">
+            Pronostici con probabilità ≥84% basati su xG e statistiche
+          </div>
+          <div class="pronostici-ai-list">
+            ${allPicks.map(p => `
+              <div class="pronostico-ai-item" onclick="selectMatch(${p.match?.id})" style="cursor: pointer;">
+                <div class="pronostico-ai-left">
+                  <div class="pronostico-ai-league">${esc(p.league)}</div>
+                  <div class="pronostico-ai-match">
+                    <span class="pronostico-ai-time">${p.time}</span>
+                    <span class="pronostico-ai-teams">${esc(p.teams)}</span>
                   </div>
-                `).join('')}
-              </div>
-            </div>
-            ` : ''}
-            
-            <!-- TOP 20 OVER 2.5 DEL GIORNO -->
-            ${picks.over25.length > 0 ? `
-            <div class="consigli-category">
-              <div class="consigli-category-header">
-                <span class="consigli-category-icon">🔥</span>
-                <span class="consigli-category-title">Top 20 Over 2.5</span>
-                <span class="consigli-category-count">${picks.over25.length} picks</span>
-              </div>
-              <div class="consigli-grid">
-                ${picks.over25.slice(0, 20).map((p, idx) => `
-                  <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
-                    <div class="consiglio-rank">${idx + 1}</div>
-                    <div class="consiglio-info">
-                      <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                      <div class="consiglio-league">${p.time} • xG: ${p.xgTotal}</div>
-                    </div>
-                    <div class="consiglio-bet">
-                      <span class="consiglio-value">O 2.5</span>
-                      <span class="consiglio-prob">${p.prob.toFixed(0)}%</span>
-                    </div>
+                </div>
+                <div class="pronostico-ai-right">
+                  <div class="pronostico-ai-pick" style="background: ${p.color};">
+                    ${p.icon} ${p.pick}
                   </div>
-                `).join('')}
+                  <div class="pronostico-ai-prob">${p.prob.toFixed(0)}%</div>
+                </div>
               </div>
-            </div>
-            ` : ''}
-            
-            <!-- TOP 20 VITTORIE CASA -->
-            ${picks.vittorieCasa.length > 0 ? `
-            <div class="consigli-category">
-              <div class="consigli-category-header">
-                <span class="consigli-category-icon">🏠</span>
-                <span class="consigli-category-title">Top 20 Vittorie Casa (1)</span>
-                <span class="consigli-category-count">${picks.vittorieCasa.length} picks</span>
-              </div>
-              <div class="consigli-grid">
-                ${picks.vittorieCasa.slice(0, 20).map((p, idx) => `
-                  <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
-                    <div class="consiglio-rank">${idx + 1}</div>
-                    <div class="consiglio-info">
-                      <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                      <div class="consiglio-league">${p.time} • xG: ${p.homeXG || 'N/A'}</div>
-                    </div>
-                    <div class="consiglio-bet">
-                      <span class="consiglio-value">1</span>
-                      <span class="consiglio-prob">${p.prob.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            ` : ''}
-            
-            <!-- TOP 20 VITTORIE OSPITE -->
-            ${picks.vittorieOspite.length > 0 ? `
-            <div class="consigli-category">
-              <div class="consigli-category-header">
-                <span class="consigli-category-icon">✈️</span>
-                <span class="consigli-category-title">Top 20 Vittorie Ospite (2)</span>
-                <span class="consigli-category-count">${picks.vittorieOspite.length} picks</span>
-              </div>
-              <div class="consigli-grid">
-                ${picks.vittorieOspite.slice(0, 20).map((p, idx) => `
-                  <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
-                    <div class="consiglio-rank">${idx + 1}</div>
-                    <div class="consiglio-info">
-                      <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                      <div class="consiglio-league">${p.time} • xG: ${p.awayXG || 'N/A'}</div>
-                    </div>
-                    <div class="consiglio-bet">
-                      <span class="consiglio-value">2</span>
-                      <span class="consiglio-prob">${p.prob.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            ` : ''}
-            
-            <!-- TOP 20 PAREGGI (X) DEL GIORNO -->
-            ${picks.pareggi.length > 0 ? `
-            <div class="consigli-category">
-              <div class="consigli-category-header">
-                <span class="consigli-category-icon">🎲</span>
-                <span class="consigli-category-title">Top 20 Pareggi (X) del Giorno</span>
-                <span class="consigli-category-count">${picks.pareggi.length} picks</span>
-              </div>
-              <div class="consigli-grid">
-                ${picks.pareggi.slice(0, 20).map((p, idx) => `
-                  <div class="consiglio-card" onclick="selectMatch(${p.match.id})">
-                    <div class="consiglio-rank">${idx + 1}</div>
-                    <div class="consiglio-info">
-                      <div class="consiglio-match">${esc(p.match.home.name)} vs ${esc(p.match.away.name)}</div>
-                      <div class="consiglio-league">${p.time} • ${esc(p.league)}</div>
-                    </div>
-                    <div class="consiglio-bet">
-                      <span class="consiglio-value">X</span>
-                      <span class="consiglio-prob">${p.prob.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            ` : ''}
-          `}
+            `).join('')}
+          </div>
         </div>
       `;
     }
@@ -8765,10 +9420,21 @@
     window.toggleConsigliMode = toggleConsigliMode;
     window.loadLiveMatches = loadLiveMatches;
     
+    // === AUTH GLOBAL FUNCTIONS ===
+    window.firebaseLogin = firebaseLogin;
+    window.firebaseLogout = firebaseLogout;
+    window.firebaseRegister = firebaseRegister;
+    window.toggleLoginModal = toggleLoginModal;
+    window.handleLogin = handleLogin;
+    window.handleRegister = handleRegister;
+    
     // === INIT ===
     async function init() {
-      console.log('🚀 BettingPro v6 + Firebase starting...');
-      console.log(`👤 User ID: ${USER_ID}`);
+      console.log('🚀 BettingPro v6 + Firebase Auth starting...');
+      
+      // Ripristina sessione se salvata
+      const sessionRestored = await restoreAuthSession();
+      console.log(`👤 User ID: ${USER_ID} ${sessionRestored ? '(session restored)' : '(local)'}`);
       
       // Mostra interfaccia subito con dati localStorage
       loadSlipFromLocalStorage();
