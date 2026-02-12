@@ -2493,6 +2493,84 @@
       color: var(--accent-red);
     }
     
+    /* === RIASSUNTO 3 ANALISI === */
+    .verdict-summary {
+      background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.08), rgba(245,158,11,0.08));
+      border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 16px;
+      margin-bottom: 12px;
+    }
+    .verdict-summary-title {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--text-light);
+      margin-bottom: 8px;
+    }
+    .verdict-summary-type {
+      font-size: 0.75rem;
+      color: var(--accent-green);
+      font-weight: 600;
+      margin-bottom: 8px;
+      padding: 4px 10px;
+      background: rgba(16,185,129,0.1);
+      border-radius: 8px;
+      display: inline-block;
+    }
+    .verdict-summary-xg {
+      display: flex;
+      justify-content: space-around;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      padding: 6px;
+      margin-bottom: 10px;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .verdict-summary-compare {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 10px;
+      padding: 8px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 8px;
+    }
+    .vsc-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.72rem;
+      color: var(--text-light);
+    }
+    .vsc-label {
+      min-width: 55px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .vsc-prob {
+      margin-left: auto;
+      font-weight: 800;
+      color: var(--accent-green);
+      font-size: 0.75rem;
+    }
+    .verdict-summary-text {
+      font-size: 0.72rem;
+      color: var(--text-light);
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .verdict-summary-tip {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 8px 12px;
+      background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(249,115,22,0.08));
+      border-radius: 8px;
+      color: var(--accent-gold);
+    }
+    
     /* Cache indicator */
     .cache-indicator {
       display: inline-flex;
@@ -3265,19 +3343,58 @@
     .schedina-item-status { font-size: 1.1rem; }
 
     @media (max-width: 600px) {
-      .advice-teams { gap: 4px; }
-      .advice-team { font-size: 0.78rem; }
+      .advice-card-head { padding: 8px 12px; }
+      .advice-league { font-size: 0.65rem; }
+      .advice-body { padding: 10px; }
+      .advice-teams { gap: 4px; flex-wrap: nowrap; }
+      .advice-team { font-size: 0.72rem; gap: 4px; }
       .advice-team img { width: 18px; height: 18px; }
-      .advice-main-pick { font-size: 1rem; }
-      .advice-main-prob { font-size: 1.2rem; }
+      .advice-team-name { max-width: 90px; }
+      .advice-vs { padding: 2px 5px; font-size: 0.6rem; }
+      .advice-main { padding: 8px 10px; }
+      .advice-main-label { font-size: 0.55rem; }
+      .advice-main-pick { font-size: 0.9rem; }
+      .advice-main-prob { font-size: 1.1rem; }
+      .advice-main-conf { font-size: 0.55rem; padding: 2px 6px; }
       .advice-alts { gap: 4px; }
-      .advice-alt-chip { padding: 3px 7px; font-size: 0.65rem; }
-      .advice-xg-bar { font-size: 0.65rem; gap: 8px; }
-      .advice-reason { font-size: 0.65rem; }
-      .schedina-stats { gap: 6px; }
+      .advice-alt-chip { padding: 3px 7px; font-size: 0.62rem; }
+      .advice-xg-bar { font-size: 0.6rem; gap: 6px; padding: 4px 8px; }
+      .advice-reason { font-size: 0.62rem; gap: 4px; }
+      .btn-giocato { padding: 8px; font-size: 0.72rem; }
+      .btn-dettaglio { padding: 8px 10px; font-size: 0.72rem; }
+      
+      .schedina-section { padding: 12px; }
+      .schedina-stats { gap: 5px; }
       .schedina-stat { padding: 3px 6px; }
-      .schedina-item { padding: 7px 10px; }
-      .schedina-item-match { font-size: 0.7rem; }
+      .schedina-stat-n { font-size: 0.85rem; }
+      .schedina-stat-l { font-size: 0.55rem; }
+      .schedina-title { font-size: 0.85rem; }
+      .schedina-item { padding: 7px 8px; }
+      .schedina-item-match { font-size: 0.68rem; }
+      .schedina-item-info { font-size: 0.58rem; }
+      .schedina-item-pick { font-size: 0.6rem; padding: 2px 6px; }
+      .schedina-wr { padding: 8px; gap: 8px; }
+      
+      /* Match detail mobile */
+      .dual-advice-container { grid-template-columns: 1fr !important; gap: 10px !important; }
+      .ai-pick-value { font-size: 1.2rem !important; }
+      .ai-pick-prob { font-size: 0.8rem !important; }
+      .ai-alt-chip { font-size: 0.65rem; padding: 4px 8px; }
+      .hero-teams { flex-direction: column; gap: 10px; }
+      
+      /* Summary mobile */
+      .verdict-summary { padding: 12px; }
+      .verdict-summary-title { font-size: 0.8rem; }
+      .verdict-summary-type { font-size: 0.65rem; }
+      .verdict-summary-xg { font-size: 0.62rem; gap: 4px; }
+      .vsc-row { font-size: 0.65rem; }
+      .vsc-label { min-width: 45px; font-size: 0.62rem; }
+      .verdict-summary-text { font-size: 0.65rem; }
+      .verdict-summary-tip { font-size: 0.65rem; padding: 6px 10px; }
+      
+      /* General mobile */
+      .trader-verdict { padding: 12px !important; }
+      .verdict-header { flex-wrap: wrap; gap: 6px; }
     }
   </style>
 </head>
@@ -3994,15 +4111,14 @@
       state.matches.forEach(match => {
         if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
 
-        // xG variabili basati su campionato (stima)
-        let homeXG = 1.50, awayXG = 1.15;
-        
-        // Boost per campionati offensivi noti
-        const offensiveLeagues = [39, 140, 135, 78, 61, 88, 94]; // PL, LaLiga, SerieA, Bundesliga, L1, Eredivisie, Primeira
-        if (offensiveLeagues.includes(match.league.id)) {
-          homeXG = 1.60;
-          awayXG = 1.25;
-        }
+        // xG variabili basati su campionato (medie reali)
+        const LEAGUE_DEFAULTS = {
+          39: { h: 1.62, a: 1.28 }, 140: { h: 1.55, a: 1.15 }, 135: { h: 1.48, a: 1.12 },
+          78: { h: 1.72, a: 1.35 }, 61: { h: 1.52, a: 1.18 }, 88: { h: 1.75, a: 1.38 },
+          94: { h: 1.58, a: 1.22 }, 71: { h: 1.55, a: 1.05 }, 128: { h: 1.48, a: 1.08 }
+        };
+        const leagueDefault = LEAGUE_DEFAULTS[match.league?.id] || { h: 1.50, a: 1.18 };
+        let homeXG = leagueDefault.h, awayXG = leagueDefault.a;
         
         // FootyStats data
         const fsKeys = [
@@ -4215,8 +4331,30 @@
           if (state.fsData.has(k)) { fsMatch = state.fsData.get(k); break; }
         }
         
-        // Stima xG base
-        let homeXG = 1.55, awayXG = 1.25;
+        // Stima xG base - LEAGUE-SPECIFIC (medie reali per campionato)
+        const LEAGUE_AVG_GOALS = {
+          // Top 5 europei
+          39: { h: 1.62, a: 1.28 },  // Premier League
+          140: { h: 1.55, a: 1.15 }, // La Liga
+          135: { h: 1.48, a: 1.12 }, // Serie A
+          78: { h: 1.72, a: 1.35 },  // Bundesliga
+          61: { h: 1.52, a: 1.18 },  // Ligue 1
+          // Campionati offensivi
+          88: { h: 1.75, a: 1.38 },  // Eredivisie
+          94: { h: 1.58, a: 1.22 },  // Primeira Liga
+          144: { h: 1.50, a: 1.10 }, // Jupiler Pro League
+          // Campionati difensivi
+          203: { h: 1.35, a: 1.00 }, // Super Lig Turkey
+          179: { h: 1.30, a: 0.98 }, // Scottish Premiership
+          // Sud America
+          71: { h: 1.55, a: 1.05 },  // Serie A Brazil
+          128: { h: 1.48, a: 1.08 }, // Liga Argentina
+          // Default
+          0: { h: 1.50, a: 1.18 }
+        };
+        
+        const leagueAvg = LEAGUE_AVG_GOALS[match.league?.id] || LEAGUE_AVG_GOALS[0];
+        let homeXG = leagueAvg.h, awayXG = leagueAvg.a;
         let homeFormMultiplier = 1.0, awayFormMultiplier = 1.0;
         let dataQuality = 'low'; // low, medium, high
         
@@ -4272,13 +4410,36 @@
         
         const totXG = homeXG + awayXG;
         
-        // Calcola probabilità
+        // Calcola probabilità base (Poisson + Dixon-Coles)
         const p1X2 = quickCalc1X2(homeXG, awayXG);
-        const pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
-        const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
-        const pOver35 = quickCalcOver(homeXG, awayXG, 3.5);
+        let pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
+        let pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
+        let pOver35 = quickCalcOver(homeXG, awayXG, 3.5);
+        let pBTTS = quickCalcBTTS(homeXG, awayXG);
+        
+        // === BLEND CON DATI REALI FOOTYSTATS (se disponibili) ===
+        // FootyStats fornisce percentuali reali storiche che sono più accurate del solo Poisson
+        if (fsMatch) {
+          // BTTS reale (peso 45% dati reali, 55% modello)
+          if (fsMatch.btts_percentage && fsMatch.btts_percentage > 0) {
+            pBTTS = pBTTS * 0.55 + fsMatch.btts_percentage * 0.45;
+            if (dataQuality !== 'high') dataQuality = 'medium';
+          }
+          // Over 2.5 reale
+          if (fsMatch.over25_percentage && fsMatch.over25_percentage > 0) {
+            pOver25 = pOver25 * 0.55 + fsMatch.over25_percentage * 0.45;
+          }
+          // Over 1.5 reale
+          if (fsMatch.over15_percentage && fsMatch.over15_percentage > 0) {
+            pOver15 = pOver15 * 0.55 + fsMatch.over15_percentage * 0.45;
+          }
+          // Over 3.5 reale
+          if (fsMatch.over35_percentage && fsMatch.over35_percentage > 0) {
+            pOver35 = pOver35 * 0.55 + fsMatch.over35_percentage * 0.45;
+          }
+        }
+        
         const pUnder25 = 100 - pOver25;
-        const pBTTS = quickCalcBTTS(homeXG, awayXG);
         
         const matchInfo = {
           match,
@@ -4320,6 +4481,7 @@
               confidence: aiAdvice.confidence,
               reasons: aiAdvice.reasons || [],
               alternatives: aiAdvice.alternatives || [],
+              valueBet: aiAdvice.valueBet || false,
               dataQuality,
               xgHome: homeXG.toFixed(2),
               xgAway: awayXG.toFixed(2),
@@ -4679,11 +4841,19 @@
         return { home: 33.33, draw: 33.33, away: 33.33 };
       }
       
+      const rho = -0.12; // Dixon-Coles correlation
+      
       let pH = 0, pD = 0, pA = 0;
-      for (let i = 0; i <= 5; i++) {
-        for (let j = 0; j <= 5; j++) {
-          const p = poisson(lH, i) * poisson(lA, j);
+      for (let i = 0; i <= 7; i++) {
+        for (let j = 0; j <= 7; j++) {
+          let p = poisson(lH, i) * poisson(lA, j);
           if (isNaN(p)) continue;
+          // Dixon-Coles correction
+          if (i === 0 && j === 0) p *= (1 - lH * lA * rho);
+          else if (i === 0 && j === 1) p *= (1 + lH * rho);
+          else if (i === 1 && j === 0) p *= (1 + lA * rho);
+          else if (i === 1 && j === 1) p *= (1 - rho);
+          
           if (i > j) pH += p; else if (i === j) pD += p; else pA += p;
         }
       }
@@ -4696,27 +4866,39 @@
       // Validazione input
       if (isNaN(lH) || isNaN(lA) || lH < 0 || lA < 0) return 50;
       
+      const rho = -0.12;
       let pUnder = 0;
-      for (let i = 0; i <= 5; i++) {
-        for (let j = 0; j <= 5; j++) {
+      for (let i = 0; i <= 7; i++) {
+        for (let j = 0; j <= 7; j++) {
           if (i + j <= Math.floor(line)) {
-            const p = poisson(lH, i) * poisson(lA, j);
+            let p = poisson(lH, i) * poisson(lA, j);
+            // Dixon-Coles correction
+            if (i === 0 && j === 0) p *= (1 - lH * lA * rho);
+            else if (i === 0 && j === 1) p *= (1 + lH * rho);
+            else if (i === 1 && j === 0) p *= (1 + lA * rho);
+            else if (i === 1 && j === 1) p *= (1 - rho);
             if (!isNaN(p)) pUnder += p;
           }
         }
       }
       const over = (1 - pUnder) * 100;
       if (isNaN(over)) return 50;
-      return clamp(10, over, 90);
+      return clamp(3, over, 97);
     }
     
     function quickCalcBTTS(lH, lA) {
       // Validazione input
       if (isNaN(lH) || isNaN(lA) || lH < 0 || lA < 0) return 50;
       
-      const btts = (1 - poisson(lH, 0)) * (1 - poisson(lA, 0)) * 100;
+      const rho = -0.12;
+      const pH0 = poisson(lH, 0);
+      const pA0 = poisson(lA, 0);
+      const p00_dc = pH0 * pA0 * (1 - lH * lA * rho);
+      const pNotBTTS = pH0 + pA0 - p00_dc;
+      const btts = (1 - pNotBTTS) * 100;
+      
       if (isNaN(btts)) return 50;
-      return clamp(15, btts, 85);
+      return clamp(8, btts, 92);
     }
     
     // === TRADER PICKS ===
@@ -4739,8 +4921,14 @@
       state.matches.forEach(match => {
         if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
         
-        // Stima xG - aumentati per generare picks
-        let homeXG = 1.55, awayXG = 1.25;
+        // League-specific xG defaults
+        const LEAGUE_DEF = {
+          39: { h: 1.62, a: 1.28 }, 140: { h: 1.55, a: 1.15 }, 135: { h: 1.48, a: 1.12 },
+          78: { h: 1.72, a: 1.35 }, 61: { h: 1.52, a: 1.18 }, 88: { h: 1.75, a: 1.38 },
+          94: { h: 1.58, a: 1.22 }, 71: { h: 1.55, a: 1.05 }, 128: { h: 1.48, a: 1.08 }
+        };
+        const leagueDef = LEAGUE_DEF[match.league?.id] || { h: 1.50, a: 1.18 };
+        let homeXG = leagueDef.h, awayXG = leagueDef.a;
         const fsKey = `${match.home.name.toLowerCase()}_${match.away.name.toLowerCase()}`.replace(/\s+/g, '');
         const fsMatch = state.fsData.get(fsKey);
         
@@ -4751,16 +4939,22 @@
           else if (fsMatch.away_ppg > 0) awayXG = fsMatch.away_ppg * 0.75;
         }
         
-        homeXG *= 1.10;
-        awayXG *= 0.92;
-        homeXG = clamp(0.4, homeXG, 3.2);
-        awayXG = clamp(0.25, awayXG, 2.8);
+        homeXG *= 1.06; // Realistic home advantage
+        awayXG *= 0.95;
+        homeXG = clamp(0.3, homeXG, 3.5);
+        awayXG = clamp(0.2, awayXG, 3.0);
         
         const p1X2 = quickCalc1X2(homeXG, awayXG);
-        const pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
-        const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
+        let pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
+        let pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
         const pUnder25 = 100 - pOver25;
-        const pBTTS = quickCalcBTTS(homeXG, awayXG);
+        let pBTTS = quickCalcBTTS(homeXG, awayXG);
+        
+        // FootyStats blend
+        if (fsMatch) {
+          if (fsMatch.btts_percentage > 0) pBTTS = pBTTS * 0.55 + fsMatch.btts_percentage * 0.45;
+          if (fsMatch.over25_percentage > 0) pOver25 = pOver25 * 0.55 + fsMatch.over25_percentage * 0.45;
+        }
         
         // Trova il miglior pronostico
         const bets = [
@@ -5835,17 +6029,27 @@
       const p1X2 = calc1X2(homeXG, awayXG);
       const pOU = calcOU(homeXG, awayXG);
       
-      // BTTS avanzato: usa Poisson + dati storici clean sheet
+      // BTTS avanzato: Dixon-Coles Poisson + dati storici clean sheet + FootyStats
       let pBTTS = calcBTTS(homeXG, awayXG);
       
       // Aggiusta BTTS con dati clean sheet e failed to score
-      const homeWillScore = 100 - homeData.failedToScorePct; // % che la casa segna
-      const awayWillScore = 100 - awayData.failedToScorePct; // % che l'ospite segna
+      const homeWillScore = 100 - homeData.failedToScorePct;
+      const awayWillScore = 100 - awayData.failedToScorePct;
       const historicalBTTS = (homeWillScore * awayWillScore) / 100;
       
-      // Media ponderata: 60% Poisson, 40% storico
-      pBTTS = (pBTTS * 0.60) + (historicalBTTS * 0.40);
-      pBTTS = clamp(15, pBTTS, 85);
+      // FootyStats BTTS reale (se disponibile, è il dato più affidabile)
+      let fsBTTS = null;
+      if (fsMatch && fsMatch.btts_percentage && fsMatch.btts_percentage > 0) {
+        fsBTTS = fsMatch.btts_percentage;
+      }
+      
+      // Media ponderata: 40% Poisson DC, 25% storico, 35% FootyStats (o 50/50 senza FS)
+      if (fsBTTS !== null) {
+        pBTTS = (pBTTS * 0.40) + (historicalBTTS * 0.25) + (fsBTTS * 0.35);
+      } else {
+        pBTTS = (pBTTS * 0.60) + (historicalBTTS * 0.40);
+      }
+      pBTTS = clamp(8, pBTTS, 92);
       
       const exactScores = calcExactScores(homeXG, awayXG);
       
@@ -6076,16 +6280,25 @@
         return { home: 33.33, draw: 33.33, away: 33.33 };
       }
       
+      // Dixon-Coles correlation parameter (0.10-0.15 è il range empirico)
+      const rho = -0.12;
+      
       let pH = 0, pD = 0, pA = 0;
-      for (let i = 0; i <= 6; i++) {
-        for (let j = 0; j <= 6; j++) {
-          const p = poisson(lH, i) * poisson(lA, j);
-          if (isNaN(p)) continue; // Salta se NaN
+      for (let i = 0; i <= 8; i++) {
+        for (let j = 0; j <= 8; j++) {
+          let p = poisson(lH, i) * poisson(lA, j);
+          if (isNaN(p)) continue;
+          
+          // Dixon-Coles correction per risultati a basso punteggio
+          if (i === 0 && j === 0) p *= (1 - lH * lA * rho);
+          else if (i === 0 && j === 1) p *= (1 + lH * rho);
+          else if (i === 1 && j === 0) p *= (1 + lA * rho);
+          else if (i === 1 && j === 1) p *= (1 - rho);
+          
           if (i > j) pH += p; else if (i === j) pD += p; else pA += p;
         }
       }
       const t = pH + pD + pA;
-      // Protezione divisione per zero e NaN
       if (t === 0 || isNaN(t)) return { home: 33.33, draw: 33.33, away: 33.33 };
       return { home: (pH/t)*100, draw: (pD/t)*100, away: (pA/t)*100 };
     }
@@ -6094,10 +6307,22 @@
       // Validazione input
       if (isNaN(lH) || isNaN(lA) || lH < 0 || lA < 0) return 50;
       
-      const pBTTS = (1 - poisson(lH, 0)) * (1 - poisson(lA, 0)) * 100;
-      if (isNaN(pBTTS)) return 50;
+      // Dixon-Coles: 0-0 è correlato, quindi il calcolo naive sottostima NG
+      const rho = -0.12;
       
-      return clamp(15, pBTTS, 85);
+      // P(home=0) e P(away=0) con correzione
+      const pH0 = poisson(lH, 0);
+      const pA0 = poisson(lA, 0);
+      
+      // P(0-0) con Dixon-Coles
+      const p00_dc = pH0 * pA0 * (1 - lH * lA * rho);
+      
+      // P(almeno uno non segna) = P(H=0) + P(A=0) - P(0-0)
+      const pNotBTTS = pH0 + pA0 - p00_dc;
+      const pBTTS = (1 - pNotBTTS) * 100;
+      
+      if (isNaN(pBTTS)) return 50;
+      return clamp(8, pBTTS, 92);
     }
 
     function calcOU(lH, lA) {
@@ -6111,22 +6336,29 @@
         };
       }
       
+      const rho = -0.12;
+      
       const result = {};
       [1.5, 2.5, 3.5, 4.5].forEach(line => {
         let pU = 0;
-        for (let i = 0; i <= 6; i++) {
-          for (let j = 0; j <= 6; j++) {
+        for (let i = 0; i <= 8; i++) {
+          for (let j = 0; j <= 8; j++) {
             if (i + j <= Math.floor(line)) {
-              const p = poisson(lH, i) * poisson(lA, j);
-              if (!isNaN(p)) pU += p; // Aggiungi solo se valido
+              let p = poisson(lH, i) * poisson(lA, j);
+              // Dixon-Coles correction
+              if (i === 0 && j === 0) p *= (1 - lH * lA * rho);
+              else if (i === 0 && j === 1) p *= (1 + lH * rho);
+              else if (i === 1 && j === 0) p *= (1 + lA * rho);
+              else if (i === 1 && j === 1) p *= (1 - rho);
+              if (!isNaN(p)) pU += p;
             }
           }
         }
         const over = (1 - pU) * 100;
         const under = pU * 100;
         result[line] = { 
-          over: isNaN(over) ? 50 : clamp(5, over, 95), 
-          under: isNaN(under) ? 50 : clamp(5, under, 95) 
+          over: isNaN(over) ? 50 : clamp(3, over, 97), 
+          under: isNaN(under) ? 50 : clamp(3, under, 97) 
         };
       });
       return result;
@@ -6135,23 +6367,22 @@
     function calcExactScores(lH, lA) {
       const scores = [];
       
-      // Dixon-Coles correction factor per risultati a basso punteggio
-      // Questo corregge la tendenza del Poisson a sottostimare 0-0, 1-0, 0-1, 1-1
-      const rho = 0.13; // Fattore di correlazione (valori tipici: 0.10-0.15)
+      // Dixon-Coles correlation parameter (consistente con calc1X2/calcOU)
+      const rho = -0.12;
       
       for (let i = 0; i <= 5; i++) {
         for (let j = 0; j <= 5; j++) {
           let p = poisson(lH, i) * poisson(lA, j);
           
-          // Applica Dixon-Coles correction per risultati bassi
+          // Dixon-Coles correction per risultati a basso punteggio
           if (i === 0 && j === 0) {
-            p *= (1 + lH * lA * rho); // 0-0 leggermente più probabile
+            p *= (1 - lH * lA * rho); // 0-0 leggermente più probabile
           } else if (i === 0 && j === 1) {
             p *= (1 + lH * rho); // 0-1 
           } else if (i === 1 && j === 0) {
             p *= (1 + lA * rho); // 1-0
           } else if (i === 1 && j === 1) {
-            p *= (1 - rho); // 1-1 leggermente meno probabile (già frequente)
+            p *= (1 - rho); // 1-1 leggermente meno probabile
           }
           
           scores.push({ h: i, a: j, p: p * 100 });
@@ -6166,11 +6397,20 @@
     }
 
     function calcMultigol(lH, lA, min, max) {
+      const rho = -0.12;
       let prob = 0;
-      for (let i = 0; i <= 6; i++) {
-        for (let j = 0; j <= 6; j++) {
+      for (let i = 0; i <= 8; i++) {
+        for (let j = 0; j <= 8; j++) {
           const t = i + j;
-          if (t >= min && t <= max) prob += poisson(lH, i) * poisson(lA, j);
+          if (t >= min && t <= max) {
+            let p = poisson(lH, i) * poisson(lA, j);
+            // Dixon-Coles correction
+            if (i === 0 && j === 0) p *= (1 - lH * lA * rho);
+            else if (i === 0 && j === 1) p *= (1 + lH * rho);
+            else if (i === 1 && j === 0) p *= (1 + lA * rho);
+            else if (i === 1 && j === 1) p *= (1 - rho);
+            prob += p;
+          }
         }
       }
       return prob * 100;
@@ -6373,7 +6613,8 @@
         prob: 0,
         confidence: 'medium',
         reasons: [],
-        alternatives: []
+        alternatives: [],
+        valueBet: false
       };
       
       // Analisi della partita
@@ -6387,9 +6628,33 @@
       const balanced = Math.abs(homeXG - awayXG) < 0.5;
       const ggLikely = pBTTS >= 55 && homeXG > 0.9 && awayXG > 0.9;
       
-      // === LOGICA DI SELEZIONE ===
+      // ML bonus helper
+      const getMLBonus = (market) => {
+        if (state.mlThresholds && state.mlThresholds[market] && state.mlThresholds[market].totalPredictions >= 10) {
+          const acc = parseFloat(state.mlThresholds[market].accuracy) || 50;
+          if (acc >= 70) return 1.15;
+          if (acc >= 55) return 1.05;
+          if (acc < 40) return 0.70;
+          if (acc < 50) return 0.85;
+        }
+        return 1.0;
+      };
       
-      // CASO 1: Casa dominante (xG casa alto, ospite basso) - SOGLIE PIÙ ALTE per affidabilità
+      const addMLReason = (market) => {
+        if (state.mlThresholds && state.mlThresholds[market] && state.mlThresholds[market].totalPredictions >= 10) {
+          const ml = state.mlThresholds[market];
+          const acc = parseFloat(ml.accuracy);
+          if (acc >= 65) {
+            advice.reasons.push({ text: `Storico ML: ${acc.toFixed(0)}% accuracy (${ml.totalPredictions} pred.)`, type: 'positive' });
+          } else if (acc < 45) {
+            advice.reasons.push({ text: `⚠️ Storico ML: ${acc.toFixed(0)}% accuracy - cautela`, type: 'negative' });
+          }
+        }
+      };
+      
+      // === LOGICA A CASCATA ORIGINALE (pronostici coraggiosi) ===
+      
+      // CASO 1: Casa dominante
       if (homeStrong && awayWeak && p1X2.home >= 68) {
         advice.pick = '1 (Vittoria Casa)';
         advice.prob = p1X2.home;
@@ -6397,44 +6662,46 @@
         advice.reasons.push({ text: `xG Casa ${homeXG.toFixed(2)} molto superiore`, type: 'positive' });
         advice.reasons.push({ text: `xG Ospite solo ${awayXG.toFixed(2)}`, type: 'positive' });
         advice.reasons.push({ text: `Probabilità ${p1X2.home.toFixed(0)}% favorevole`, type: 'positive' });
-        
-        if (highScoring) {
-          advice.alternatives.push({ pick: '1 + Over 1.5', prob: ((p1X2.home * pOU[1.5].over) / 100).toFixed(0) });
-        }
+        addMLReason('1');
+        if (highScoring) advice.alternatives.push({ pick: '1 + Over 1.5', prob: ((p1X2.home * pOU[1.5].over) / 100).toFixed(0) });
         advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
+        advice.valueBet = getMLBonus('1') >= 1.0 && p1X2.home >= 72;
       }
-      // CASO 2: Trasferta dominante - SOGLIE PIÙ ALTE
+      // CASO 2: Trasferta dominante
       else if (awayStrong && homeWeak && p1X2.away >= 63) {
         advice.pick = '2 (Vittoria Ospite)';
         advice.prob = p1X2.away;
         advice.confidence = p1X2.away >= 73 ? 'high' : 'medium';
         advice.reasons.push({ text: `xG Ospite ${awayXG.toFixed(2)} superiore`, type: 'positive' });
         advice.reasons.push({ text: `xG Casa debole ${homeXG.toFixed(2)}`, type: 'positive' });
-        
+        addMLReason('2');
         advice.alternatives.push({ pick: 'X2', prob: (p1X2.away + p1X2.draw).toFixed(0) });
+        advice.valueBet = getMLBonus('2') >= 1.0 && p1X2.away >= 67;
       }
-      // CASO 3: Partita da GOL (xG totale alto) - PIÙ SELETTIVO
+      // CASO 3: Partita da GOL (xG totale alto) - Over 2.5 preferito a Over 1.5
       else if (veryHighScoring && pOU[2.5].over >= 73) {
         advice.pick = 'Over 2.5';
         advice.prob = pOU[2.5].over;
         advice.confidence = pOU[2.5].over >= 82 ? 'high' : 'medium';
         advice.reasons.push({ text: `xG Totale ${totXG.toFixed(2)} molto alto`, type: 'positive' });
         advice.reasons.push({ text: `Entrambe le squadre segnano regolarmente`, type: 'positive' });
-        
+        addMLReason('Over 2.5');
         advice.alternatives.push({ pick: 'Over 1.5 1T', prob: '60+' });
         advice.alternatives.push({ pick: 'Over 3.5', prob: pOU[3.5].over.toFixed(0) });
         if (ggLikely) advice.alternatives.push({ pick: 'GG', prob: pBTTS.toFixed(0) });
+        advice.valueBet = getMLBonus('Over 2.5') >= 1.0;
       }
-      // CASO 4: GG probabile (entrambe segnano) - SOGLIE PIÙ ALTE
+      // CASO 4: GG probabile
       else if (ggLikely && pBTTS >= 63) {
         advice.pick = 'GG (Entrambe Segnano)';
         advice.prob = pBTTS;
         advice.confidence = pBTTS >= 73 ? 'high' : 'medium';
         advice.reasons.push({ text: `xG Casa ${homeXG.toFixed(2)} - segnerà`, type: 'positive' });
         advice.reasons.push({ text: `xG Ospite ${awayXG.toFixed(2)} - segnerà`, type: 'positive' });
-        
+        addMLReason('GG');
         if (highScoring) advice.alternatives.push({ pick: 'GG + Over 2.5', prob: ((pBTTS * pOU[2.5].over) / 100).toFixed(0) });
         advice.alternatives.push({ pick: 'Over 2.5', prob: pOU[2.5].over.toFixed(0) });
+        advice.valueBet = getMLBonus('GG') >= 1.0;
       }
       // CASO 5: Over 1.5 sicuro
       else if (pOU[1.5].over >= 80) {
@@ -6443,63 +6710,56 @@
         advice.confidence = 'high';
         advice.reasons.push({ text: `Probabilità ${pOU[1.5].over.toFixed(0)}% molto alta`, type: 'positive' });
         advice.reasons.push({ text: `xG Totale ${totXG.toFixed(2)} supporta gol`, type: 'positive' });
-        
+        addMLReason('Over 1.5');
         advice.alternatives.push({ pick: '1X + Over 1.5', prob: (((p1X2.home + p1X2.draw) * pOU[1.5].over) / 100).toFixed(0) });
+        advice.valueBet = true;
       }
-      // CASO 6: Pareggio probabile (X) - MIGLIORATO
+      // CASO 6: Pareggio probabile (X)
       else if (balanced && p1X2.draw >= 30 && lowScoring && Math.abs(p1X2.home - p1X2.away) < 10) {
-        // Condizioni per X:
-        // - xG equilibrati (diff < 0.5)
-        // - Prob pareggio >= 30%
-        // - Partita a basso punteggio (xG tot < 2.2)
-        // - Home e Away con probabilità simili (diff < 10%)
         advice.pick = 'X (Pareggio)';
         advice.prob = p1X2.draw;
         advice.confidence = p1X2.draw >= 35 ? 'medium' : 'low';
         advice.reasons.push({ text: `Squadre molto equilibrate: xG ${homeXG.toFixed(2)} vs ${awayXG.toFixed(2)}`, type: 'positive' });
-        advice.reasons.push({ text: `Partita a basso punteggio previsto (${totXG.toFixed(2)} gol totali)`, type: 'positive' });
-        advice.reasons.push({ text: `Probabilità pareggio ${p1X2.draw.toFixed(0)}%`, type: 'positive' });
-        
+        advice.reasons.push({ text: `Partita a basso punteggio (${totXG.toFixed(2)} gol previsti)`, type: 'positive' });
+        addMLReason('X');
         advice.alternatives.push({ pick: 'Under 2.5', prob: pOU[2.5].under.toFixed(0) });
         advice.alternatives.push({ pick: '12 (No Pareggio)', prob: (p1X2.home + p1X2.away).toFixed(0) });
-        if (pBTTS >= 45 && pBTTS <= 60) advice.alternatives.push({ pick: 'X + GG', prob: ((p1X2.draw * pBTTS) / 100).toFixed(0) });
       }
-      // CASO 7: 1X sicuro (casa non perde)
+      // CASO 7: 1X sicuro
       else if ((p1X2.home + p1X2.draw) >= 80) {
         advice.pick = '1X (Casa o Pareggio)';
         advice.prob = p1X2.home + p1X2.draw;
         advice.confidence = 'high';
         advice.reasons.push({ text: `Casa forte con xG ${homeXG.toFixed(2)}`, type: 'positive' });
         advice.reasons.push({ text: `Vittoria ospite improbabile (${p1X2.away.toFixed(0)}%)`, type: 'positive' });
-        
+        addMLReason('1X');
         advice.alternatives.push({ pick: '1', prob: p1X2.home.toFixed(0) });
         if (highScoring) advice.alternatives.push({ pick: '1X + Over 1.5', prob: (((p1X2.home + p1X2.draw) * pOU[1.5].over) / 100).toFixed(0) });
+        advice.valueBet = true;
       }
-      // CASO 8: Partita equilibrata (generale)
+      // CASO 8: Under 3.5 partita equilibrata
       else if (balanced && p1X2.draw >= 28) {
         advice.pick = 'Under 3.5';
         advice.prob = pOU[3.5].under;
         advice.confidence = lowScoring ? 'medium' : 'low';
         advice.reasons.push({ text: `Partita equilibrata (xG simili)`, type: 'neutral' });
         advice.reasons.push({ text: `Possibile pareggio (${p1X2.draw.toFixed(0)}%)`, type: 'neutral' });
-        
         advice.alternatives.push({ pick: 'X', prob: p1X2.draw.toFixed(0) });
         advice.alternatives.push({ pick: 'Under 2.5', prob: pOU[2.5].under.toFixed(0) });
       }
-      // CASO 8: Default - Over 1.5 (quasi sempre valido)
+      // CASO 9: Default - Over 1.5
       else {
         advice.pick = 'Over 1.5';
         advice.prob = pOU[1.5].over;
         advice.confidence = pOU[1.5].over >= 70 ? 'medium' : 'low';
         advice.reasons.push({ text: `Pronostico più sicuro per questa partita`, type: 'neutral' });
         advice.reasons.push({ text: `xG Totale ${totXG.toFixed(2)}`, type: 'neutral' });
-        
         if (p1X2.home >= 55) advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
       }
       
-      // Aggiungi warning se i dati non sono affidabili
+      // Warning se dati base
       if (analysis.quality === 'base') {
-        advice.reasons.push({ text: 'Dati statistici limitati', type: 'negative' });
+        advice.reasons.push({ text: 'Dati statistici limitati (stima)', type: 'negative' });
         if (advice.confidence === 'high') advice.confidence = 'medium';
       }
       
@@ -6573,7 +6833,73 @@
         warningHtml = '<div class="verdict-warning"><span class="verdict-warning-icon">⚠️</span><span class="verdict-warning-text"><strong>Attenzione:</strong> Questo mercato ha uno storico sotto il 75%. Evita di usarlo nei raddoppi.</span></div>';
       }
       
-      return '<div class="trader-verdict">' +
+      // === RIASSUNTO 3 ANALISI ===
+      const agree = ai.pick === stat.pick || ai.pick.includes(stat.pick) || stat.pick.includes(ai.pick.replace(/ \(.*\)/, ''));
+      const xG = d.xG || {};
+      const totXG = (xG.home || 0) + (xG.away || 0);
+      const homeXG = xG.home || 0;
+      const awayXG = xG.away || 0;
+      
+      // Caratterizzazione partita
+      let matchType = '', matchEmoji = '';
+      if (totXG >= 3.5) { matchType = 'Partita OFFENSIVA - Molti gol attesi'; matchEmoji = '🔥'; }
+      else if (totXG >= 2.5) { matchType = 'Partita EQUILIBRATA con gol'; matchEmoji = '⚖️'; }
+      else if (totXG < 2.0) { matchType = 'Partita CHIUSA - Pochi gol attesi'; matchEmoji = '🔒'; }
+      else { matchType = 'Partita STANDARD'; matchEmoji = '⚽'; }
+      
+      if (homeXG > awayXG * 2) matchType += ' — Casa nettamente favorita';
+      else if (awayXG > homeXG * 1.5) matchType += ' — Ospite pericoloso';
+      else if (Math.abs(homeXG - awayXG) < 0.3) matchType += ' — Equilibrio totale';
+      
+      // Verdetto complessivo
+      let summaryVerdict = '';
+      if (agree) {
+        summaryVerdict = `<span style="color:var(--accent-green);font-weight:700;">AI e Statistico concordano:</span> entrambi indicano <strong>${ai.pick}</strong> (${bestProb.toFixed(0)}%). Quando le 2 analisi convergono, l'affidabilità è massima.`;
+      } else {
+        summaryVerdict = `<span style="color:var(--accent-orange);font-weight:700;">AI e Statistico discordano:</span> AI consiglia <strong>${ai.pick}</strong> (${ai.prob.toFixed(0)}%) mentre lo Statistico suggerisce <strong>${stat.pick}</strong> (${stat.prob.toFixed(0)}%). `;
+        if (ai.prob > stat.prob) {
+          summaryVerdict += `Il Consiglio AI è più mirato perché considera anche contesto e pattern della partita.`;
+        } else {
+          summaryVerdict += `Lo Statistico ha probabilità più alta, ma il Consiglio AI ha valutato il contesto e sceglie un mercato più specifico.`;
+        }
+      }
+      
+      // Suggerimento finale basato su tutti i dati
+      let finalTip = '';
+      const pOU25 = d.pOU ? d.pOU[2.5] : null;
+      const pBTTS = d.pBTTS || 50;
+      
+      if (bestProb >= 85 && agree) {
+        finalTip = '🏆 Partita IDEALE per scommettere. Alta probabilità e concordanza tra analisi.';
+      } else if (bestProb >= 75 && agree) {
+        finalTip = '👍 Buona opportunità. Le analisi concordano, puoi procedere con fiducia.';
+      } else if (bestProb >= 80 && !agree) {
+        finalTip = '💡 Probabilità alta ma analisi discordanti. Considera il mercato su cui entrambi hanno prob. elevata.';
+      } else if (bestProb >= 65) {
+        finalTip = '⚡ Opportunità moderata. Valuta attentamente prima di giocare.';
+      } else {
+        finalTip = '⏳ Partita difficile da leggere. Meglio osservare o usare un mercato più sicuro come 1X.';
+      }
+      
+      const summaryHtml = '' +
+        '<div class="verdict-summary">' +
+          '<div class="verdict-summary-title">' + matchEmoji + ' Riassunto Analisi Completa</div>' +
+          '<div class="verdict-summary-type">' + matchType + '</div>' +
+          '<div class="verdict-summary-xg">' +
+            '<span>xG 🏠 ' + homeXG.toFixed(2) + '</span>' +
+            '<span>xG Tot ' + totXG.toFixed(2) + '</span>' +
+            '<span>xG ✈️ ' + awayXG.toFixed(2) + '</span>' +
+          '</div>' +
+          '<div class="verdict-summary-compare">' +
+            '<div class="vsc-row"><span class="vsc-label">🤖 AI:</span> <strong>' + ai.pick + '</strong> <span class="vsc-prob">' + ai.prob.toFixed(0) + '%</span></div>' +
+            '<div class="vsc-row"><span class="vsc-label">📊 Stat:</span> <strong>' + stat.pick + '</strong> <span class="vsc-prob">' + stat.prob.toFixed(0) + '%</span></div>' +
+            '<div class="vsc-row"><span class="vsc-label">🎯 Trader:</span> <strong>' + bestPick + '</strong> <span class="vsc-prob">' + bestProb.toFixed(0) + '%</span></div>' +
+          '</div>' +
+          '<div class="verdict-summary-text">' + summaryVerdict + '</div>' +
+          '<div class="verdict-summary-tip">' + finalTip + '</div>' +
+        '</div>';
+      
+      return summaryHtml + '<div class="trader-verdict">' +
         '<div class="verdict-header">' +
           '<div class="verdict-icon">' + verdictIcon + '</div>' +
           '<div class="verdict-title"><h3>Consiglio del Trader</h3><p>Analisi strategica basata su probabilità e storico</p></div>' +
@@ -8723,7 +9049,7 @@
             </div>
           </div>
           <div style="font-size:0.75rem;color:var(--text-gray);margin-bottom:14px;">
-            Stesso Consiglio AI della pagina dettaglio: pick, motivazioni e alternative
+            Consiglio AI basato su xG stimati. Apri il dettaglio 📊 per analisi completa con dati API
           </div>
           <div class="advice-grid">
             ${advices.map(a => {
@@ -8751,11 +9077,11 @@
                     <span>xG 🏠 <span class="advice-xg-val">${a.xgHome}</span></span>
                     <span>xG Tot <span class="advice-xg-val">${a.xgTotal}</span></span>
                     <span>xG ✈️ <span class="advice-xg-val">${a.xgAway}</span></span>
-                    ${a.dataQuality === 'high' ? '<span style="color:var(--accent-green)">✓ Dati</span>' : ''}
+                    ${a.dataQuality === 'high' ? '<span style="color:var(--accent-green);font-size:0.6rem">✓ FS</span>' : a.dataQuality === 'medium' ? '<span style="color:var(--accent-yellow);font-size:0.6rem">~ Stima</span>' : '<span style="color:var(--text-dark);font-size:0.6rem">⚡ Base</span>'}
                   </div>
                   <div class="advice-main">
                     <div class="advice-main-top">
-                      <div class="advice-main-label">Pronostico Consigliato</div>
+                      <div class="advice-main-label">Pronostico Consigliato ${a.valueBet ? '<span style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:1px 6px;border-radius:4px;font-size:0.55rem;margin-left:4px;">💎 VALUE</span>' : ''}</div>
                       <div class="advice-main-conf ${a.confidence}">${a.confidence === 'high' ? '🟢 Alta' : a.confidence === 'medium' ? '🟡 Media' : '⚪ Bassa'}</div>
                     </div>
                     <div class="advice-main-row">
