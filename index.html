@@ -4246,7 +4246,8 @@
           dataQuality,
           p1X2,
           pOver25,
-          pBTTS
+          pBTTS,
+          pOver15
         });
         
         // === COSTRUISCI RADDOPPI (solo campionati top) ===
@@ -4271,7 +4272,7 @@
       // Questa logica prende TUTTE le probabilità dalla sezione "PRONOSTICI AI"
       // e le raggruppa per categoria (1, X, 2, GG, Over 2.5)
       allAdvices.forEach(advice => {
-        const { p1X2, pOver25, pBTTS, matchInfo, match, confidence, dataQuality } = advice;
+        const { p1X2, pOver25, pBTTS, pOver15, matchInfo, match, confidence, dataQuality } = advice;
         
         // Aggiungi 1 (Vittoria Casa) se probabilità >= 50%
         if (p1X2.home >= 50) {
@@ -4393,6 +4394,18 @@
             dataQuality
           });
         }
+        
+        // Aggiungi Over 1.5 se probabilità >= 65%
+        if (pOver15 >= 65) {
+          picks.over1T.push({
+            ...matchInfo,
+            match,
+            bet: 'Over 1.5',
+            prob: pOver15,
+            confidence: pOver15 >= 82 ? 'high' : (pOver15 >= 72 ? 'medium' : 'low'),
+            dataQuality
+          });
+        }
       });
       
       console.log(`📊 calculateDailyPicks: Processate ${processedCount}, Skipped ${skippedCount}, Errori ${errorCount}`);
@@ -4409,6 +4422,7 @@
       
       picks.gg = picks.gg.sort(sortByConfidence).slice(0, 20);
       picks.over25 = picks.over25.sort(sortByConfidence).slice(0, 20);
+      picks.over1T = picks.over1T.sort(sortByConfidence).slice(0, 20);
       picks.vittorieCasa = picks.vittorieCasa.sort(sortByConfidence).slice(0, 20);
       picks.vittorieOspite = picks.vittorieOspite.sort(sortByConfidence).slice(0, 20);
       picks.pareggi = picks.pareggi.sort(sortByConfidence).slice(0, 20);
@@ -8438,7 +8452,7 @@
               <div style="font-size: 0.7rem; color: var(--text-dark);">Campionati</div>
             </div>
             <div style="background: var(--bg-card-light); padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border);">
-              <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-gold);">${picks.gg.length + picks.over25.length}</div>
+              <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-gold);">${picks.gg.length + picks.over25.length + picks.over1T.length + picks.vittorieCasa.length + picks.vittorieOspite.length + picks.pareggi.length}</div>
               <div style="font-size: 0.7rem; color: var(--text-dark);">Picks trovati</div>
             </div>
           </div>
@@ -8458,7 +8472,7 @@
       
       // Aggiungi GG
       picks.gg.forEach(p => {
-        if (p.prob >= 84) {
+        if (p.prob > 84) {
           allPicks.push({
             match: p.match,
             league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
@@ -8474,7 +8488,7 @@
       
       // Aggiungi Over 2.5
       picks.over25.forEach(p => {
-        if (p.prob >= 84) {
+        if (p.prob > 84) {
           allPicks.push({
             match: p.match,
             league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
@@ -8488,9 +8502,25 @@
         }
       });
       
+      // Aggiungi Over 1.5
+      (picks.over1T || []).forEach(p => {
+        if (p.prob > 84) {
+          allPicks.push({
+            match: p.match,
+            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
+            time: p.time,
+            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
+            pick: 'Over 1.5',
+            prob: p.prob,
+            icon: '📈',
+            color: 'var(--accent-emerald)'
+          });
+        }
+      });
+      
       // Aggiungi Vittorie Casa (1)
       picks.vittorieCasa.forEach(p => {
-        if (p.prob >= 84) {
+        if (p.prob > 84) {
           allPicks.push({
             match: p.match,
             league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
@@ -8506,7 +8536,7 @@
       
       // Aggiungi Vittorie Ospite (2)
       picks.vittorieOspite.forEach(p => {
-        if (p.prob >= 84) {
+        if (p.prob > 84) {
           allPicks.push({
             match: p.match,
             league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
@@ -8522,7 +8552,7 @@
       
       // Aggiungi Pareggi (X)
       picks.pareggi.forEach(p => {
-        if (p.prob >= 84) {
+        if (p.prob > 84) {
           allPicks.push({
             match: p.match,
             league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
@@ -8543,8 +8573,8 @@
         return `
           <div class="panel" style="margin-bottom: 20px; text-align: center; padding: 30px;">
             <div style="font-size: 2.5rem; margin-bottom: 12px;">🤖</div>
-            <div style="font-size: 1rem; color: var(--text-gray);">Nessun pronostico AI disponibile (min 84%)</div>
-            <div style="font-size: 0.8rem; color: var(--text-dark); margin-top: 8px;">Carica le partite per vedere i consigli</div>
+            <div style="font-size: 1rem; color: var(--text-gray);">Nessun pronostico AI con probabilità superiore all'84%</div>
+            <div style="font-size: 0.8rem; color: var(--text-dark); margin-top: 8px;">Carica le partite per vedere i consigli ad alta affidabilità</div>
           </div>
         `;
       }
@@ -8552,11 +8582,11 @@
       return `
         <div class="panel" style="margin-bottom: 20px;">
           <div class="panel-title" style="display: flex; align-items: center; justify-content: space-between;">
-            <span>🤖 Pronostici AI del Giorno</span>
+            <span>🤖 Pronostici AI Premium (&gt;84%)</span>
             <span style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">${allPicks.length} PICKS</span>
           </div>
           <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">
-            Pronostici con probabilità ≥84% basati su xG e statistiche
+            Pronostici con probabilità &gt;84% basati su xG e statistiche
           </div>
           <div class="pronostici-ai-list">
             ${allPicks.map(p => `
