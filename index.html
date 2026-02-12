@@ -3520,7 +3520,7 @@
       slip: [], // Schedina
       slipModal: false,
       // Picks del giorno
-      dailyPicks: { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] },
+      dailyPicks: { raddoppi: [], gg: [], ng: [], over25: [], under25: [], over15: [], over35: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], doppiaChanceCasa: [], doppiaChanceOspite: [] },
       // Money Management - Sistema Obiettivo
       money: {
         bankroll: parseFloat(localStorage.getItem('bp2_bankroll')) || 100,
@@ -4044,7 +4044,7 @@
       console.log(`🔄 calculateDailyPicks: Analisi di ${state.matches.length} partite...`);
       console.log(`🤖 ML Attivo: ${state.settings.useMLThresholds ? 'SÌ' : 'NO'}`);
       
-      const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [] };
+      const picks = { raddoppi: [], gg: [], ng: [], over25: [], under25: [], over15: [], over35: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], doppiaChanceCasa: [], doppiaChanceOspite: [] };
       const safeBets = []; // Per costruire i raddoppi
       
       // Raccogli i consigli AI per tutte le partite
@@ -4154,6 +4154,57 @@
           awayXG: awayXG.toFixed(2)
         };
         
+        // === CATEGORIZZA TUTTI I MERCATI PER OGNI PARTITA (prima del filtro aiPick) ===
+        const pUnder25Val = 100 - pOver25;
+        const pNG = 100 - pBTTS;
+        const p1X = p1X2.home + p1X2.draw;
+        const pX2 = p1X2.draw + p1X2.away;
+        
+        // 1 - Vittoria Casa
+        if (p1X2.home >= 40) {
+          picks.vittorieCasa.push({ ...matchInfo, match, bet: '1', prob: p1X2.home, confidence: p1X2.home >= 70 ? 'high' : (p1X2.home >= 60 ? 'medium' : 'low'), dataQuality });
+        }
+        // 2 - Vittoria Ospite
+        if (p1X2.away >= 35) {
+          picks.vittorieOspite.push({ ...matchInfo, match, bet: '2', prob: p1X2.away, confidence: p1X2.away >= 65 ? 'high' : (p1X2.away >= 55 ? 'medium' : 'low'), dataQuality });
+        }
+        // 1X - Doppia Chance Casa
+        if (p1X >= 55) {
+          picks.doppiaChanceCasa.push({ ...matchInfo, match, bet: '1X', prob: p1X, confidence: p1X >= 85 ? 'high' : (p1X >= 75 ? 'medium' : 'low'), dataQuality });
+        }
+        // X2 - Doppia Chance Ospite
+        if (pX2 >= 55) {
+          picks.doppiaChanceOspite.push({ ...matchInfo, match, bet: 'X2', prob: pX2, confidence: pX2 >= 85 ? 'high' : (pX2 >= 75 ? 'medium' : 'low'), dataQuality });
+        }
+        // GG - Entrambe Segnano
+        if (pBTTS >= 45) {
+          picks.gg.push({ ...matchInfo, match, bet: 'GG', prob: pBTTS, confidence: pBTTS >= 70 ? 'high' : (pBTTS >= 60 ? 'medium' : 'low'), dataQuality });
+        }
+        // NG - No Goal
+        if (pNG >= 40) {
+          picks.ng.push({ ...matchInfo, match, bet: 'NG', prob: pNG, confidence: pNG >= 65 ? 'high' : (pNG >= 55 ? 'medium' : 'low'), dataQuality });
+        }
+        // Over 1.5
+        if (pOver15 >= 55) {
+          picks.over15.push({ ...matchInfo, match, bet: 'Over 1.5', prob: pOver15, confidence: pOver15 >= 85 ? 'high' : (pOver15 >= 75 ? 'medium' : 'low'), dataQuality });
+        }
+        // Over 2.5
+        if (pOver25 >= 40) {
+          picks.over25.push({ ...matchInfo, match, bet: 'Over 2.5', prob: pOver25, confidence: pOver25 >= 70 ? 'high' : (pOver25 >= 60 ? 'medium' : 'low'), dataQuality });
+        }
+        // Under 2.5
+        if (pUnder25Val >= 40) {
+          picks.under25.push({ ...matchInfo, match, bet: 'Under 2.5', prob: pUnder25Val, confidence: pUnder25Val >= 70 ? 'high' : (pUnder25Val >= 60 ? 'medium' : 'low'), dataQuality });
+        }
+        // Over 3.5
+        if (pOver35 >= 35) {
+          picks.over35.push({ ...matchInfo, match, bet: 'Over 3.5', prob: pOver35, confidence: pOver35 >= 60 ? 'high' : (pOver35 >= 50 ? 'medium' : 'low'), dataQuality });
+        }
+        // X - Pareggio (calcolo semplificato qui, il calcolo avanzato è mantenuto sotto)
+        if (p1X2.draw >= 22) {
+          picks.pareggi.push({ ...matchInfo, match, bet: 'X', prob: p1X2.draw, confidence: p1X2.draw >= 35 ? 'high' : (p1X2.draw >= 28 ? 'medium' : 'low'), dataQuality });
+        }
+        
         // === GENERA CONSIGLIO AI RAPIDO (simile a generateAIAdvice) ===
         const homeStrong = homeXG > 1.8;
         const awayWeak = awayXG < 0.8;
@@ -4246,8 +4297,7 @@
           dataQuality,
           p1X2,
           pOver25,
-          pBTTS,
-          pOver15
+          pBTTS
         });
         
         // === COSTRUISCI RADDOPPI (solo campionati top) ===
@@ -4268,164 +4318,23 @@
         }
       });
       
-      // === RAGGRUPPA TUTTE LE PROBABILITÀ (NON SOLO IL CONSIGLIO PRINCIPALE) ===
-      // Questa logica prende TUTTE le probabilità dalla sezione "PRONOSTICI AI"
-      // e le raggruppa per categoria (1, X, 2, GG, Over 2.5)
-      allAdvices.forEach(advice => {
-        const { p1X2, pOver25, pBTTS, pOver15, matchInfo, match, confidence, dataQuality } = advice;
-        
-        // Aggiungi 1 (Vittoria Casa) se probabilità >= 50%
-        if (p1X2.home >= 50) {
-          picks.vittorieCasa.push({
-            ...matchInfo,
-            match,
-            bet: '1',
-            prob: p1X2.home,
-            confidence: p1X2.home >= 70 ? 'high' : (p1X2.home >= 60 ? 'medium' : 'low'),
-            dataQuality
-          });
-        }
-        
-        // === LOGICA AVANZATA PER X (PAREGGIO) ===
-        // Condizioni per un buon pareggio:
-        // 1. Probabilità X alta (>= 25%)
-        // 2. Partita equilibrata (differenza 1X2 bassa)
-        // 3. Risultato esatto 0-0 o 1-1 probabile
-        // 4. Under consigliato (xG totale basso)
-        // 5. Multigol squadre bassi (entrambe faticano a segnare)
-        
-        // Usa le variabili da matchInfo (non da scope esterno)
-        const totXGVal = parseFloat(matchInfo?.totXG || matchInfo?.xgTotal || 2.5);
-        const homeXGVal = parseFloat(matchInfo?.homeXG || 1.3);
-        const awayXGVal = parseFloat(matchInfo?.awayXG || 1.2);
-        
-        // Calcola "equilibrio" - differenza tra le 3 probabilità
-        const maxProb = Math.max(p1X2.home, p1X2.draw, p1X2.away);
-        const minProb = Math.min(p1X2.home, p1X2.draw, p1X2.away);
-        const isBalanced = (maxProb - minProb) < 15; // Partita molto equilibrata
-        
-        // Calcola probabilità 0-0 e 1-1 (risultati esatti da pareggio)
-        const p00 = poisson(homeXGVal, 0) * poisson(awayXGVal, 0) * 100;
-        const p11 = poisson(homeXGVal, 1) * poisson(awayXGVal, 1) * 100;
-        const pDrawScores = p00 + p11; // Probabilità combinata 0-0 o 1-1
-        
-        // Calcola multigol squadre (prob di segnare 0 gol)
-        const pHome0 = poisson(homeXGVal, 0) * 100;
-        const pAway0 = poisson(awayXGVal, 0) * 100;
-        const lowScoringMatch = pHome0 > 25 || pAway0 > 25; // Almeno una squadra ha alta prob di 0 gol
-        
-        // Under 2.5 consigliato?
-        const pUnder25Calc = 100 - pOver25;
-        const underSuggested = pUnder25Calc > 50;
-        
-        // SCORE X: Somma ponderata dei fattori
-        let xScore = 0;
-        
-        // Base: probabilità X
-        xScore += p1X2.draw * 2; // Peso 2x
-        
-        // Equilibrio 1X2
-        if (isBalanced) xScore += 15;
-        else if ((maxProb - minProb) < 20) xScore += 10;
-        
-        // Risultati esatti pareggio (0-0, 1-1)
-        if (pDrawScores >= 18) xScore += 20; // 0-0 o 1-1 molto probabili
-        else if (pDrawScores >= 12) xScore += 12;
-        else if (pDrawScores >= 8) xScore += 6;
-        
-        // Under consigliato
-        if (underSuggested && totXGVal < 2.2) xScore += 15;
-        else if (underSuggested) xScore += 8;
-        
-        // Basso xG totale
-        if (totXGVal < 1.8) xScore += 12;
-        else if (totXGVal < 2.2) xScore += 6;
-        
-        // Multigol bassi (squadre non segnano)
-        if (lowScoringMatch) xScore += 10;
-        
-        // DECISIONE: Aggiungi X solo se score >= 55 (soglia stringente per pareggi)
-        if (xScore >= 55 && p1X2.draw >= 23) {
-          picks.pareggi.push({
-            ...matchInfo,
-            match,
-            bet: 'X',
-            prob: p1X2.draw,
-            confidence: xScore >= 75 ? 'high' : (xScore >= 65 ? 'medium' : 'low'),
-            dataQuality,
-            xScore: xScore.toFixed(0), // Score per debug
-            pDrawScores: pDrawScores.toFixed(1), // Prob 0-0 + 1-1
-            under: underSuggested
-          });
-        }
-        
-        // Aggiungi 2 (Vittoria Ospite) se probabilità >= 45% (in trasferta è più difficile)
-        if (p1X2.away >= 45) {
-          picks.vittorieOspite.push({
-            ...matchInfo,
-            match,
-            bet: '2',
-            prob: p1X2.away,
-            confidence: p1X2.away >= 65 ? 'high' : (p1X2.away >= 55 ? 'medium' : 'low'),
-            dataQuality
-          });
-        }
-        
-        // Aggiungi GG se probabilità >= 52%
-        if (pBTTS >= 52) {
-          picks.gg.push({
-            ...matchInfo,
-            match,
-            bet: 'GG',
-            prob: pBTTS,
-            confidence: pBTTS >= 70 ? 'high' : (pBTTS >= 60 ? 'medium' : 'low'),
-            dataQuality
-          });
-        }
-        
-        // Aggiungi Over 2.5 se probabilità >= 50%
-        if (pOver25 >= 50) {
-          picks.over25.push({
-            ...matchInfo,
-            match,
-            bet: 'Over 2.5',
-            prob: pOver25,
-            confidence: pOver25 >= 70 ? 'high' : (pOver25 >= 60 ? 'medium' : 'low'),
-            dataQuality
-          });
-        }
-        
-        // Aggiungi Over 1.5 se probabilità >= 65%
-        if (pOver15 >= 65) {
-          picks.over1T.push({
-            ...matchInfo,
-            match,
-            bet: 'Over 1.5',
-            prob: pOver15,
-            confidence: pOver15 >= 82 ? 'high' : (pOver15 >= 72 ? 'medium' : 'low'),
-            dataQuality
-          });
-        }
-      });
-      
+      // === allAdvices ora usato solo per i raddoppi (le categorie sono già popolate nel ciclo principale) ===
       console.log(`📊 calculateDailyPicks: Processate ${processedCount}, Skipped ${skippedCount}, Errori ${errorCount}`);
       
-      // === ORDINA E PRENDI I TOP 20 PER OGNI CATEGORIA ===
-      // Ordina per confidence (high > medium) e poi per probabilità
-      const sortByConfidence = (a, b) => {
-        const confScore = { high: 3, medium: 2, low: 1 };
-        if (confScore[a.confidence] !== confScore[b.confidence]) {
-          return confScore[b.confidence] - confScore[a.confidence];
-        }
-        return b.prob - a.prob;
-      };
+      // === ORDINA PER PROBABILITÀ DECRESCENTE (senza limite) ===
+      const sortByProb = (a, b) => b.prob - a.prob;
       
-      picks.gg = picks.gg.sort(sortByConfidence).slice(0, 20);
-      picks.over25 = picks.over25.sort(sortByConfidence).slice(0, 20);
-      picks.over1T = picks.over1T.sort(sortByConfidence).slice(0, 20);
-      picks.vittorieCasa = picks.vittorieCasa.sort(sortByConfidence).slice(0, 20);
-      picks.vittorieOspite = picks.vittorieOspite.sort(sortByConfidence).slice(0, 20);
-      picks.pareggi = picks.pareggi.sort(sortByConfidence).slice(0, 20);
+      picks.gg = picks.gg.sort(sortByProb);
+      picks.ng = picks.ng.sort(sortByProb);
+      picks.over25 = picks.over25.sort(sortByProb);
+      picks.under25 = picks.under25.sort(sortByProb);
+      picks.over15 = picks.over15.sort(sortByProb);
+      picks.over35 = picks.over35.sort(sortByProb);
+      picks.vittorieCasa = picks.vittorieCasa.sort(sortByProb);
+      picks.vittorieOspite = picks.vittorieOspite.sort(sortByProb);
+      picks.pareggi = picks.pareggi.sort(sortByProb);
+      picks.doppiaChanceCasa = picks.doppiaChanceCasa.sort(sortByProb);
+      picks.doppiaChanceOspite = picks.doppiaChanceOspite.sort(sortByProb);
       
       // === COSTRUISCI RADDOPPI ===
       picks.raddoppi = buildRaddoppi(safeBets);
@@ -8452,8 +8361,8 @@
               <div style="font-size: 0.7rem; color: var(--text-dark);">Campionati</div>
             </div>
             <div style="background: var(--bg-card-light); padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border);">
-              <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-gold);">${picks.gg.length + picks.over25.length + picks.over1T.length + picks.vittorieCasa.length + picks.vittorieOspite.length + picks.pareggi.length}</div>
-              <div style="font-size: 0.7rem; color: var(--text-dark);">Picks trovati</div>
+              <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-gold);">${picks.gg.length + picks.over25.length + picks.over15.length + picks.vittorieCasa.length + picks.vittorieOspite.length + picks.pareggi.length + picks.doppiaChanceCasa.length + picks.doppiaChanceOspite.length + picks.under25.length + picks.ng.length + picks.over35.length}</div>
+              <div style="font-size: 0.7rem; color: var(--text-dark);">Picks totali</div>
             </div>
           </div>
         </div>
@@ -8467,103 +8376,64 @@
     
     // === NUOVA FUNZIONE: Lista Pronostici AI ===
     function renderPronosticiAIList(picks) {
-      // Combina tutti i pronostici in una lista unica
+      const MIN_PROB = 84;
+      
+      // Configurazione mercati con icone e colori
+      const marketConfig = {
+        '1X':       { icon: '🏠🤝', color: 'var(--accent-emerald)', label: '1X' },
+        'X2':       { icon: '🤝✈️', color: 'var(--accent-purple)', label: 'X2' },
+        'Over 1.5': { icon: '📈', color: '#0891b2', label: 'Over 1.5' },
+        'Over 2.5': { icon: '🔥', color: 'var(--accent-red)', label: 'Over 2.5' },
+        'Over 3.5': { icon: '💥', color: '#dc2626', label: 'Over 3.5' },
+        'Under 2.5':{ icon: '📉', color: '#6366f1', label: 'Under 2.5' },
+        '1':        { icon: '🏠', color: 'var(--accent-green)', label: '1' },
+        '2':        { icon: '✈️', color: 'var(--accent-blue)', label: '2' },
+        'GG':       { icon: '⚽', color: 'var(--accent-cyan)', label: 'GG' },
+        'NG':       { icon: '🛡️', color: '#78716c', label: 'NG' },
+        'X':        { icon: '🎲', color: 'var(--accent-purple)', label: 'X' }
+      };
+      
+      // Mappa categorie picks → nome mercato
+      const categoryMap = [
+        { arr: picks.doppiaChanceCasa || [], bet: '1X' },
+        { arr: picks.doppiaChanceOspite || [], bet: 'X2' },
+        { arr: picks.over15 || [], bet: 'Over 1.5' },
+        { arr: picks.over25 || [], bet: 'Over 2.5' },
+        { arr: picks.over35 || [], bet: 'Over 3.5' },
+        { arr: picks.under25 || [], bet: 'Under 2.5' },
+        { arr: picks.vittorieCasa || [], bet: '1' },
+        { arr: picks.vittorieOspite || [], bet: '2' },
+        { arr: picks.gg || [], bet: 'GG' },
+        { arr: picks.ng || [], bet: 'NG' },
+        { arr: picks.pareggi || [], bet: 'X' },
+        { arr: picks.over1T || [], bet: 'Over 1.5' }
+      ];
+      
+      // Combina tutti i pronostici >84% da TUTTE le categorie
       const allPicks = [];
+      const seen = new Set(); // Evita duplicati (stessa partita + stesso mercato)
       
-      // Aggiungi GG
-      picks.gg.forEach(p => {
-        if (p.prob > 84) {
-          allPicks.push({
-            match: p.match,
-            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
-            time: p.time,
-            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: 'GG',
-            prob: p.prob,
-            icon: '⚽',
-            color: 'var(--accent-cyan)'
-          });
-        }
-      });
-      
-      // Aggiungi Over 2.5
-      picks.over25.forEach(p => {
-        if (p.prob > 84) {
-          allPicks.push({
-            match: p.match,
-            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
-            time: p.time,
-            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: 'Over 2.5',
-            prob: p.prob,
-            icon: '🔥',
-            color: 'var(--accent-red)'
-          });
-        }
-      });
-      
-      // Aggiungi Over 1.5
-      (picks.over1T || []).forEach(p => {
-        if (p.prob > 84) {
-          allPicks.push({
-            match: p.match,
-            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
-            time: p.time,
-            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: 'Over 1.5',
-            prob: p.prob,
-            icon: '📈',
-            color: 'var(--accent-emerald)'
-          });
-        }
-      });
-      
-      // Aggiungi Vittorie Casa (1)
-      picks.vittorieCasa.forEach(p => {
-        if (p.prob > 84) {
-          allPicks.push({
-            match: p.match,
-            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
-            time: p.time,
-            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: '1',
-            prob: p.prob,
-            icon: '🏠',
-            color: 'var(--accent-green)'
-          });
-        }
-      });
-      
-      // Aggiungi Vittorie Ospite (2)
-      picks.vittorieOspite.forEach(p => {
-        if (p.prob > 84) {
-          allPicks.push({
-            match: p.match,
-            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
-            time: p.time,
-            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: '2',
-            prob: p.prob,
-            icon: '✈️',
-            color: 'var(--accent-blue)'
-          });
-        }
-      });
-      
-      // Aggiungi Pareggi (X)
-      picks.pareggi.forEach(p => {
-        if (p.prob > 84) {
-          allPicks.push({
-            match: p.match,
-            league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
-            time: p.time,
-            teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: 'X',
-            prob: p.prob,
-            icon: '🎲',
-            color: 'var(--accent-purple)'
-          });
-        }
+      categoryMap.forEach(({ arr, bet }) => {
+        arr.forEach(p => {
+          if (p.prob > MIN_PROB) {
+            const matchId = p.match?.id || p.matchName;
+            const key = `${matchId}_${bet}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              const cfg = marketConfig[bet] || { icon: '📊', color: 'var(--accent-cyan)', label: bet };
+              allPicks.push({
+                match: p.match,
+                league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
+                time: p.time,
+                teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
+                pick: cfg.label,
+                prob: p.prob,
+                icon: cfg.icon,
+                color: cfg.color
+              });
+            }
+          }
+        });
       });
       
       // Ordina per probabilità decrescente
@@ -8573,20 +8443,30 @@
         return `
           <div class="panel" style="margin-bottom: 20px; text-align: center; padding: 30px;">
             <div style="font-size: 2.5rem; margin-bottom: 12px;">🤖</div>
-            <div style="font-size: 1rem; color: var(--text-gray);">Nessun pronostico AI con probabilità superiore all'84%</div>
-            <div style="font-size: 0.8rem; color: var(--text-dark); margin-top: 8px;">Carica le partite per vedere i consigli ad alta affidabilità</div>
+            <div style="font-size: 1rem; color: var(--text-gray);">Nessun pronostico AI con probabilità superiore all'${MIN_PROB}%</div>
+            <div style="font-size: 0.8rem; color: var(--text-dark); margin-top: 8px;">Carica le partite per vedere i pronostici ad alta affidabilità</div>
           </div>
         `;
       }
       
+      // Conta per tipo di mercato
+      const marketCounts = {};
+      allPicks.forEach(p => { marketCounts[p.pick] = (marketCounts[p.pick] || 0) + 1; });
+      const marketSummary = Object.entries(marketCounts).map(([k, v]) => `${k}: ${v}`).join(' | ');
+      
       return `
         <div class="panel" style="margin-bottom: 20px;">
           <div class="panel-title" style="display: flex; align-items: center; justify-content: space-between;">
-            <span>🤖 Pronostici AI Premium (&gt;84%)</span>
+            <span>🤖 Pronostici AI Premium (&gt;${MIN_PROB}%)</span>
             <span style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">${allPicks.length} PICKS</span>
           </div>
-          <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">
-            Pronostici con probabilità &gt;84% basati su xG e statistiche
+          <div style="font-size: 0.75rem; color: var(--text-gray); margin-bottom: 12px;">
+            Tutti i mercati con probabilità &gt;${MIN_PROB}% basati su xG e statistiche avanzate
+          </div>
+          <div style="font-size: 0.7rem; color: var(--text-dark); margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 8px;">
+            ${Object.entries(marketCounts).map(([k, v]) => `
+              <span style="background: var(--bg-input); padding: 3px 10px; border-radius: 8px; font-weight: 600;">${k} <span style="color: var(--accent-cyan);">${v}</span></span>
+            `).join('')}
           </div>
           <div class="pronostici-ai-list">
             ${allPicks.map(p => `
@@ -8602,7 +8482,7 @@
                   <div class="pronostico-ai-pick" style="background: ${p.color};">
                     ${p.icon} ${p.pick}
                   </div>
-                  <div class="pronostico-ai-prob">${p.prob.toFixed(0)}%</div>
+                  <div class="pronostico-ai-prob" style="${p.prob >= 90 ? 'color: var(--accent-green); font-weight: 800;' : ''}">${p.prob.toFixed(0)}%</div>
                 </div>
               </div>
             `).join('')}
