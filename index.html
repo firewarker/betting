@@ -3596,10 +3596,10 @@
       },
       // STORICO VARIAZIONI PRONOSTICI
       predictionHistory: JSON.parse(localStorage.getItem('bp2_prediction_history') || '{}'),
-      // === ODDS API DATA (non tocca l'algoritmo, solo display) ===
+      // ODDS API — solo per display quote e filtro value bet
       oddsData: new Map(),
       oddsLoaded: false,
-      // === STATS CACHE (salva xG dal dettaglio per riusarli nella home) ===
+      // STATS CACHE — xG dal dettaglio riusati nella home
       statsCache: new Map()
     };
 
@@ -4089,9 +4089,17 @@
         // Stima xG base
         let homeXG = 1.55, awayXG = 1.25;
         let homeFormMultiplier = 1.0, awayFormMultiplier = 1.0;
-        let dataQuality = 'low'; // low, medium, high
+        let dataQuality = 'low'; // low, medium, high, full
         
-        if (fsMatch) {
+        // PRIORITÀ 1: Stats Cache (dal dettaglio già analizzato = dati API completi)
+        const cached = state.statsCache.get(match.id);
+        if (cached && cached.quality === 'full') {
+          homeXG = cached.homeXG;
+          awayXG = cached.awayXG;
+          dataQuality = 'full';
+        }
+        // PRIORITÀ 2: FootyStats (stima basata su dati storici)
+        else if (fsMatch) {
           if (fsMatch.home_xg) {
             homeXG = fsMatch.home_xg;
             dataQuality = 'high';
@@ -4126,13 +4134,13 @@
           }
         }
         
-        // Applica moltiplicatori forma
-        homeXG *= homeFormMultiplier;
-        awayXG *= awayFormMultiplier;
-        
-        // Home advantage (realistico: studi mostrano ~+6% casa, ~-5% trasferta)
-        homeXG *= 1.06;
-        awayXG *= 0.95;
+        // Applica moltiplicatori forma e home advantage (solo se NON da cache)
+        if (dataQuality !== 'full') {
+          homeXG *= homeFormMultiplier;
+          awayXG *= awayFormMultiplier;
+          homeXG *= 1.06;
+          awayXG *= 0.95;
+        }
         
         // Validazione anti-NaN
         if (isNaN(homeXG) || homeXG < 0) homeXG = 1.2;
@@ -4247,6 +4255,9 @@
         if (!aiPick || aiProb < minThreshold) return;
         
         // Salva il consiglio AI
+        const matchOdds = findOddsForMatch(match);
+        const valueBet = detectValueBet(aiPick, aiProb, matchOdds);
+        
         allAdvices.push({
           ...matchInfo,
           aiPick,
@@ -4255,7 +4266,9 @@
           dataQuality,
           p1X2,
           pOver25,
-          pBTTS
+          pBTTS,
+          odds: matchOdds,
+          valueBet
         });
         
         // === COSTRUISCI RADDOPPI (solo campionati top) ===
@@ -4280,7 +4293,7 @@
       // Questa logica prende TUTTE le probabilità dalla sezione "PRONOSTICI AI"
       // e le raggruppa per categoria (1, X, 2, GG, Over 2.5)
       allAdvices.forEach(advice => {
-        const { p1X2, pOver25, pBTTS, matchInfo, match, confidence, dataQuality } = advice;
+        const { p1X2, pOver25, pBTTS, matchInfo, match, confidence, dataQuality, odds: advOdds, valueBet: advVB } = advice;
         
         // Aggiungi 1 (Vittoria Casa) se probabilità >= 50%
         if (p1X2.home >= 50) {
@@ -4290,7 +4303,9 @@
             bet: '1',
             prob: p1X2.home,
             confidence: p1X2.home >= 70 ? 'high' : (p1X2.home >= 60 ? 'medium' : 'low'),
-            dataQuality
+            dataQuality,
+            odds: advOdds,
+            valueBet: detectValueBet('1', p1X2.home, advOdds)
           });
         }
         
@@ -4363,7 +4378,9 @@
             dataQuality,
             xScore: xScore.toFixed(0), // Score per debug
             pDrawScores: pDrawScores.toFixed(1), // Prob 0-0 + 1-1
-            under: underSuggested
+            under: underSuggested,
+            odds: advOdds,
+            valueBet: detectValueBet('X', p1X2.draw, advOdds)
           });
         }
         
@@ -4375,7 +4392,9 @@
             bet: '2',
             prob: p1X2.away,
             confidence: p1X2.away >= 65 ? 'high' : (p1X2.away >= 55 ? 'medium' : 'low'),
-            dataQuality
+            dataQuality,
+            odds: advOdds,
+            valueBet: detectValueBet('2', p1X2.away, advOdds)
           });
         }
         
@@ -4387,7 +4406,9 @@
             bet: 'GG',
             prob: pBTTS,
             confidence: pBTTS >= 70 ? 'high' : (pBTTS >= 60 ? 'medium' : 'low'),
-            dataQuality
+            dataQuality,
+            odds: advOdds,
+            valueBet: detectValueBet('GG', pBTTS, advOdds)
           });
         }
         
@@ -4399,7 +4420,9 @@
             bet: 'Over 2.5',
             prob: pOver25,
             confidence: pOver25 >= 70 ? 'high' : (pOver25 >= 60 ? 'medium' : 'low'),
-            dataQuality
+            dataQuality,
+            odds: advOdds,
+            valueBet: detectValueBet('Over 2.5', pOver25, advOdds)
           });
         }
       });
@@ -5133,8 +5156,10 @@
 
     // === DATA LOADING ===
     // ============================================
-    // THE ODDS API - Quote Reali Bookmaker (NON modifica l'algoritmo)
+    // THE ODDS API — Quote Bookmaker (solo display + value bet filter)
+    // NON modifica le probabilità dell'algoritmo
     // ============================================
+    
     const ODDS_SPORT_MAP = {
       39: 'soccer_epl', 140: 'soccer_spain_la_liga', 135: 'soccer_italy_serie_a',
       78: 'soccer_germany_bundesliga', 61: 'soccer_france_ligue_one',
@@ -5143,137 +5168,214 @@
       2: 'soccer_uefa_champs_league', 3: 'soccer_uefa_europa_league',
       848: 'soccer_uefa_europa_conference_league',
       144: 'soccer_belgium_first_div', 203: 'soccer_turkey_super_league',
-      136: 'soccer_italy_serie_b'
+      136: 'soccer_italy_serie_b', 179: 'soccer_spl',
+      40: 'soccer_efl_champ', 79: 'soccer_germany_bundesliga2',
+      141: 'soccer_spain_segunda_division', 62: 'soccer_france_ligue_two'
     };
     
-    async function callOddsAPI(sport, markets = 'h2h,totals') {
+    async function callOddsAPI(sport) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const tid = setTimeout(() => controller.abort(), 6000);
       try {
         const res = await fetch(
-          `${CONFIG.ODDS_API.baseURL}/sports/${sport}/odds/?apiKey=${CONFIG.ODDS_API.key}&regions=eu&markets=${markets}&oddsFormat=decimal`,
+          `${CONFIG.ODDS_API.baseURL}/sports/${sport}/odds/?apiKey=${CONFIG.ODDS_API.key}&regions=eu&markets=h2h,totals&oddsFormat=decimal`,
           { signal: controller.signal }
         );
-        clearTimeout(timeoutId);
+        clearTimeout(tid);
         if (!res.ok) return null;
         const data = await res.json();
         const rem = res.headers.get('x-requests-remaining');
-        if (rem) console.log(`🎰 Odds API: ${rem} remaining`);
+        if (rem) console.log(`🎰 Odds API: ${rem} richieste rimanenti`);
         return data;
-      } catch (e) {
-        clearTimeout(timeoutId);
+      } catch(e) {
+        clearTimeout(tid);
         return null;
       }
     }
     
     async function loadOddsForMatches() {
-      const leagueIds = [...new Set(state.matches.map(m => m.league?.id).filter(Boolean))];
-      const sportKeys = [...new Set(leagueIds.map(id => ODDS_SPORT_MAP[id]).filter(Boolean))];
-      if (sportKeys.length === 0) return;
-      
-      const results = await Promise.allSettled(
-        sportKeys.slice(0, 5).map(sport => callOddsAPI(sport, 'h2h,totals'))
-      );
-      
-      let total = 0;
-      results.forEach(r => {
-        if (r.status !== 'fulfilled' || !Array.isArray(r.value)) return;
-        r.value.forEach(event => {
-          try {
-            const homeKey = event.home_team?.toLowerCase().trim();
-            const awayKey = event.away_team?.toLowerCase().trim();
-            if (!homeKey || !awayKey) return;
-            
-            const odds = { h2h: null, totals: null };
-            event.bookmakers?.forEach(bm => {
-              bm.markets?.forEach(market => {
-                if (market.key === 'h2h') {
-                  const h = market.outcomes?.find(o => o.name === event.home_team);
-                  const d = market.outcomes?.find(o => o.name === 'Draw');
-                  const a = market.outcomes?.find(o => o.name === event.away_team);
-                  if (h && d && a) {
-                    if (!odds.h2h) odds.h2h = { home: [], draw: [], away: [] };
-                    odds.h2h.home.push(h.price);
-                    odds.h2h.draw.push(d.price);
-                    odds.h2h.away.push(a.price);
+      try {
+        const sportKeys = [...new Set(
+          state.matches.map(m => ODDS_SPORT_MAP[m.league?.id]).filter(Boolean)
+        )];
+        if (sportKeys.length === 0) return;
+        
+        console.log(`🎰 Caricamento quote per ${sportKeys.length} campionati...`);
+        const results = await Promise.allSettled(
+          sportKeys.slice(0, 5).map(s => callOddsAPI(s))
+        );
+        
+        let count = 0;
+        results.forEach(r => {
+          if (r.status !== 'fulfilled' || !Array.isArray(r.value)) return;
+          r.value.forEach(ev => {
+            try {
+              const hk = ev.home_team?.toLowerCase().trim();
+              const ak = ev.away_team?.toLowerCase().trim();
+              if (!hk || !ak) return;
+              
+              const h2hData = { home: [], draw: [], away: [] };
+              const totData = { over: [], under: [], point: 2.5 };
+              let hasH2H = false, hasTot = false;
+              
+              (ev.bookmakers || []).forEach(bm => {
+                (bm.markets || []).forEach(mkt => {
+                  if (mkt.key === 'h2h') {
+                    const hO = mkt.outcomes?.find(o => o.name === ev.home_team);
+                    const dO = mkt.outcomes?.find(o => o.name === 'Draw');
+                    const aO = mkt.outcomes?.find(o => o.name === ev.away_team);
+                    if (hO && dO && aO) {
+                      h2hData.home.push(hO.price);
+                      h2hData.draw.push(dO.price);
+                      h2hData.away.push(aO.price);
+                      hasH2H = true;
+                    }
                   }
-                }
-                if (market.key === 'totals') {
-                  const over = market.outcomes?.find(o => o.name === 'Over');
-                  const under = market.outcomes?.find(o => o.name === 'Under');
-                  if (over && under) {
-                    if (!odds.totals) odds.totals = { over: [], under: [], point: over.point || 2.5 };
-                    odds.totals.over.push(over.price);
-                    odds.totals.under.push(under.price);
+                  if (mkt.key === 'totals') {
+                    const ov = mkt.outcomes?.find(o => o.name === 'Over');
+                    const un = mkt.outcomes?.find(o => o.name === 'Under');
+                    if (ov && un) {
+                      totData.over.push(ov.price);
+                      totData.under.push(un.price);
+                      totData.point = ov.point || 2.5;
+                      hasTot = true;
+                    }
                   }
-                }
+                });
               });
-            });
-            
-            const avg = arr => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
-            const imp = odd => odd ? (1 / odd) * 100 : null;
-            const processed = {};
-            
-            if (odds.h2h) {
-              const aH = avg(odds.h2h.home), aD = avg(odds.h2h.draw), aA = avg(odds.h2h.away);
-              const rawT = imp(aH) + imp(aD) + imp(aA);
-              const margin = rawT - 100;
-              processed.h2h = {
-                homeOdds: aH?.toFixed(2), drawOdds: aD?.toFixed(2), awayOdds: aA?.toFixed(2),
-                homeProb: rawT > 0 ? (imp(aH) - margin/3) : null,
-                drawProb: rawT > 0 ? (imp(aD) - margin/3) : null,
-                awayProb: rawT > 0 ? (imp(aA) - margin/3) : null,
-                margin: margin?.toFixed(1)
-              };
-            }
-            if (odds.totals) {
-              const aO = avg(odds.totals.over), aU = avg(odds.totals.under);
-              const rawT = imp(aO) + imp(aU), marg = rawT - 100;
-              processed.totals = {
-                point: odds.totals.point,
-                overOdds: aO?.toFixed(2), underOdds: aU?.toFixed(2),
-                overProb: rawT > 0 ? (imp(aO) - marg/2) : null,
-                underProb: rawT > 0 ? (imp(aU) - marg/2) : null
-              };
-            }
-            
-            const k1 = `${homeKey}_${awayKey}`;
-            const k2 = homeKey.replace(/\s+/g,'') + '_' + awayKey.replace(/\s+/g,'');
-            state.oddsData.set(k1, processed);
-            state.oddsData.set(k2, processed);
-            total++;
-          } catch(e) { /* skip event */ }
+              
+              const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+              const imp = odd => (1 / odd) * 100;
+              const processed = {};
+              
+              if (hasH2H && h2hData.home.length > 0) {
+                const aH = avg(h2hData.home), aD = avg(h2hData.draw), aA = avg(h2hData.away);
+                const rawT = imp(aH) + imp(aD) + imp(aA);
+                const mg = rawT - 100;
+                processed.h2h = {
+                  homeOdds: aH.toFixed(2), drawOdds: aD.toFixed(2), awayOdds: aA.toFixed(2),
+                  homeProb: imp(aH) - mg / 3, drawProb: imp(aD) - mg / 3, awayProb: imp(aA) - mg / 3,
+                  margin: mg.toFixed(1),
+                  bookmakers: h2hData.home.length
+                };
+              }
+              if (hasTot && totData.over.length > 0) {
+                const aO = avg(totData.over), aU = avg(totData.under);
+                const rawT = imp(aO) + imp(aU), mg = rawT - 100;
+                processed.totals = {
+                  point: totData.point,
+                  overOdds: aO.toFixed(2), underOdds: aU.toFixed(2),
+                  overProb: imp(aO) - mg / 2, underProb: imp(aU) - mg / 2
+                };
+              }
+              
+              if (processed.h2h || processed.totals) {
+                state.oddsData.set(`${hk}_${ak}`, processed);
+                state.oddsData.set(hk.replace(/\s+/g, '') + '_' + ak.replace(/\s+/g, ''), processed);
+                count++;
+              }
+            } catch(e) { /* skip */ }
+          });
         });
-      });
-      
-      state.oddsLoaded = total > 0;
-      console.log(`🎰 Odds caricate: ${total} partite`);
+        
+        state.oddsLoaded = count > 0;
+        console.log(`🎰 Quote caricate: ${count} partite con odds reali`);
+      } catch(e) {
+        console.warn('🎰 Odds loading failed:', e.message);
+      }
     }
     
+    // Cerca quote per una partita (safe, non lancia mai eccezioni)
     function findOddsForMatch(match) {
       try {
         if (!match?.home?.name || !match?.away?.name || state.oddsData.size === 0) return null;
         const h = match.home.name.toLowerCase(), a = match.away.name.toLowerCase();
-        const keys = [
-          `${h}_${a}`, h.replace(/\s+/g,'') + '_' + a.replace(/\s+/g,''),
-          `${h.split(' ')[0]}_${a.split(' ')[0]}`
+        
+        // Match esatto
+        const exactKeys = [
+          `${h}_${a}`,
+          h.replace(/\s+/g, '') + '_' + a.replace(/\s+/g, '')
         ];
-        for (const k of keys) { if (state.oddsData.has(k)) return state.oddsData.get(k); }
-        for (const [key, val] of state.oddsData.entries()) {
-          const parts = key.split('_');
-          const kh = parts[0] || '', ka = parts.slice(1).join('_') || '';
-          if (kh && ka && (h.includes(kh) || kh.includes(h.split(' ')[0])) &&
-              (a.includes(ka) || ka.includes(a.split(' ')[0]))) return val;
+        for (const k of exactKeys) {
+          if (state.oddsData.has(k)) return state.oddsData.get(k);
+        }
+        
+        // Match parziale (prima parola)
+        const hFirst = h.split(' ')[0], aFirst = a.split(' ')[0];
+        if (hFirst.length >= 3 && aFirst.length >= 3) {
+          for (const [key, val] of state.oddsData.entries()) {
+            if (key.includes(hFirst) && key.includes(aFirst)) return val;
+          }
         }
         return null;
       } catch(e) { return null; }
     }
     
     // ============================================
-    // STATS CACHE - Salva xG dal dettaglio per la home
+    // VALUE BET DETECTION — confronto modello vs bookmaker
+    // Se il modello dà prob > odds implied + 5%, è value bet
+    // NON modifica le probabilità, solo FLAG informativo
     // ============================================
+    
+    function detectValueBet(pick, modelProb, matchOdds) {
+      if (!matchOdds || !pick || !modelProb) return null;
+      try {
+        const p = pick.toLowerCase();
+        let impliedProb = null, decimalOdds = null;
+        
+        if (p.includes('over 2.5') && matchOdds.totals) {
+          impliedProb = matchOdds.totals.overProb;
+          decimalOdds = matchOdds.totals.overOdds;
+        } else if (p.includes('under 2.5') && matchOdds.totals) {
+          impliedProb = matchOdds.totals.underProb;
+          decimalOdds = matchOdds.totals.underOdds;
+        } else if (matchOdds.h2h) {
+          if (p.includes('1 (') || p === '1') {
+            impliedProb = matchOdds.h2h.homeProb;
+            decimalOdds = matchOdds.h2h.homeOdds;
+          } else if (p.includes('2 (') || p === '2') {
+            impliedProb = matchOdds.h2h.awayProb;
+            decimalOdds = matchOdds.h2h.awayOdds;
+          } else if (p.includes('x (') || p === 'x' || p.includes('pareggio')) {
+            impliedProb = matchOdds.h2h.drawProb;
+            decimalOdds = matchOdds.h2h.drawOdds;
+          } else if (p.includes('1x')) {
+            impliedProb = matchOdds.h2h.homeProb + matchOdds.h2h.drawProb;
+            decimalOdds = (100 / impliedProb).toFixed(2);
+          } else if (p.includes('x2')) {
+            impliedProb = matchOdds.h2h.drawProb + matchOdds.h2h.awayProb;
+            decimalOdds = (100 / impliedProb).toFixed(2);
+          } else if (p.includes('gg') || p.includes('entrambe')) {
+            // BTTS non è disponibile in h2h/totals standard, skip
+            return null;
+          } else if (p.includes('over 1.5')) {
+            // Over 1.5 non è nel mercato totals standard (è 2.5), skip
+            return null;
+          }
+        }
+        
+        if (impliedProb && !isNaN(impliedProb) && !isNaN(modelProb)) {
+          const edge = modelProb - impliedProb;
+          if (edge >= 5) {
+            return {
+              isValue: true,
+              edge: edge.toFixed(1),
+              impliedProb: impliedProb.toFixed(0),
+              decimalOdds: decimalOdds,
+              rating: edge >= 15 ? '🔥🔥🔥' : edge >= 10 ? '🔥🔥' : '🔥'
+            };
+          }
+        }
+        return null;
+      } catch(e) { return null; }
+    }
+    
+    // ============================================
+    // STATS CACHE — salva xG dal dettaglio per la home
+    // ============================================
+    
     function cacheMatchStats(matchId, homeXG, awayXG) {
-      state.statsCache.set(matchId, { homeXG, awayXG, quality: 'full', timestamp: Date.now() });
+      state.statsCache.set(matchId, { homeXG, awayXG, quality: 'full', ts: Date.now() });
       try {
         const obj = {};
         let c = 0;
@@ -5287,11 +5389,11 @@
         const cached = JSON.parse(localStorage.getItem('bp2_stats_cache') || '{}');
         const now = Date.now();
         Object.entries(cached).forEach(([k, v]) => {
-          if (v.timestamp && (now - v.timestamp) < 12 * 60 * 60 * 1000) {
+          if (v.ts && (now - v.ts) < 12 * 3600 * 1000) {
             state.statsCache.set(parseInt(k) || k, v);
           }
         });
-        if (state.statsCache.size > 0) console.log(`📦 Stats cache: ${state.statsCache.size} matches`);
+        if (state.statsCache.size > 0) console.log(`📦 Cache: ${state.statsCache.size} partite con dati completi`);
       } catch(e) {}
     }
 
@@ -5363,7 +5465,7 @@
         }
         
         // Load FootyStats e poi calcola picks (deve aspettare fsData)
-        loadStatsCache(); // Carica cache dal localStorage
+        loadStatsCache();
         
         callFootyStats('/todays-matches', {}).then(fsData => {
           if (fsData?.data) {
@@ -5381,25 +5483,20 @@
           // Calcola i picks DOPO aver caricato FootyStats
           calculateDailyPicks();
           calculateTraderPicks();
-          render(); // Re-render per aggiornare i consigli
+          render();
         }).catch(e => {
           console.warn('FootyStats load failed:', e);
-          
-          // Calcola picks anche senza FootyStats (con dati base)
           calculateDailyPicks();
           calculateTraderPicks();
           render();
         });
         
-        // ODDS API: carica in background DOPO tutto il resto, non blocca mai
+        // ODDS: carica in background con ritardo, mai blocca nulla
         setTimeout(() => {
           loadOddsForMatches().then(() => {
-            if (state.oddsLoaded) {
-              console.log('🎰 Odds arrivate, aggiorno UI...');
-              render(); // Solo re-render per mostrare le quote, NON ricalcola
-            }
+            if (state.oddsLoaded) render(); // Solo re-render per mostrare le quote
           }).catch(() => {});
-        }, 800);
+        }, 1000);
         
       } catch (e) {
         console.error('Load matches error:', e);
@@ -5753,7 +5850,7 @@
           prob: ai.prob
         });
         
-        // Salva xG in cache per migliorare le home cards
+        // Salva xG in cache → la prossima volta la home card avrà dati precisi
         if (state.analysis.xG) {
           cacheMatchStats(match.id, state.analysis.xG.home, state.analysis.xG.away);
         }
@@ -7970,7 +8067,7 @@
                   <span class="status-dot ${firebaseEnabled ? 'online' : 'offline'}"></span>
                   <span>Cloud</span>
                 </div>
-                <div class="status-item" title="Quote Bookmaker Reali">
+                <div class="status-item" title="Quote Bookmaker Reali (The Odds API)">
                   <span class="status-dot ${state.oddsLoaded ? 'online' : 'offline'}"></span>
                   <span>Odds</span>
                 </div>
@@ -8657,10 +8754,8 @@
             league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
             time: p.time,
             teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: 'GG',
-            prob: p.prob,
-            icon: '⚽',
-            color: 'var(--accent-cyan)'
+            pick: 'GG', prob: p.prob, icon: '⚽', color: 'var(--accent-cyan)',
+            odds: p.odds, valueBet: p.valueBet, dataQuality: p.dataQuality
           });
         }
       });
@@ -8673,10 +8768,8 @@
             league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
             time: p.time,
             teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: 'Over 2.5',
-            prob: p.prob,
-            icon: '🔥',
-            color: 'var(--accent-red)'
+            pick: 'Over 2.5', prob: p.prob, icon: '🔥', color: 'var(--accent-red)',
+            odds: p.odds, valueBet: p.valueBet, dataQuality: p.dataQuality
           });
         }
       });
@@ -8689,10 +8782,8 @@
             league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
             time: p.time,
             teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: '1',
-            prob: p.prob,
-            icon: '🏠',
-            color: 'var(--accent-green)'
+            pick: '1', prob: p.prob, icon: '🏠', color: 'var(--accent-green)',
+            odds: p.odds, valueBet: p.valueBet, dataQuality: p.dataQuality
           });
         }
       });
@@ -8705,10 +8796,8 @@
             league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
             time: p.time,
             teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: '2',
-            prob: p.prob,
-            icon: '✈️',
-            color: 'var(--accent-blue)'
+            pick: '2', prob: p.prob, icon: '✈️', color: 'var(--accent-blue)',
+            odds: p.odds, valueBet: p.valueBet, dataQuality: p.dataQuality
           });
         }
       });
@@ -8721,10 +8810,8 @@
             league: p.league || `${p.match?.league?.country || ''} - ${p.match?.league?.name || ''}`,
             time: p.time,
             teams: p.matchName || `${p.match?.home?.name} vs ${p.match?.away?.name}`,
-            pick: 'X',
-            prob: p.prob,
-            icon: '🎲',
-            color: 'var(--accent-purple)'
+            pick: 'X', prob: p.prob, icon: '🎲', color: 'var(--accent-purple)',
+            odds: p.odds, valueBet: p.valueBet, dataQuality: p.dataQuality
           });
         }
       });
@@ -8749,26 +8836,35 @@
             <span style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">${allPicks.length} PICKS</span>
           </div>
           <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">
-            Pronostici con probabilità ≤84% basati su xG e statistiche
+            Pronostici con probabilità ≤84% basati su xG e statistiche${state.oddsLoaded ? ' + <span style="color:var(--accent-gold);font-weight:600;">quote reali</span>' : ''}
           </div>
           <div class="pronostici-ai-list">
-            ${allPicks.map(p => `
+            ${allPicks.map(p => {
+              const vb = p.valueBet;
+              const hasOdds = p.odds && p.odds.h2h;
+              return `
               <div class="pronostico-ai-item" onclick="selectMatch(${p.match?.id})" style="cursor: pointer;">
                 <div class="pronostico-ai-left">
-                  <div class="pronostico-ai-league">${esc(p.league)}</div>
+                  <div class="pronostico-ai-league">
+                    ${esc(p.league)}
+                    ${p.dataQuality === 'full' ? '<span style="color:var(--accent-green);font-size:0.55rem;margin-left:4px;">✓ FULL</span>' : p.dataQuality === 'high' ? '<span style="color:var(--accent-green);font-size:0.55rem;margin-left:4px;">✓ FS</span>' : ''}
+                  </div>
                   <div class="pronostico-ai-match">
                     <span class="pronostico-ai-time">${p.time}</span>
                     <span class="pronostico-ai-teams">${esc(p.teams)}</span>
                   </div>
+                  ${hasOdds ? `<div style="font-size:0.6rem;color:var(--text-dark);margin-top:2px;">🎰 <span style="color:var(--accent-gold)">${p.odds.h2h.homeOdds}</span> / <span style="color:var(--accent-gold)">${p.odds.h2h.drawOdds}</span> / <span style="color:var(--accent-gold)">${p.odds.h2h.awayOdds}</span>${p.odds.totals ? ` · O${p.odds.totals.point} <span style="color:var(--accent-gold)">${p.odds.totals.overOdds}</span>` : ''}</div>` : ''}
                 </div>
                 <div class="pronostico-ai-right">
+                  ${vb && vb.isValue ? `<div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:2px 6px;border-radius:6px;font-size:0.55rem;font-weight:800;margin-bottom:3px;white-space:nowrap;">💎 VALUE +${vb.edge}% ${vb.rating}</div>` : ''}
                   <div class="pronostico-ai-pick" style="background: ${p.color};">
                     ${p.icon} ${p.pick}
                   </div>
                   <div class="pronostico-ai-prob">${p.prob.toFixed(0)}%</div>
+                  ${vb && vb.isValue && vb.decimalOdds ? `<div style="font-size:0.5rem;color:var(--text-dark);">@${vb.decimalOdds} (${vb.impliedProb}%)</div>` : ''}
                 </div>
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
         </div>
       `;
@@ -8935,7 +9031,10 @@
             const oh = mOdds.h2h, ot = mOdds.totals;
             return `
             <div style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(217,119,6,0.05));border:1px solid rgba(245,158,11,0.25);border-radius:14px;padding:14px;margin-bottom:16px;">
-              <div style="font-size:0.8rem;font-weight:800;color:var(--accent-gold);margin-bottom:10px;display:flex;align-items:center;gap:6px;">🎰 Quote Medie Bookmaker <span style="font-size:0.6rem;font-weight:500;color:var(--text-dark);">(margine ${oh.margin||'?'}%)</span></div>
+              <div style="font-size:0.8rem;font-weight:800;color:var(--accent-gold);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                🎰 Quote Medie Bookmaker
+                <span style="font-size:0.6rem;font-weight:500;color:var(--text-dark);">(${oh.bookmakers||'?'} book · margine ${oh.margin||'?'}%)</span>
+              </div>
               <div style="display:grid;grid-template-columns:repeat(${ot?'4':'3'},1fr);gap:8px;text-align:center;">
                 <div style="background:var(--bg-card);border-radius:10px;padding:8px 6px;">
                   <div style="font-size:0.6rem;color:var(--text-dark);">1</div>
@@ -8958,6 +9057,29 @@
                   <div style="font-size:0.55rem;color:var(--text-muted);">${ot.overProb?ot.overProb.toFixed(0)+'%':''}</div>
                 </div>`:''}
               </div>
+              ${(() => {
+                // Value Bet detection per tutti i mercati principali
+                const vbHome = detectValueBet('1', d.p1X2?.home, mOdds);
+                const vbDraw = detectValueBet('X', d.p1X2?.draw, mOdds);
+                const vbAway = detectValueBet('2', d.p1X2?.away, mOdds);
+                const vbOver = detectValueBet('Over 2.5', d.pOU?.[2.5]?.over, mOdds);
+                const valueBets = [
+                  vbHome && { name: '1 Casa', ...vbHome },
+                  vbDraw && { name: 'X Pareggio', ...vbDraw },
+                  vbAway && { name: '2 Ospite', ...vbAway },
+                  vbOver && { name: 'Over 2.5', ...vbOver }
+                ].filter(Boolean);
+                if (valueBets.length === 0) return '';
+                return '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(245,158,11,0.15);">' +
+                  '<div style="font-size:0.65rem;font-weight:700;color:var(--accent-gold);margin-bottom:6px;">💎 VALUE BET RILEVATI</div>' +
+                  valueBets.map(vb =>
+                    '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;margin-bottom:3px;background:rgba(245,158,11,0.08);border-radius:6px;font-size:0.65rem;">' +
+                    '<span style="color:var(--text-gray);">' + vb.name + ' ' + vb.rating + '</span>' +
+                    '<span style="font-weight:700;color:var(--accent-green);">Modello +' + vb.edge + '% vs Book (' + vb.impliedProb + '%)</span>' +
+                    '</div>'
+                  ).join('') +
+                  '</div>';
+              })()}
             </div>`;
           } catch(e) { return ''; }
         })()}
