@@ -9645,7 +9645,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-opus-4-6',
           max_tokens: 2000,
           tools: [{ type: 'web_search_20250305', name: 'web_search' }],
           messages: [{ role: 'user', content: prompt }]
@@ -9654,23 +9654,31 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
-        throw new Error(`API ${response.status}: ${errText.slice(0,100)}`);
+        throw new Error(`API ${response.status}: ${errText.slice(0,200)}`);
       }
       const data = await response.json();
+      console.log('Oracle raw:', JSON.stringify(data).slice(0,400));
       
-      // Combina tutti i text blocks
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      
+      // Combina tutti i text blocks (inclusi quelli dopo tool_use)
       const fullText = (data.content || [])
         .filter(item => item.type === 'text')
         .map(item => item.text)
         .join('\n');
       
-      // Estrai JSON (anche se dentro markdown code blocks)
-      const jsonMatch = fullText.match(/```(?:json)?\s*([\s\S]*?)```/) || 
-                        fullText.match(/(\{[\s\S]*\})/);
-      if (!jsonMatch) throw new Error('Risposta AI non in formato JSON');
+      if (!fullText) throw new Error('Nessun testo nella risposta AI');
+      console.log('Oracle text:', fullText.slice(0,300));
       
-      const raw = jsonMatch[1] || jsonMatch[0];
-      const parsed = JSON.parse(raw.trim());
+      // Estrai JSON robusto
+      let parsed = null;
+      const mdMatch = fullText.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (mdMatch) { try { parsed = JSON.parse(mdMatch[1].trim()); } catch(e) {} }
+      if (!parsed) {
+        const s = fullText.indexOf('{'); const e2 = fullText.lastIndexOf('}');
+        if (s !== -1 && e2 !== -1) { try { parsed = JSON.parse(fullText.slice(s, e2+1)); } catch(e) {} }
+      }
+      if (!parsed) throw new Error('JSON non trovato: ' + fullText.slice(0,100));
       
       // Normalizza recommendation
       if (!['GIOCA','SKIP','ATTENDI'].includes(parsed.recommendation)) {
