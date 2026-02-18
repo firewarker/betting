@@ -3287,9 +3287,14 @@
     }
     /* GOLD #1 */
     .super-pick-card.rank-1 { 
-      border-color: rgba(245,158,11,0.5); 
-      background: rgba(245,158,11,0.05);
-      box-shadow: 0 0 20px rgba(245,158,11,0.12), inset 0 0 20px rgba(245,158,11,0.03);
+      border-color: rgba(245,158,11,0.6); 
+      background: rgba(245,158,11,0.06);
+      box-shadow: 0 0 24px rgba(245,158,11,0.18), inset 0 0 20px rgba(245,158,11,0.04);
+      animation: oracleFadeIn 0.4s ease, goldPulse 3s ease-in-out infinite;
+    }
+    @keyframes goldPulse {
+      0%, 100% { box-shadow: 0 0 24px rgba(245,158,11,0.18), inset 0 0 20px rgba(245,158,11,0.04); }
+      50% { box-shadow: 0 0 36px rgba(245,158,11,0.32), inset 0 0 24px rgba(245,158,11,0.07); }
     }
     .super-pick-card.rank-1::before { background: linear-gradient(90deg, #f59e0b, #fcd34d, #f59e0b); }
     /* CYAN #2 */
@@ -7412,15 +7417,29 @@
                   <div class="super-pick-market">${pick.market}</div>
                   <div class="super-pick-value">${pick.value}</div>
                   <div class="super-pick-prob ${probClass}">${pick.prob.toFixed(1)}%</div>
-                  <div class="super-pick-confidence ${pick.confidence}">${
-                    pick.confidence === 'high' ? '&#x1F3AF; Alta' : 
-                    pick.confidence === 'medium' ? '&#x2713; Media' : '&#x26A0; Bassa'
-                  }</div>
+                  <div style="display:flex;justify-content:center;gap:5px;align-items:center;margin-top:2px;">
+                    <div class="super-pick-confidence ${pick.confidence}">${
+                      pick.confidence === 'high' ? '&#x1F3AF; Alta' : 
+                      pick.confidence === 'medium' ? '&#x2713; Media' : '&#x26A0; Bassa'
+                    }</div>
+                    ${pick.prob >= 60 ? '<span style="font-size:0.55rem;background:rgba(0,229,160,0.2);color:#00e5a0;padding:1px 5px;border-radius:4px;font-weight:800;">VALUE</span>' : ''}
+                  </div>
                   <div class="super-signals-row">${signalDots}</div>
                 </div>`;
             }).join('')}
           </div>
-          
+
+          <!-- TOP PICK REASONING -->
+          ${picks[0] ? `
+          <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px;">
+            <span style="font-size:1.1rem;flex-shrink:0;">&#x1F947;</span>
+            <div>
+              <div style="font-size:0.72rem;color:#f59e0b;font-weight:800;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px;">Pick principale • ${picks[0].market}</div>
+              <div style="font-size:0.9rem;font-weight:700;color:#e2e8f0;margin-bottom:4px;">${picks[0].value} — ${picks[0].prob.toFixed(1)}%</div>
+              <div style="font-size:0.76rem;color:rgba(148,163,184,0.8);">${picks[0].signalCount} segnali convergenti su ${picks[0].totalSignals} • Convergenza ${(picks[0].convergence*100).toFixed(0)}% • ML accuracy ${(picks[0].mlAccuracy*100).toFixed(0)}%</div>
+            </div>
+          </div>` : ""}
+
           <!-- SUMMARY BAR -->
           <div class="super-algo-summary">
             <div class="super-summary-item">
@@ -7439,9 +7458,17 @@
               <div class="super-summary-num">${picks.length}</div>
               <div class="super-summary-label">&#x1F4CA; Mercati</div>
             </div>
-            <div style="flex:2;font-size:0.71rem;color:rgba(148,163,184,0.5);line-height:1.55;min-width:140px;">
-              Puntini verdi = segnali che confermano il pick. Cliccabili per schedina.
-              L&#39;AI Oracle cerca news live e corregge il ranking se necessario.
+            <div class="super-summary-item">
+              <div class="super-summary-num" style="color:#a78bfa;">${analysisDepth || 0}</div>
+              <div class="super-summary-label">&#x1F9E0; Segnali tot</div>
+            </div>
+            <div class="super-summary-item">
+              <div class="super-summary-num" style="color:#f59e0b;">${picks[0].superScore ? picks[0].superScore.toFixed(0) : '—'}</div>
+              <div class="super-summary-label">&#x1F4B0; SuperScore</div>
+            </div>
+            <div style="flex:2;font-size:0.68rem;color:rgba(148,163,184,0.5);line-height:1.6;min-width:90px;">
+              &#x1F7E2; = segnale attivo &nbsp;|&nbsp; <span style="color:#00e5a0;font-weight:700;">VALUE</span> = prob &gt; 60%<br>
+              &#x1F947; = top pick. Clicca per aggiungere alla schedina.
             </div>
           </div>
           
@@ -10059,9 +10086,16 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       return `
         <div class="analizza-btn-area">
           <div class="back-btn" id="backToMatches" onclick="backToMatches()" style="margin-bottom:0">← Partite</div>
-          <button class="analizza-btn ${state.superAnalysisRunning ? 'loading' : ''}" id="analizzaBtn" onclick="triggerSuperAnalysis()">
-            ${state.superAnalysisRunning ? '&#9203; Analisi in corso...' : '&#128302; ANALIZZA con Super AI'}
-          </button>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+            <button class="analizza-btn ${state.superAnalysisRunning ? 'loading' : ''}" id="analizzaBtn" onclick="triggerSuperAnalysis()">
+              ${state.superAnalysisRunning ? '&#9203; Analisi in corso...' : '&#128302; ANALIZZA con Super AI'}
+            </button>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
+              ${d.h2h && d.h2h.totalMatches >= 3 ? `<span style="font-size:0.6rem;background:rgba(0,229,160,0.12);color:#00e5a0;padding:2px 7px;border-radius:4px;">✔ H2H ${d.h2h.totalMatches} gare</span>` : '<span style="font-size:0.6rem;background:rgba(248,113,113,0.1);color:#f87171;padding:2px 7px;border-radius:4px;">⚠ H2H scarso</span>'}
+              ${d.xG && d.xG.total > 0 ? '<span style="font-size:0.6rem;background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 7px;border-radius:4px;">✔ xG ok</span>' : ''}
+              ${d.homeStats ? '<span style="font-size:0.6rem;background:rgba(139,92,246,0.1);color:#a78bfa;padding:2px 7px;border-radius:4px;">✔ Stats</span>' : ''}
+            </div>
+          </div>
         </div>
         
         ${state.superAnalysis ? renderSuperAnalysis(state.superAnalysis, m) : ''}
@@ -10204,20 +10238,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       <!-- STORICO VARIAZIONI -->
       ${renderHistorySection(m.id)}
       
-        <div class="combo-panel">
-          <div class="combo-title">&#x1F525; Combo Suggerite</div>
-          <div class="combo-grid">
-            ${d.combos.map(c => `
-              <div class="combo-card ${isInSlip(m.id, 'combo_'+c.value) ? 'selected' : ''}" data-market="combo_${c.value}" data-value="${c.value}" data-prob="${c.prob.toFixed(0)}">
-                <div class="combo-value">${c.value}</div>
-                <div class="combo-stats">
-                  <span class="combo-prob">${c.prob.toFixed(0)}%</span>
-                  <span class="combo-odds">@${c.odds}</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
+
         
         <div class="analysis-grid">
           <div class="analysis-card">
