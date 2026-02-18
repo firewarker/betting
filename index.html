@@ -15,50 +15,52 @@
   
   <style>
     :root {
-      /* Colori moderni con alto contrasto */
-      --bg-dark: #f5f7fa;
-      --bg-card: #ffffff;
-      --bg-card-light: #f8fafc;
-      --bg-input: #f1f5f9;
-      --accent-cyan: #0284c7;
+      /* === ORACLE DARK THEME === */
+      --bg-dark: #080c14;
+      --bg-card: #0e1420;
+      --bg-card-light: #111827;
+      --bg-input: #1a2235;
+      --accent-cyan: #00d4ff;
       --accent-blue: #3b82f6;
-      --accent-green: #10b981;
-      --accent-yellow: #f59e0b;
-      --accent-red: #ef4444;
-      --accent-purple: #8b5cf6;
-      --accent-gold: #d97706;
-      --accent-emerald: #059669;
-      --text: #1e293b;
-      --text-white: #0f172a;
-      --text-gray: #64748b;
-      --text-dark: #94a3b8;
-      --border: rgba(0,0,0,0.08);
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-      --shadow-lg: 0 10px 20px rgba(0,0,0,0.1);
-      --glow-cyan: 0 0 24px rgba(2, 132, 199, 0.2);
-      --glow-gold: 0 0 24px rgba(217, 119, 6, 0.2);
+      --accent-green: #00e5a0;
+      --accent-yellow: #fbbf24;
+      --accent-red: #f87171;
+      --accent-purple: #a78bfa;
+      --accent-gold: #f59e0b;
+      --accent-emerald: #10b981;
+      --text: #e2e8f0;
+      --text-white: #f8fafc;
+      --text-gray: #94a3b8;
+      --text-dark: #64748b;
+      --border: rgba(255,255,255,0.07);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
+      --shadow-lg: 0 10px 30px rgba(0,0,0,0.6);
+      --glow-cyan: 0 0 24px rgba(0,212,255,0.25);
+      --glow-gold: 0 0 24px rgba(245,158,11,0.3);
+      --glow-green: 0 0 24px rgba(0,229,160,0.25);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', -apple-system, sans-serif;
       background: var(--bg-dark);
       background-image: 
-        radial-gradient(ellipse at top left, rgba(2,132,199,0.08) 0%, transparent 50%),
-        radial-gradient(ellipse at bottom right, rgba(16,185,129,0.06) 0%, transparent 50%);
+        radial-gradient(ellipse at top left, rgba(0,212,255,0.06) 0%, transparent 55%),
+        radial-gradient(ellipse at bottom right, rgba(0,229,160,0.05) 0%, transparent 55%),
+        radial-gradient(ellipse at center, rgba(245,158,11,0.03) 0%, transparent 60%);
       color: var(--text);
       min-height: 100vh;
       padding-bottom: 100px;
     }
     .header {
-      background: rgba(255, 255, 255, 0.98);
+      background: rgba(8,12,20,0.96);
       backdrop-filter: blur(24px);
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid rgba(0,212,255,0.12);
       padding: 12px 24px;
       position: sticky;
       top: 0;
       z-index: 100;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.5), 0 1px 0 rgba(0,212,255,0.1);
     }
     .header-inner {
       max-width: 1400px;
@@ -3151,6 +3153,344 @@
       .slip-badge { padding: 6px 10px; font-size: 0.7rem; }
     }
 
+    /* === ANALIZZA BUTTON — ORACLE STYLE === */
+    .analizza-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 22px;
+      background: linear-gradient(135deg, #0a1628, #0d1f3c);
+      border: 1px solid rgba(0,212,255,0.4);
+      border-radius: 10px;
+      color: #00d4ff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s;
+      box-shadow: 0 0 16px rgba(0,212,255,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .analizza-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 28px rgba(0,212,255,0.35), 0 4px 20px rgba(0,0,0,0.5);
+      border-color: rgba(0,212,255,0.7);
+      background: linear-gradient(135deg, #0d1f3c, #0a2540);
+      color: #7df4ff;
+    }
+    .analizza-btn.loading {
+      opacity: 0.6;
+      cursor: wait;
+      animation: btnPulse 1.2s infinite;
+    }
+    @keyframes btnPulse { 0%,100%{box-shadow:0 0 16px rgba(0,212,255,0.15)} 50%{box-shadow:0 0 28px rgba(0,212,255,0.4)} }
+    .analizza-btn-area {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    /* === SUPER ALGORITHM PANEL — ORACLE === */
+    .super-algo-panel {
+      background: linear-gradient(145deg, #04070f, #080d1a, #060c18);
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 
+        0 0 0 1px rgba(245,158,11,0.08),
+        0 8px 40px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(0,212,255,0.07),
+        0 0 60px rgba(0,212,255,0.04);
+      animation: oracleFadeIn 0.4s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .super-algo-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,212,255,0.5), rgba(245,158,11,0.4), transparent);
+    }
+    @keyframes oracleFadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .super-algo-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 22px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(0,212,255,0.1);
+    }
+    .super-algo-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(245,158,11,0.1));
+      border: 1px solid rgba(0,212,255,0.3);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+      box-shadow: 0 0 20px rgba(0,212,255,0.15);
+    }
+    .super-algo-title-group { flex: 1; }
+    .super-algo-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #00d4ff, #f59e0b, #00e5a0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+      letter-spacing: 0.3px;
+    }
+    .super-algo-subtitle { font-size: 0.73rem; color: rgba(148,163,184,0.7); }
+    .super-algo-badge {
+      padding: 5px 14px;
+      background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(0,212,255,0.1));
+      border: 1px solid rgba(245,158,11,0.4);
+      border-radius: 20px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      color: #f59e0b;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    /* === PICKS GRID === */
+    .super-picks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .super-pick-card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 14px 12px;
+      text-align: center;
+      transition: all 0.2s;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .super-pick-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+    /* GOLD #1 */
+    .super-pick-card.rank-1 { 
+      border-color: rgba(245,158,11,0.5); 
+      background: rgba(245,158,11,0.05);
+      box-shadow: 0 0 20px rgba(245,158,11,0.12), inset 0 0 20px rgba(245,158,11,0.03);
+    }
+    .super-pick-card.rank-1::before { background: linear-gradient(90deg, #f59e0b, #fcd34d, #f59e0b); }
+    /* CYAN #2 */
+    .super-pick-card.rank-2 { 
+      border-color: rgba(0,212,255,0.35);
+      background: rgba(0,212,255,0.04);
+      box-shadow: 0 0 15px rgba(0,212,255,0.1);
+    }
+    .super-pick-card.rank-2::before { background: linear-gradient(90deg, #00d4ff, #67e8f9, #00d4ff); }
+    /* GREEN #3 */
+    .super-pick-card.rank-3 { 
+      border-color: rgba(0,229,160,0.35);
+      background: rgba(0,229,160,0.04);
+    }
+    .super-pick-card.rank-3::before { background: linear-gradient(90deg, #00e5a0, #34d399, #00e5a0); }
+    /* Others */
+    .super-pick-card.rank-other {
+      border-color: rgba(255,255,255,0.07);
+    }
+    .super-pick-card.rank-other::before { background: linear-gradient(90deg, rgba(148,163,184,0.3), rgba(100,116,139,0.3)); }
+    .super-pick-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+      border-color: rgba(0,212,255,0.4);
+    }
+    .super-pick-rank {
+      position: absolute;
+      top: 8px; left: 10px;
+      font-size: 0.62rem;
+      font-weight: 800;
+      color: rgba(148,163,184,0.5);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .super-pick-market {
+      font-size: 0.65rem;
+      color: rgba(148,163,184,0.5);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-top: 10px;
+    }
+    .super-pick-value {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #e2e8f0;
+      margin-bottom: 6px;
+      line-height: 1.2;
+    }
+    .super-pick-prob {
+      font-size: 1.55rem;
+      font-weight: 900;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 4px;
+      letter-spacing: -1px;
+    }
+    .super-pick-prob.prob-high { 
+      color: #00e5a0; 
+      text-shadow: 0 0 16px rgba(0,229,160,0.4);
+    }
+    .super-pick-prob.prob-med { 
+      color: #fbbf24;
+      text-shadow: 0 0 12px rgba(251,191,36,0.3);
+    }
+    .super-pick-prob.prob-low { color: #64748b; }
+    .super-pick-confidence {
+      font-size: 0.63rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 700;
+      display: inline-block;
+    }
+    .super-pick-confidence.high { background: rgba(0,229,160,0.15); color: #00e5a0; }
+    .super-pick-confidence.medium { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .super-pick-confidence.low { background: rgba(100,116,139,0.15); color: #64748b; }
+    .super-signals-row {
+      display: flex;
+      gap: 5px;
+      justify-content: center;
+      margin-top: 7px;
+      flex-wrap: wrap;
+    }
+    .super-signal {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .super-signal.on { background: #00e5a0; box-shadow: 0 0 5px rgba(0,229,160,0.7); }
+    .super-signal.off { background: rgba(255,255,255,0.08); }
+    
+    /* === SUMMARY BOX === */
+    .super-algo-summary {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .super-summary-item { text-align: center; flex: 1; min-width: 70px; }
+    .super-summary-num {
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: #00d4ff;
+      font-family: 'JetBrains Mono', monospace;
+      text-shadow: 0 0 12px rgba(0,212,255,0.4);
+    }
+    .super-summary-label {
+      font-size: 0.63rem;
+      color: rgba(148,163,184,0.55);
+      margin-top: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    /* === LOADING === */
+    .super-loading {
+      text-align: center;
+      padding: 40px 20px;
+      color: rgba(148,163,184,0.7);
+    }
+    .super-loading-spinner {
+      display: inline-block;
+      width: 36px; height: 36px;
+      border: 2px solid rgba(0,212,255,0.15);
+      border-top-color: #00d4ff;
+      border-right-color: #f59e0b;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* === AI ORACLE SECTION === */
+    .super-ai-section {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(0,212,255,0.1);
+    }
+    .super-ai-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+    }
+    .super-ai-live {
+      background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(245,158,11,0.15));
+      border: 1px solid rgba(0,212,255,0.4);
+      color: #00d4ff;
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 2px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    .super-ai-tag {
+      display: inline-block;
+      background: rgba(0,212,255,0.07);
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      color: rgba(148,163,184,0.9);
+    }
+    /* Oracle verdict boxes */
+    .oracle-verdict-box {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 12px 14px;
+      flex: 1;
+      min-width: 90px;
+      text-align: center;
+    }
+    .oracle-news-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 7px 10px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 8px;
+      margin-bottom: 5px;
+      font-size: 0.79rem;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+    .oracle-verdict-text {
+      font-size: 0.86rem;
+      color: #cbd5e1;
+      line-height: 1.65;
+      padding: 12px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 10px;
+      border-left: 2px solid #f59e0b;
+      margin: 10px 0;
+    }
+    
     /* === ADVICE CARD (Consiglio AI per ogni partita) === */
     .advice-grid { display: flex; flex-direction: column; gap: 14px; }
     .advice-card {
@@ -3304,7 +3644,11 @@
         url: 'https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app',
         apiKey: 'AIzaSyDYmw4z8H1F3FoOBkVNjbQrs-GTnpHwSD4',
         authDomain: 'bettingpro2-9f1d9.firebaseapp.com',
-        projectId: 'bettingpro2-9f1d9'
+        databaseURL: 'https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app',
+        projectId: 'bettingpro2-9f1d9',
+        storageBucket: 'bettingpro2-9f1d9.firebasestorage.app',
+        messagingSenderId: '858898850393',
+        appId: '1:858898850393:web:78b6ba896c29921e85c748'
       }
     };
 
@@ -3465,7 +3809,7 @@
       // Torna all'ID locale
       USER_ID = getUserId();
       
-      console.log('👋 Logout effettuato');
+      console.log('&#x1F44B; Logout effettuato');
       render();
     }
     
@@ -3510,7 +3854,7 @@
         authState.email = auth.email;
         USER_ID = getUserId();
         
-        console.log('🔄 Sessione ripristinata:', auth.email);
+        console.log('&#x1F504; Sessione ripristinata:', auth.email);
         return true;
         
       } catch (error) {
@@ -3522,7 +3866,7 @@
     
     // Migra dati locali al cloud dopo registrazione
     async function migrateLocalDataToCloud() {
-      console.log('📤 Migrazione dati locali al cloud...');
+      console.log('&#x1F4E4; Migrazione dati locali al cloud...');
       
       // Salva tutti i dati esistenti con il nuovo USER_ID
       if (state.trackedBets.length > 0) {
@@ -3543,7 +3887,7 @@
     
     // Carica tutti i dati da Firebase
     async function loadAllDataFromFirebase() {
-      console.log('📥 Caricamento dati da Firebase...');
+      console.log('&#x1F4E5; Caricamento dati da Firebase...');
       
       try {
         const [tracked, ml, mlStats, perf] = await Promise.all([
@@ -3639,7 +3983,7 @@
     }
     
     console.log('✅ Firebase REST API configurato');
-    console.log(`👤 User ID: ${USER_ID}`);
+    console.log(`&#x1F464; User ID: ${USER_ID}`);
 
     let state = {
       view: 'leagues', // 'leagues', 'matches', 'analysis', 'performance'
@@ -3728,6 +4072,10 @@
         raddoppio: [],
         singole: []
       },
+      superAnalysis: null,    // Super Algoritmo result (locale)
+      superAIAnalysis: null,  // Analisi AI Claude con news
+      superAnalysisRunning: false,
+      superAIRunning: false,
       // STORICO VARIAZIONI PRONOSTICI
       predictionHistory: JSON.parse(localStorage.getItem('bp2_prediction_history') || '{}')
     };
@@ -3780,7 +4128,7 @@
       }
       
       savePredictionHistory();
-      console.log('📜 Storico:', matchName, changeType, prediction.pick, prediction.prob + '%');
+      console.log('&#x1F4DC; Storico:', matchName, changeType, prediction.pick, prediction.prob + '%');
     }
     
     function savePredictionHistory() {
@@ -3823,14 +4171,14 @@
       if (!history || history.length === 0) {
         return '<div class="history-section">' +
           '<div class="history-header">' +
-            '<div class="history-icon">📜</div>' +
+            '<div class="history-icon">&#x1F4DC;</div>' +
             '<div class="history-title">' +
               '<h3>Storico Variazioni</h3>' +
               '<p>Traccia le variazioni dei pronostici nel tempo</p>' +
             '</div>' +
           '</div>' +
           '<div class="history-empty">' +
-            '📊 <strong>Prima analisi registrata!</strong><br>' +
+            '&#x1F4CA; <strong>Prima analisi registrata!</strong><br>' +
             '<span style="font-size:0.75rem;color:var(--text-dark);">Riapri questa partita tra qualche ora per vedere eventuali variazioni del pronostico.</span>' +
           '</div>' +
         '</div>';
@@ -3875,18 +4223,18 @@
         }
         
         compareHtml = '<div class="history-compare">' +
-          '<div class="history-compare-title">📊 CONFRONTO PRONOSTICI</div>' +
+          '<div class="history-compare-title">&#x1F4CA; CONFRONTO PRONOSTICI</div>' +
           '<div class="history-compare-grid">' +
             '<div class="history-compare-box first">' +
               '<div class="history-compare-label">PRIMA ANALISI</div>' +
-              '<div class="history-compare-time">🕐 ' + first.time + '</div>' +
+              '<div class="history-compare-time">&#x1F550; ' + first.time + '</div>' +
               '<div class="history-compare-pick">' + first.pick + '</div>' +
               '<div class="history-compare-prob">' + first.prob.toFixed(0) + '%</div>' +
             '</div>' +
             '<div class="history-compare-arrow ' + arrowClass + '">' + (hasChanges ? '→' : '•') + '</div>' +
             '<div class="history-compare-box current">' +
               '<div class="history-compare-label">ORA</div>' +
-              '<div class="history-compare-time">🕐 ' + last.time + '</div>' +
+              '<div class="history-compare-time">&#x1F550; ' + last.time + '</div>' +
               '<div class="history-compare-pick">' + last.pick + '</div>' +
               '<div class="history-compare-prob">' + last.prob.toFixed(0) + '%</div>' +
             '</div>' +
@@ -3901,7 +4249,7 @@
       // Timeline dettagliata (solo se più di 1 registrazione)
       let historyHtml = '';
       if (history.length > 1) {
-        historyHtml = '<div style="font-size:0.75rem;color:var(--text-dark);margin-bottom:10px;font-weight:600;">📜 CRONOLOGIA COMPLETA</div>';
+        historyHtml = '<div style="font-size:0.75rem;color:var(--text-dark);margin-bottom:10px;font-weight:600;">&#x1F4DC; CRONOLOGIA COMPLETA</div>';
         history.forEach(function(item, index) {
           const isLast = index === history.length - 1;
           const isFirst = index === 0;
@@ -3911,10 +4259,10 @@
           if (item.changeType === 'first') { changeLabel = '1° ANALISI'; changeClass = 'first'; }
           else if (item.changeType === 'minor') { changeLabel = '↕ ±3-9%'; changeClass = 'minor'; }
           else if (item.changeType === 'significant') { changeLabel = '⚠️ ±10%+'; changeClass = 'significant'; }
-          else if (item.changeType === 'major') { changeLabel = '🔄 CAMBIO!'; changeClass = 'major'; }
+          else if (item.changeType === 'major') { changeLabel = '&#x1F504; CAMBIO!'; changeClass = 'major'; }
           
           historyHtml += '<div class="history-item ' + itemClass + '">' +
-            '<span class="history-time">🕐 ' + item.time + '</span>' +
+            '<span class="history-time">&#x1F550; ' + item.time + '</span>' +
             '<div class="history-pick">' +
               '<span class="history-pick-value">' + item.pick + '</span>' +
               '<span class="history-pick-prob">' + item.prob.toFixed(0) + '%</span>' +
@@ -3936,7 +4284,7 @@
       
       return '<div class="history-section">' +
         '<div class="history-header">' +
-          '<div class="history-icon">📜</div>' +
+          '<div class="history-icon">&#x1F4DC;</div>' +
           '<div class="history-title"><h3>Storico Variazioni</h3><p>Monitora i cambiamenti del pronostico</p></div>' +
         '</div>' +
         compareHtml +
@@ -4097,7 +4445,10 @@
     function selectMatch(matchId) {
       const match = state.matches.find(m => m.id === matchId);
       if (match) {
-        analyzeMatch(match);
+        state.superAnalysis = null;
+        state.superAIAnalysis = null;
+        state.superAnalysisRunning = false;
+        state.superAIRunning = false;
       } else {
         console.warn('Partita non trovata:', matchId);
       }
@@ -4179,8 +4530,8 @@
         return;
       }
       
-      console.log(`🔄 calculateDailyPicks: Analisi di ${state.matches.length} partite...`);
-      console.log(`🤖 ML Attivo: ${state.settings.useMLThresholds ? 'SÌ' : 'NO'}`);
+      console.log(`&#x1F504; calculateDailyPicks: Analisi di ${state.matches.length} partite...`);
+      console.log(`&#x1F916; ML Attivo: ${state.settings.useMLThresholds ? 'SÌ' : 'NO'}`);
       
       const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], matchAdvices: [] };
       const safeBets = []; // Per costruire i raddoppi
@@ -4571,7 +4922,7 @@
         }
       });
       
-      console.log(`📊 calculateDailyPicks: Processate ${processedCount}, Skipped ${skippedCount}, Errori ${errorCount}`);
+      console.log(`&#x1F4CA; calculateDailyPicks: Processate ${processedCount}, Skipped ${skippedCount}, Errori ${errorCount}`);
       
       // === ORDINA E PRENDI I TOP 20 PER OGNI CATEGORIA ===
       // Ordina per confidence (high > medium) e poi per probabilità
@@ -4596,7 +4947,7 @@
       picks.raddoppi = buildRaddoppi(safeBets);
       
       state.dailyPicks = picks;
-      console.log('🎯 Daily picks (AI):', Object.keys(picks).map(k => `${k}: ${picks[k].length}`).join(', '));
+      console.log('&#x1F3AF; Daily picks (AI):', Object.keys(picks).map(k => `${k}: ${picks[k].length}`).join(', '));
     }
     
     // Costruisce combinazioni per raddoppi (quota target ~2.00)
@@ -4795,7 +5146,7 @@
       state.traderPicks.raddoppio = raddoppioPicks.sort((a, b) => b.bet.prob - a.bet.prob).slice(0, 4);
       state.traderPicks.singole = singolePicks.sort((a, b) => b.bet.prob - a.bet.prob).slice(0, 6);
       
-      console.log('💰 Trader picks:', 
+      console.log('&#x1F4B0; Trader picks:', 
         `Raddoppio: ${state.traderPicks.raddoppio.length}`,
         `Singole: ${state.traderPicks.singole.length}`);
     }
@@ -4918,7 +5269,7 @@
         const saved = localStorage.getItem('bp2_slip');
         if (saved) {
           state.slip = JSON.parse(saved);
-          console.log('📋 Schedina caricata:', state.slip.length, 'pronostici');
+          console.log('&#x1F4CB; Schedina caricata:', state.slip.length, 'pronostici');
         }
       } catch (e) {
         console.warn('localStorage load error:', e);
@@ -4972,7 +5323,7 @@
 
     // === API STATUS CHECK ===
     async function checkAPIStatus() {
-      console.log('🔍 Controllo stato API...');
+      console.log('&#x1F50D; Controllo stato API...');
       
       // Check API-Football - chiamata diretta senza proxy
       // L'API api-sports.io supporta CORS con la chiave corretta
@@ -5095,7 +5446,7 @@
       
       if (position <= 1) {
         motivation = 'alta';
-        motivationText = '🏆 Lotta Scudetto';
+        motivationText = '&#x1F3C6; Lotta Scudetto';
         motivationColor = 'gold';
       } else if (position <= 4) {
         motivation = 'alta';
@@ -5103,11 +5454,11 @@
         motivationColor = 'cyan';
       } else if (position <= 6) {
         motivation = 'media-alta';
-        motivationText = '🌟 Zona Europa';
+        motivationText = '&#x1F31F; Zona Europa';
         motivationColor = 'blue';
       } else if (position >= totalTeams - 2) {
         motivation = 'altissima';
-        motivationText = '🔥 Zona Retrocessione';
+        motivationText = '&#x1F525; Zona Retrocessione';
         motivationColor = 'red';
       } else if (position >= totalTeams - 5) {
         motivation = 'alta';
@@ -5308,13 +5659,13 @@
       render();
       
       const dateStr = getDateString(dateOffset);
-      console.log('📅 Loading matches for:', dateStr);
+      console.log('&#x1F4C5; Loading matches for:', dateStr);
       
       try {
-        console.log(`🔍 Requesting fixtures for date: ${dateStr}, timezone: Europe/Rome`);
+        console.log(`&#x1F50D; Requesting fixtures for date: ${dateStr}, timezone: Europe/Rome`);
         const data = await callAPIFootball('/fixtures', { date: dateStr, timezone: 'Europe/Rome' });
         
-        console.log('📦 API Response:', data);
+        console.log('&#x1F4E6; API Response:', data);
         
         if (!data) {
           console.error('❌ API returned null/undefined');
@@ -5889,6 +6240,7 @@
         exactScores: exactScores.slice(0, 12),
         corners, cards,
         h2h: h2hInfo,
+        h2hInfo,
         predictions,
         combos,
         multigoal,
@@ -5897,6 +6249,9 @@
         multigoalAway,
         homeForm: homeForm || 'N/A',
         awayForm: awayForm || 'N/A',
+        // Dati squadre per Super Algoritmo
+        homeData,
+        awayData,
         // NUOVO: Classifica e Infortunati
         homePosition,
         awayPosition,
@@ -6506,6 +6861,595 @@
       return advice;
     }
 
+    // === SUPER ALGORITHM ===
+    // Meta-analisi che valuta ogni segnale dell'algoritmo base e produce
+    // un ranking affidabile di pronostici con score composito
+    function runSuperAlgorithm(match, analysis) {
+      const { xG, p1X2, pOU, pBTTS, exactScores, multigoal, multigoalHome, multigoalAway, temporalDistribution, h2hInfo, homeData, awayData, homeForm, awayForm } = analysis;
+      const homeXG = xG.home;
+      const awayXG = xG.away;
+      const totXG  = xG.total;
+      
+      // Helper: form score 0-5 (W=1, D=0.4, L=0)
+      const formScore = (form) => {
+        if (!form || form === 'N/A') return 2.5;
+        return form.slice(0,5).split('').reduce((s,c) => s + (c==='W'?1:c==='D'?0.4:0), 0);
+      };
+      const homeFS = formScore(homeForm);
+      const awayFS  = formScore(awayForm);
+      
+      // ML accuracy weights
+      const mlWeights = {};
+      Object.entries(state.mlThresholds||{}).forEach(([market, data]) => {
+        const acc = data.totalPredictions >= 10 ? parseFloat(data.accuracy) / 100 : 0.5;
+        mlWeights[market] = Math.min(0.92, Math.max(0.4, acc));
+      });
+      const getML = (k) => mlWeights[k] || 0.5;
+      
+      // H2H helpers
+      const h2h = h2hInfo || {};
+      const h2hAvgGoals = parseFloat(h2h.avgGoals) || totXG;
+      const h2hHomeWins = h2h.homeWins || 0;
+      const h2hAwayWins = h2h.awayWins || 0;
+      const h2hDraws    = h2h.draws || 0;
+      const h2hTotal    = h2hHomeWins + h2hAwayWins + h2hDraws || 1;
+      
+      // Stats helpers
+      const hGF = homeData?.goalsFor || 1.3;
+      const hGA = homeData?.goalsAgainst || 1.2;
+      const aGF = awayData?.goalsFor || 1.1;
+      const aGA = awayData?.goalsAgainst || 1.3;
+      const hCS  = homeData?.cleanSheetPct || 25;
+      const aCS  = awayData?.cleanSheetPct || 25;
+      const hFTS = homeData?.failedToScorePct || 25;
+      const aFTS = awayData?.failedToScorePct || 25;
+      const hWR  = homeData?.winRate || 40;
+      const aWR  = awayData?.winRate || 35;
+      
+      // Exact score sum helpers
+      const esFilter = (fn) => exactScores ? exactScores.filter(fn).reduce((s,e)=>s+e.p,0) : 0;
+      
+      const candidates = [];
+      
+      // ====================================================
+      // FUNZIONE SCORING UNIFICATA
+      // ====================================================
+      function buildCandidate(opts) {
+        const { market, value, icon, color, prob, signals, mlKey, contextMult } = opts;
+        const signalKeys  = Object.keys(signals);
+        const signalVals  = Object.values(signals);
+        const signalCount = signalVals.filter(Boolean).length;
+        const totalSignals = signalKeys.length;
+        const convergence  = signalCount / totalSignals;
+        const mlW = getML(mlKey || value);
+        
+        // SuperScore: prob × convergenza × ML × contesto
+        // Normalizzato: prob su 100 → score 0-100
+        const rawScore = (prob / 100) * convergence * (0.45 + mlW * 0.55) * (contextMult || 1.0);
+        const superScore = rawScore * 100;
+        
+        // Confidenza calibrata per mercato
+        let confidence = 'low';
+        const highThresh = opts.highThresh || { prob: 72, conv: 0.65 };
+        const medThresh  = opts.medThresh  || { prob: 55, conv: 0.50 };
+        if (prob >= highThresh.prob && convergence >= highThresh.conv) confidence = 'high';
+        else if (prob >= medThresh.prob && convergence >= medThresh.conv) confidence = 'medium';
+        
+        return { market, value, icon, color, prob, signals, signalCount, totalSignals, convergence, superScore, confidence, mlAccuracy: mlW * 100 };
+      }
+      
+      // ====================================================
+      // 1 — VITTORIA CASA
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Esito 1X2', value: '1 (Casa)', icon: '&#x1F3E0;', color: '#0284c7',
+        prob: p1X2.home, mlKey: '1',
+        contextMult: homeXG > awayXG * 1.1 ? 1.12 : homeXG < awayXG ? 0.88 : 1.0,
+        highThresh: { prob: 68, conv: 0.62 }, medThresh: { prob: 52, conv: 0.50 },
+        signals: {
+          poisson_forte:    p1X2.home >= 50,
+          xG_superiore:     homeXG > awayXG * 1.15,
+          xG_almeno_1:      homeXG >= 1.0,
+          forma_casa:       homeFS >= 3.0,
+          h2h_casa:         h2hHomeWins > h2hAwayWins,
+          win_rate_ok:      hWR >= 45,
+          ospite_attacco_debole: aGF <= 1.1,
+          ospite_FTS_alto:  aFTS >= 28,
+          temporale_casa:   temporalDistribution ? temporalDistribution.primoTempo.casa >= 35 : p1X2.home >= 50,
+          algo_alta_conf:   p1X2.home >= 60,
+        }
+      }));
+      
+      // ====================================================
+      // X — PAREGGIO
+      // ====================================================
+      {
+        const drawExact = esFilter(s => s.h === s.a);
+        const balanced  = Math.abs(homeXG - awayXG) < 0.35;
+        candidates.push(buildCandidate({
+          market: 'Esito 1X2', value: 'X (Pareggio)', icon: '&#x1F91D;', color: '#f59e0b',
+          prob: p1X2.draw, mlKey: 'X',
+          contextMult: balanced ? 1.18 : Math.abs(p1X2.home - p1X2.away) < 10 ? 1.08 : 0.82,
+          highThresh: { prob: 30, conv: 0.60 }, medThresh: { prob: 25, conv: 0.50 },
+          signals: {
+            poisson_pareggio:  p1X2.draw >= 26,
+            xG_bilanciato:     balanced,
+            bassa_prod:        totXG < 2.3,
+            pari_exact_scores: drawExact >= 14,
+            under_25:          pOU[2.5].under >= 52,
+            probs_vicine:      Math.abs(p1X2.home - p1X2.away) < 14,
+            h2h_draw:          h2hDraws / h2hTotal >= 0.28,
+            forma_simile:      Math.abs(homeFS - awayFS) < 0.8,
+          }
+        }));
+      }
+      
+      // ====================================================
+      // 2 — VITTORIA OSPITE
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Esito 1X2', value: '2 (Ospite)', icon: '&#x2708;&#xFE0F;', color: '#8b5cf6',
+        prob: p1X2.away, mlKey: '2',
+        contextMult: awayXG > homeXG * 1.1 ? 1.12 : awayXG < homeXG ? 0.88 : 1.0,
+        highThresh: { prob: 62, conv: 0.62 }, medThresh: { prob: 48, conv: 0.50 },
+        signals: {
+          poisson_forte:    p1X2.away >= 42,
+          xG_superiore:     awayXG > homeXG * 1.10,
+          xG_almeno_1:      awayXG >= 0.9,
+          forma_ospite:     awayFS >= 3.0,
+          h2h_ospite:       h2hAwayWins > h2hHomeWins,
+          win_rate_ok:      aWR >= 40,
+          casa_FTS_alto:    hFTS >= 25,
+          algo_alta_conf:   p1X2.away >= 55,
+          ospite_GF_alto:   aGF >= 1.4,
+        }
+      }));
+      
+      // ====================================================
+      // GG — ENTRAMBE SEGNANO
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'GG/NG', value: 'GG (Entrambe)', icon: '&#x26BD;', color: '#10b981',
+        prob: pBTTS, mlKey: 'GG',
+        contextMult: (homeXG >= 1.1 && awayXG >= 0.9) ? 1.08 : 0.92,
+        highThresh: { prob: 66, conv: 0.62 }, medThresh: { prob: 54, conv: 0.50 },
+        signals: {
+          poisson_gg:       pBTTS >= 52,
+          xG_casa_ok:       homeXG >= 0.9,
+          xG_ospite_ok:     awayXG >= 0.85,
+          tot_xG_alto:      totXG >= 2.3,
+          casa_CS_basso:    hCS <= 35,
+          ospite_CS_basso:  aCS <= 35,
+          casa_FTS_basso:   hFTS <= 32,
+          ospite_FTS_basso: aFTS <= 35,
+          forma_attacchi:   homeFS >= 2.5 && awayFS >= 2.5,
+          h2h_GG:           h2hAvgGoals >= 2.4,
+        }
+      }));
+      
+      // ====================================================
+      // NG — NESSUNA DELLE DUE SEGNA
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'GG/NG', value: 'NG (Nessuna)', icon: '&#x1F6AB;', color: '#64748b',
+        prob: 100 - pBTTS, mlKey: 'NG',
+        contextMult: (hCS >= 35 || aCS >= 35) ? 1.10 : 0.90,
+        highThresh: { prob: 58, conv: 0.62 }, medThresh: { prob: 45, conv: 0.48 },
+        signals: {
+          poisson_ng:       (100-pBTTS) >= 45,
+          casa_difesa:      hCS >= 32,
+          ospite_difesa:    aCS >= 32,
+          casa_FTS:         hFTS >= 30,
+          ospite_FTS:       aFTS >= 30,
+          basso_xG:         totXG < 2.0,
+          under_15:         pOU[1.5].under >= 25,
+        }
+      }));
+      
+      // ====================================================
+      // OVER 1.5
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Over/Under', value: 'Over 1.5', icon: '&#x1F4C8;', color: '#06b6d4',
+        prob: pOU[1.5].over, mlKey: 'Over 1.5',
+        contextMult: totXG >= 2.0 ? 1.06 : 0.95,
+        highThresh: { prob: 82, conv: 0.65 }, medThresh: { prob: 68, conv: 0.50 },
+        signals: {
+          poisson_o15:      pOU[1.5].over >= 68,
+          xG_tot_ok:        totXG >= 1.6,
+          entrambi_attacco: homeXG >= 0.75 && awayXG >= 0.65,
+          h2h_gol:          h2hAvgGoals >= 2.0,
+          btts_supp:        pBTTS >= 44,
+          casa_GF:          hGF >= 1.3,
+          ospite_GF:        aGF >= 1.0,
+          forma_gol:        homeFS >= 2.2 && awayFS >= 2.0,
+        }
+      }));
+      
+      // ====================================================
+      // OVER 2.5
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Over/Under', value: 'Over 2.5', icon: '&#x1F525;', color: '#f97316',
+        prob: pOU[2.5].over, mlKey: 'Over 2.5',
+        contextMult: totXG >= 2.8 ? 1.10 : totXG < 2.0 ? 0.85 : 1.0,
+        highThresh: { prob: 65, conv: 0.62 }, medThresh: { prob: 50, conv: 0.50 },
+        signals: {
+          poisson_o25:      pOU[2.5].over >= 46,
+          xG_alto:          totXG >= 2.5,
+          entrambi_attacco: homeXG >= 1.1 && awayXG >= 0.95,
+          h2h_gol:          h2hAvgGoals >= 2.5,
+          btts:             pBTTS >= 52,
+          casa_GF_alto:     hGF >= 1.6,
+          ospite_GF_alto:   aGF >= 1.3,
+          forme_offensive:  homeFS >= 3.0 || awayFS >= 3.0,
+          o25_h2h:          h2hAvgGoals >= 2.6,
+        }
+      }));
+      
+      // ====================================================
+      // UNDER 2.5
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Over/Under', value: 'Under 2.5', icon: '&#x1F6E1;', color: '#0ea5e9',
+        prob: pOU[2.5].under, mlKey: 'Under 2.5',
+        contextMult: totXG < 2.0 ? 1.12 : totXG > 2.8 ? 0.82 : 1.0,
+        highThresh: { prob: 62, conv: 0.62 }, medThresh: { prob: 50, conv: 0.48 },
+        signals: {
+          poisson_u25:     pOU[2.5].under >= 46,
+          xG_basso:        totXG < 2.2,
+          difese_forti:    hCS >= 30 || aCS >= 30,
+          ng_likely:       pBTTS <= 48,
+          exact_low:       esFilter(s => s.h+s.a <= 2) >= 42,
+          h2h_low:         h2hAvgGoals < 2.3,
+          casa_GF_basso:   hGF <= 1.4,
+          ospite_GF_basso: aGF <= 1.2,
+        }
+      }));
+      
+      // ====================================================
+      // OVER 3.5
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Over/Under', value: 'Over 3.5', icon: '&#x1F4A5;', color: '#ef4444',
+        prob: pOU[3.5].over, mlKey: 'Over 3.5',
+        contextMult: totXG >= 3.5 ? 1.15 : totXG < 2.5 ? 0.75 : 1.0,
+        highThresh: { prob: 50, conv: 0.65 }, medThresh: { prob: 35, conv: 0.50 },
+        signals: {
+          poisson_o35:     pOU[3.5].over >= 32,
+          xG_molto_alto:   totXG >= 3.2,
+          entrambi_forti:  homeXG >= 1.5 && awayXG >= 1.3,
+          h2h_alti:        h2hAvgGoals >= 3.0,
+          over25_alto:     pOU[2.5].over >= 62,
+          btts_over:       pBTTS >= 58 && pOU[2.5].over >= 58,
+        }
+      }));
+      
+      // ====================================================
+      // MG CASA 1-3
+      // ====================================================
+      {
+        const prob = calcTeamMultigol(homeXG, 1, 3);
+        candidates.push(buildCandidate({
+          market: 'MG Casa', value: 'MG Casa 1-3', icon: '&#x1F3E0;&#x26BD;', color: '#d97706',
+          prob, mlKey: 'MG Casa',
+          contextMult: homeXG >= 0.9 && homeXG <= 2.1 ? 1.05 : 0.95,
+          highThresh: { prob: 62, conv: 0.60 }, medThresh: { prob: 50, conv: 0.48 },
+          signals: {
+            xG_range_ottimo:   homeXG >= 0.85 && homeXG <= 2.2,
+            prob_alta:         prob >= 52,
+            casa_FTS_basso:    hFTS <= 32,
+            casa_WR_ok:        hWR >= 35,
+            ospite_def_debole: aGA >= 1.2,
+            exact_h_1_3:       esFilter(s => s.h >= 1 && s.h <= 3) >= 55,
+            forma_casa:        homeFS >= 2.5,
+          }
+        }));
+      }
+      
+      // ====================================================
+      // MG OSPITE 1-3
+      // ====================================================
+      {
+        const prob = calcTeamMultigol(awayXG, 1, 3);
+        candidates.push(buildCandidate({
+          market: 'MG Ospite', value: 'MG Ospite 1-3', icon: '&#x2708;&#xFE0F;&#x26BD;', color: '#059669',
+          prob, mlKey: 'MG Ospite',
+          contextMult: awayXG >= 0.75 && awayXG <= 2.0 ? 1.05 : 0.95,
+          highThresh: { prob: 60, conv: 0.60 }, medThresh: { prob: 48, conv: 0.48 },
+          signals: {
+            xG_range_ottimo:  awayXG >= 0.75 && awayXG <= 2.0,
+            prob_alta:        prob >= 50,
+            ospite_FTS_basso: aFTS <= 35,
+            ospite_WR_ok:     aWR >= 30,
+            casa_def_debole:  hGA >= 1.15,
+            exact_a_1_3:      esFilter(s => s.a >= 1 && s.a <= 3) >= 50,
+            forma_ospite:     awayFS >= 2.2,
+          }
+        }));
+      }
+      
+      // ====================================================
+      // 1X — DOPPIA CHANCE CASA
+      // ====================================================
+      {
+        const prob = Math.min(p1X2.home + p1X2.draw, 97);
+        candidates.push(buildCandidate({
+          market: 'Doppia Chance', value: '1X (Casa/Pari)', icon: '&#x1F512;', color: '#0284c7',
+          prob, mlKey: '1X',
+          contextMult: 0.90,  // penalty: e' doppia chance
+          highThresh: { prob: 80, conv: 0.70 }, medThresh: { prob: 68, conv: 0.55 },
+          signals: {
+            poisson_alto:   prob >= 64,
+            casa_not_weak:  homeXG >= awayXG * 0.85,
+            forma_casa:     homeFS >= 2.2,
+            under_35:       pOU[3.5].under >= 55,
+            hWR_minimo:     hWR >= 28,
+          }
+        }));
+      }
+      
+      // ====================================================
+      // X2 — DOPPIA CHANCE OSPITE
+      // ====================================================
+      {
+        const prob = Math.min(p1X2.away + p1X2.draw, 97);
+        candidates.push(buildCandidate({
+          market: 'Doppia Chance', value: 'X2 (Ospite/Pari)', icon: '&#x1F510;', color: '#8b5cf6',
+          prob, mlKey: 'X2',
+          contextMult: 0.88,
+          highThresh: { prob: 75, conv: 0.70 }, medThresh: { prob: 62, conv: 0.55 },
+          signals: {
+            poisson_alto:    prob >= 58,
+            ospite_not_weak: awayXG >= homeXG * 0.80,
+            forma_ospite:    awayFS >= 2.2,
+            under_35:        pOU[3.5].under >= 55,
+            aWR_minimo:      aWR >= 24,
+          }
+        }));
+      }
+      
+      // ====================================================
+      // ORDINA per SuperScore decrescente
+      // ====================================================
+      candidates.sort((a, b) => b.superScore - a.superScore);
+      
+      const topPick = candidates[0];
+      const avgConvergence = candidates.reduce((s,c) => s + c.convergence, 0) / candidates.length;
+      const highConfCount  = candidates.filter(c => c.confidence === 'high').length;
+      
+      return {
+        picks: candidates,
+        topPick,
+        avgConvergence,
+        highConfCount,
+        totalSignals: candidates.reduce((s,c) => s + c.signalCount, 0),
+        analysisDepth: analysis.quality === 'enhanced' ? 'Completa' : analysis.quality === 'partial' ? 'Parziale' : 'Base'
+      };
+    }
+
+    function renderSuperAnalysis(superData, match) {
+      if (!superData) {
+        return `
+          <div class="super-algo-panel">
+            <div class="super-loading">
+              <div class="super-loading-spinner"></div>
+              <div style="font-size:0.88rem; font-weight:600; color:#00d4ff; margin-bottom:4px;">&#x1F9E0; Calcolo in corso...</div>
+              <div style="font-size:0.75rem; color:rgba(148,163,184,0.6);">Analisi Poisson, xG, ML, segnali multi-fonte</div>
+            </div>
+          </div>`;
+      }
+      
+      const { picks, avgConvergence, highConfCount, analysisDepth } = superData;
+      const aiData = state.superAIAnalysis;
+      const aiLoading = state.superAIRunning;
+      
+      // Oracle verdict colors
+      let recColor = '#64748b', recBg = 'rgba(100,116,139,0.15)', recIcon = '&#x23F3;';
+      if (aiData) {
+        if (aiData.recommendation === 'GIOCA') { recColor = '#00e5a0'; recBg = 'rgba(0,229,160,0.1)'; recIcon = '&#x2705;'; }
+        else if (aiData.recommendation === 'SKIP') { recColor = '#f87171'; recBg = 'rgba(248,113,113,0.1)'; recIcon = '&#x26D4;'; }
+        else if (aiData.recommendation === 'ATTENDI') { recColor = '#fbbf24'; recBg = 'rgba(251,191,36,0.1)'; recIcon = '&#x26A0;&#xFE0F;'; }
+      }
+      
+      // AI section
+      let aiSection = '';
+      if (aiLoading) {
+        aiSection = `
+          <div class="super-ai-section">
+            <div class="super-ai-header">
+              <span class="super-ai-live">AI LIVE</span>
+              <span style="font-weight:700;">&#x1F30D; Oracle AI sta analizzando...</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:16px;background:rgba(0,0,0,0.3);border-radius:12px;border:1px solid rgba(0,212,255,0.1);">
+              <div class="super-loading-spinner" style="width:20px;height:20px;border-width:2px;margin:0;flex-shrink:0;"></div>
+              <div>
+                <div style="font-size:0.84rem;color:#00d4ff;font-weight:600;margin-bottom:3px;">&#x1F4F0; Ricerca news in tempo reale...</div>
+                <div style="font-size:0.75rem;color:rgba(148,163,184,0.6);">Infortuni &#x2022; Formazioni &#x2022; Stato di forma &#x2022; Contesto tattico &#x2022; Motivazioni</div>
+              </div>
+            </div>
+          </div>`;
+      } else if (aiData && !aiData.error) {
+        const newsHtml = (aiData.keyNews || []).map(n => 
+          `<div class="oracle-news-item"><span style="color:#f59e0b;flex-shrink:0;">&#x2022;</span><span>${n}</span></div>`
+        ).join('');
+        const factorsHtml = (aiData.keyFactors || []).map(f => `<span class="super-ai-tag">${f}</span>`).join('');
+        const top3Html = (aiData.adjustedTop3 || []).map((p,i) => 
+          `<span class="super-ai-tag" style="background:rgba(0,229,160,0.08);border-color:rgba(0,229,160,0.3);color:#00e5a0;">${['&#x1F947;','&#x1F948;','&#x1F949;'][i]||'&#x2022;'} ${p}</span>`
+        ).join('');
+        
+        // Confidence bar
+        const conf = aiData.confidence || 0;
+        const confWidth = Math.min(100, Math.max(0, conf));
+        const confColor = conf >= 70 ? '#00e5a0' : conf >= 55 ? '#fbbf24' : '#f87171';
+        
+        aiSection = `
+          <div class="super-ai-section">
+            <div class="super-ai-header">
+              <span class="super-ai-live">&#x1F916; ORACLE AI</span>
+              <span style="font-weight:700;font-size:0.9rem;">Analisi Intelligente + News Live</span>
+              <span style="margin-left:auto;font-size:0.75rem;color:${aiData.newsFound ? '#00e5a0' : '#fbbf24'};">
+                ${aiData.newsFound ? '&#x1F4F0; News trovate' : '&#x26A0; Dati limitati'}
+              </span>
+            </div>
+            
+            ${newsHtml ? `<div style="margin-bottom:12px;">${newsHtml}</div>` : ''}
+            
+            ${aiData.teamsContext ? `<div style="font-size:0.8rem;color:rgba(148,163,184,0.75);margin-bottom:12px;padding:10px 12px;background:rgba(255,255,255,0.02);border-radius:10px;border-left:2px solid rgba(0,212,255,0.4);line-height:1.6;">&#x1F4CB; ${aiData.teamsContext}</div>` : ''}
+            
+            <div class="oracle-verdict-text">${aiData.aiVerdict || ''}</div>
+            
+            <!-- KPI boxes -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;">
+              <div class="oracle-verdict-box" style="border-color:${recColor};background:${recBg};">
+                <div style="font-size:1.5rem;font-weight:900;color:${recColor};">${recIcon}</div>
+                <div style="font-size:0.95rem;font-weight:800;color:${recColor};">${aiData.recommendation||'?'}</div>
+                <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);margin-top:2px;text-transform:uppercase;">Raccomandazione</div>
+              </div>
+              <div class="oracle-verdict-box">
+                <div style="font-size:1.4rem;font-weight:900;color:#00d4ff;">${aiData.confidence||'?'}%</div>
+                <div style="margin:4px 0;">
+                  <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;">
+                    <div style="width:${confWidth}%;height:100%;background:${confColor};border-radius:4px;transition:width 0.8s;"></div>
+                  </div>
+                </div>
+                <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);text-transform:uppercase;">Confidenza AI</div>
+              </div>
+              <div class="oracle-verdict-box">
+                <div style="font-size:1rem;font-weight:800;color:${aiData.riskLevel==='basso'?'#00e5a0':aiData.riskLevel==='alto'?'#f87171':'#fbbf24'};">
+                  ${aiData.riskLevel==='basso'?'&#x1F7E2;':aiData.riskLevel==='alto'?'&#x1F534;':'&#x1F7E1;'} ${(aiData.riskLevel||'?').toUpperCase()}
+                </div>
+                <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);margin-top:4px;text-transform:uppercase;">Rischio</div>
+              </div>
+              <div class="oracle-verdict-box" style="border-color:rgba(0,229,160,0.3);background:rgba(0,229,160,0.05);flex:2;min-width:140px;">
+                <div style="font-size:0.7rem;color:rgba(148,163,184,0.5);text-transform:uppercase;margin-bottom:4px;">Best Pick Oracle</div>
+                <div style="font-size:1rem;font-weight:800;color:#00e5a0;">${aiData.bestPick||'?'}</div>
+                <div style="font-size:0.85rem;font-weight:700;color:rgba(0,229,160,0.7);">${aiData.bestPickProb||'?'}%</div>
+              </div>
+              ${aiData.alternativePick ? `<div class="oracle-verdict-box" style="border-color:rgba(0,212,255,0.2);flex:1.5;min-width:110px;">
+                <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);text-transform:uppercase;margin-bottom:4px;">Alternativa Oracle</div>
+                <div style="font-size:0.9rem;font-weight:700;color:#00d4ff;">${aiData.alternativePick}</div>
+                <div style="font-size:0.8rem;color:rgba(0,212,255,0.6);">${aiData.alternativePickProb||'?'}%</div>
+              </div>` : ''}
+            </div>
+            
+            ${aiData.bestPickReasoning ? `<div style="margin:10px 0;padding:10px 12px;background:rgba(0,229,160,0.06);border:1px solid rgba(0,229,160,0.2);border-radius:10px;font-size:0.8rem;color:#a7f3d0;line-height:1.6;">&#x1F3AF; <strong>Perché:</strong> ${aiData.bestPickReasoning}</div>` : ''}
+            ${aiData.warningFlags && aiData.warningFlags.filter(w=>w).length > 0 ? `<div style="margin:8px 0;padding:8px 12px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:10px;font-size:0.78rem;color:#fcd34d;line-height:1.6;">&#x26A0;&#xFE0F; <strong>Attenzione:</strong> ${aiData.warningFlags.filter(w=>w).join(' | ')}</div>` : ''}
+            ${aiData.bookmakerOdds && aiData.bookmakerOdds !== 'null' ? `<div style="margin:8px 0;padding:8px 12px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);border-radius:10px;font-size:0.78rem;color:#67e8f9;">&#x1F4B0; <strong>Quote bookmakers:</strong> ${aiData.bookmakerOdds}</div>` : ''}
+            ${factorsHtml ? `
+            <div style="margin-top:10px;">
+              <div style="font-size:0.72rem;color:rgba(148,163,184,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">&#x1F511; Fattori Chiave</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">${factorsHtml}</div>
+            </div>` : ''}
+            
+            ${top3Html ? `
+            <div style="margin-top:10px;">
+              <div style="font-size:0.72rem;color:rgba(148,163,184,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">&#x1F3AF; Ranking Oracle Corretto</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">${top3Html}</div>
+            </div>` : ''}
+            
+            ${aiData.algoConfirmed !== undefined ? `
+            <div style="margin-top:12px;padding:8px 12px;border-radius:8px;font-size:0.8rem;
+              background:${aiData.algoConfirmed ? 'rgba(0,229,160,0.08)' : 'rgba(248,113,113,0.08)'};
+              border:1px solid ${aiData.algoConfirmed ? 'rgba(0,229,160,0.25)' : 'rgba(248,113,113,0.25)'};
+              color:${aiData.algoConfirmed ? '#00e5a0' : '#f87171'};">
+              ${aiData.algoConfirmed 
+                ? '&#x2705; Oracle AI <strong>conferma</strong> il ranking dell&#39;algoritmo statistico' 
+                : '&#x26A0;&#xFE0F; Oracle AI <strong>suggerisce correzioni</strong> al ranking — vedi Ranking Oracle sopra'}
+            </div>` : ''}
+          </div>`;
+      } else if (aiData && aiData.error) {
+        aiSection = `
+          <div class="super-ai-section">
+            <div style="font-size:0.78rem;color:rgba(148,163,184,0.4);padding:10px;background:rgba(248,113,113,0.05);border-radius:8px;border:1px solid rgba(248,113,113,0.15);">
+              &#x26A0;&#xFE0F; Analisi Oracle AI non disponibile: ${aiData.error}. I dati statistici locali restano validi.
+            </div>
+          </div>`;
+      }
+      
+      return `
+        <div class="super-algo-panel" id="superAlgoPanel">
+          <!-- HEADER -->
+          <div class="super-algo-header">
+            <div class="super-algo-icon">&#x1F52E;</div>
+            <div class="super-algo-title-group">
+              <div class="super-algo-title">Oracle Super Algoritmo</div>
+              <div class="super-algo-subtitle">Poisson + xG + Dixon-Coles + ML + AI News Live &#x2014; ${analysisDepth}</div>
+            </div>
+            <div class="super-algo-badge">v4.0</div>
+          </div>
+          
+          <!-- PICKS RANKING -->
+          <div style="font-size:0.72rem;color:rgba(148,163,184,0.5);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.8px;">
+            &#x1F3C6; Ranking Mercati per SuperScore
+          </div>
+          <div class="super-picks-grid">
+            ${picks.map((pick, idx) => {
+              const rank = idx + 1;
+              const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+              const probClass = pick.prob >= 70 ? 'prob-high' : pick.prob >= 54 ? 'prob-med' : 'prob-low';
+              const signalDots = Array.from({length: pick.totalSignals}, (_, i) => 
+                `<span class="super-signal ${i < pick.signalCount ? 'on' : 'off'}"></span>`
+              ).join('');
+              
+              // AI boost badge
+              let aiBoost = '';
+              if (aiData && aiData.adjustedTop3) {
+                const aiIdx = aiData.adjustedTop3.findIndex(p => {
+                  const pv = (pick.value||'').toLowerCase();
+                  const pp = p.toLowerCase();
+                  return pv.includes(pp.split(' ')[0]) || pp.includes(pv.split(' ')[0]);
+                });
+                if (aiIdx === 0 && rank > 1) aiBoost = '<span style="font-size:0.58rem;color:#f59e0b;font-weight:800;"> &#x2605;AI</span>';
+                else if (aiIdx > -1 && aiIdx < rank - 1) aiBoost = '<span style="font-size:0.58rem;color:#00e5a0;"> &#x2191;</span>';
+              }
+              
+              return `
+                <div class="super-pick-card ${rankClass}" 
+                     onclick="addToSlip(state.selectedMatch, 'oracle_${pick.value.replace(/'/g,'').replace(/ /g,'_')}', '${pick.value.replace(/'/g,"\'")}', ${pick.prob.toFixed(0)})"
+                     title="Clicca per aggiungere alla schedina">
+                  <div class="super-pick-rank">#${rank}${aiBoost}</div>
+                  <div class="super-pick-market">${pick.market}</div>
+                  <div class="super-pick-value">${pick.value}</div>
+                  <div class="super-pick-prob ${probClass}">${pick.prob.toFixed(1)}%</div>
+                  <div class="super-pick-confidence ${pick.confidence}">${
+                    pick.confidence === 'high' ? '&#x1F3AF; Alta' : 
+                    pick.confidence === 'medium' ? '&#x2713; Media' : '&#x26A0; Bassa'
+                  }</div>
+                  <div class="super-signals-row">${signalDots}</div>
+                </div>`;
+            }).join('')}
+          </div>
+          
+          <!-- SUMMARY BAR -->
+          <div class="super-algo-summary">
+            <div class="super-summary-item">
+              <div class="super-summary-num">${picks[0].prob.toFixed(1)}%</div>
+              <div class="super-summary-label">&#x1F3C6; Top Prob</div>
+            </div>
+            <div class="super-summary-item">
+              <div class="super-summary-num">${(avgConvergence * 100).toFixed(0)}%</div>
+              <div class="super-summary-label">&#x1F4A1; Convergenza</div>
+            </div>
+            <div class="super-summary-item">
+              <div class="super-summary-num">${highConfCount}</div>
+              <div class="super-summary-label">&#x1F525; Alta Conf.</div>
+            </div>
+            <div class="super-summary-item">
+              <div class="super-summary-num">${picks.length}</div>
+              <div class="super-summary-label">&#x1F4CA; Mercati</div>
+            </div>
+            <div style="flex:2;font-size:0.71rem;color:rgba(148,163,184,0.5);line-height:1.55;min-width:140px;">
+              Puntini verdi = segnali che confermano il pick. Cliccabili per schedina.
+              L&#39;AI Oracle cerca news live e corregge il ranking se necessario.
+            </div>
+          </div>
+          
+          <!-- AI ORACLE SECTION -->
+          ${aiSection}
+        </div>
+      `;
+    }
     function getProbClass(prob) {
       if (prob >= 65) return 'high';
       if (prob >= 50) return 'mid';
@@ -6546,7 +7490,7 @@
       if (bestProb >= 80 && histMatch.rate >= 85) {
         verdict = '✅ GIOCABILE';
         verdictClass = 'play';
-        verdictIcon = '🎯';
+        verdictIcon = '&#x1F3AF;';
       } else if (bestProb >= 70 && histMatch.rate >= 70) {
         verdict = '⚠️ CAUTELA';
         verdictClass = 'caution';
@@ -6554,7 +7498,7 @@
       } else {
         verdict = '❌ EVITARE';
         verdictClass = 'avoid';
-        verdictIcon = '🛑';
+        verdictIcon = '&#x1F6D1;';
       }
       
       let suggestion = '';
@@ -6581,19 +7525,19 @@
         '</div>' +
         '<div class="verdict-content">' +
           '<div class="verdict-box">' +
-            '<div class="verdict-box-title">🎯 Pick Consigliato</div>' +
+            '<div class="verdict-box-title">&#x1F3AF; Pick Consigliato</div>' +
             '<div class="verdict-main-pick">' +
               '<div class="verdict-main-pick-label">Pronostico ' + bestMarket + '</div>' +
               '<div class="verdict-main-pick-value">' + bestPick + '</div>' +
               '<div class="verdict-main-pick-prob">' + bestProb.toFixed(0) + '%</div>' +
               '<div class="verdict-stars">' + '★'.repeat(stars) + '☆'.repeat(5-stars) + '</div>' +
             '</div>' +
-            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">💡</span><span class="verdict-suggestion-text">' + suggestion + '</span></div>' +
+            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">&#x1F4A1;</span><span class="verdict-suggestion-text">' + suggestion + '</span></div>' +
           '</div>' +
           '<div class="verdict-box">' +
-            '<div class="verdict-box-title">📊 Win Rate Storico</div>' +
-            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">📈</span><span class="verdict-suggestion-text">Mercato <strong>' + histMatch.market + '</strong>: <strong>' + histMatch.rate + '%</strong> win rate</span></div>' +
-            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">📝</span><span class="verdict-suggestion-text">' + histMatch.note + '</span></div>' +
+            '<div class="verdict-box-title">&#x1F4CA; Win Rate Storico</div>' +
+            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">&#x1F4C8;</span><span class="verdict-suggestion-text">Mercato <strong>' + histMatch.market + '</strong>: <strong>' + histMatch.rate + '%</strong> win rate</span></div>' +
+            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">&#x1F4DD;</span><span class="verdict-suggestion-text">' + histMatch.note + '</span></div>' +
             warningHtml +
           '</div>' +
         '</div>' +
@@ -6769,10 +7713,10 @@
         const pressureBoost = Math.min(20, pressure * 0.8);
         
         // ============================================
-        // === 🔥 ALERT SECONDO TEMPO 🔥 ===
+        // === &#x1F525; ALERT SECONDO TEMPO &#x1F525; ===
         // ============================================
         
-        // 🎯 OVER 0.5 - Partita 0-0 (dal 50')
+        // &#x1F3AF; OVER 0.5 - Partita 0-0 (dal 50')
         if (isSecondHalf && totalGoals === 0 && elapsed >= 50) {
           let prob = 45;
           
@@ -6804,7 +7748,7 @@
           }
         }
         
-        // 🎯 OVER 1.5 - Partita con 0-1 gol (dal 50')
+        // &#x1F3AF; OVER 1.5 - Partita con 0-1 gol (dal 50')
         if (isSecondHalf && totalGoals <= 1 && elapsed >= 50 && elapsed <= 85) {
           let prob = 35;
           
@@ -6837,7 +7781,7 @@
           }
         }
         
-        // 🎯 OVER 2.5 - Partita con gol (dal 48')
+        // &#x1F3AF; OVER 2.5 - Partita con gol (dal 48')
         if (isSecondHalf && totalGoals >= 1 && totalGoals <= 2 && elapsed >= 48 && elapsed <= 83) {
           let prob = 30;
           
@@ -6860,7 +7804,7 @@
           prob = Math.min(85, prob);
           
           if (prob >= 50) {
-            const situation = (homeGoals === 1 && awayGoals === 1) ? '🔥 Partita APERTA!' : 
+            const situation = (homeGoals === 1 && awayGoals === 1) ? '&#x1F525; Partita APERTA!' : 
                              (Math.abs(homeGoals - awayGoals) >= 1) ? '⚡ Squadra sotto attacca!' : '';
             alerts.push({
               match, type: 'over25',
@@ -6874,7 +7818,7 @@
           }
         }
         
-        // 🎯 OVER 3.5 - Partita ricca di gol (dal 50')
+        // &#x1F3AF; OVER 3.5 - Partita ricca di gol (dal 50')
         if (isSecondHalf && totalGoals >= 2 && totalGoals <= 3 && elapsed >= 50 && elapsed <= 82) {
           let prob = 28;
           
@@ -6896,13 +7840,13 @@
               pick: '⚽⚽⚽⚽ Over 3.5',
               prob: prob.toFixed(0),
               quota: (100 / prob).toFixed(2),
-              reason: `🔥 Già ${totalGoals} gol! ${homeGoals}-${awayGoals} al ${elapsed}'`,
+              reason: `&#x1F525; Già ${totalGoals} gol! ${homeGoals}-${awayGoals} al ${elapsed}'`,
               stats, leagueBoost, hotMomentBoost
             });
           }
         }
         
-        // 🎯 GOL 2° TEMPO (all'intervallo)
+        // &#x1F3AF; GOL 2° TEMPO (all'intervallo)
         if (isHalfTime) {
           let prob = 52;
           
@@ -6931,10 +7875,10 @@
         }
         
         // ============================================
-        // === 🔥 ALERT PRIMO TEMPO 🔥 ===
+        // === &#x1F525; ALERT PRIMO TEMPO &#x1F525; ===
         // ============================================
         
-        // 🎯 OVER 0.5 1°T (dal 25')
+        // &#x1F3AF; OVER 0.5 1°T (dal 25')
         if (isFirstHalf && totalGoals === 0 && elapsed >= 25 && elapsed <= 45) {
           let prob = 38;
           
@@ -6962,7 +7906,7 @@
           }
         }
         
-        // 🎯 OVER 1.5 1°T - Se già 1 gol (dal 20')
+        // &#x1F3AF; OVER 1.5 1°T - Se già 1 gol (dal 20')
         if (isFirstHalf && totalGoals === 1 && elapsed >= 20 && elapsed <= 45) {
           let prob = 35;
           
@@ -6991,11 +7935,11 @@
         }
         
         // ============================================
-        // === 🏠✈️ SQUADRA SEGNA (con stats) ===
+        // === &#x1F3E0;✈️ SQUADRA SEGNA (con stats) ===
         // ============================================
         
         if (stats.hasStats && elapsed >= 20) {
-          // 🏠 Casa domina
+          // &#x1F3E0; Casa domina
           if (stats.shotsOnHome >= 3 && stats.shotsOnHome > stats.shotsOnAway * 1.5 && homeGoals === 0) {
             let prob = 45;
             prob += stats.shotsOnHome * 5;
@@ -7010,7 +7954,7 @@
               alerts.push({
                 match, type: 'homeScores',
                 level: prob >= 75 ? 'high' : prob >= 62 ? 'medium' : 'low',
-                pick: `🏠 ${match.home.name.substring(0,12)} Segna`,
+                pick: `&#x1F3E0; ${match.home.name.substring(0,12)} Segna`,
                 prob: prob.toFixed(0),
                 quota: (100 / prob).toFixed(2),
                 reason: `Dominio: ${stats.shotsOnHome} tiri in porta vs ${stats.shotsOnAway}`,
@@ -7291,7 +8235,7 @@
         const firebaseData = await loadFromFirebase('trackedBets');
         if (firebaseData && Array.isArray(firebaseData)) {
           state.trackedBets = firebaseData;
-          console.log(`📊 Caricati ${firebaseData.length} pronostici da Firebase`);
+          console.log(`&#x1F4CA; Caricati ${firebaseData.length} pronostici da Firebase`);
           return;
         }
         
@@ -7299,7 +8243,7 @@
         const saved = localStorage.getItem('bp2_tracked');
         if (saved) {
           state.trackedBets = JSON.parse(saved);
-          console.log(`📊 Caricati ${state.trackedBets.length} pronostici da localStorage`);
+          console.log(`&#x1F4CA; Caricati ${state.trackedBets.length} pronostici da localStorage`);
           
           // Sincronizza con Firebase se disponibile
           if (firebaseEnabled && state.trackedBets.length > 0) {
@@ -7318,12 +8262,12 @@
         const firebaseData = await loadFromFirebase('mlThresholds');
         if (firebaseData && typeof firebaseData === 'object') {
           state.mlThresholds = firebaseData;
-          console.log('🤖 ML Thresholds caricati da Firebase');
+          console.log('&#x1F916; ML Thresholds caricati da Firebase');
           return;
         }
         
         // Fallback già fatto in state init con localStorage
-        console.log('🤖 ML Thresholds da localStorage (Firebase non disponibile)');
+        console.log('&#x1F916; ML Thresholds da localStorage (Firebase non disponibile)');
       } catch (e) {
         console.warn('ML Thresholds load error:', e);
       }
@@ -7334,12 +8278,12 @@
         const firebaseData = await loadFromFirebase('performanceHistory');
         if (firebaseData && Array.isArray(firebaseData)) {
           state.performanceHistory = firebaseData;
-          console.log(`📈 Performance History caricato da Firebase (${firebaseData.length} records)`);
+          console.log(`&#x1F4C8; Performance History caricato da Firebase (${firebaseData.length} records)`);
           return;
         }
         
         // Fallback già fatto in state init con localStorage
-        console.log('📈 Performance History da localStorage (Firebase non disponibile)');
+        console.log('&#x1F4C8; Performance History da localStorage (Firebase non disponibile)');
       } catch (e) {
         console.warn('Performance History load error:', e);
       }
@@ -7352,7 +8296,7 @@
         if (firebaseData && typeof firebaseData === 'object') {
           state.mlStats = firebaseData;
           localStorage.setItem('bp2_ml_stats', JSON.stringify(firebaseData));
-          console.log('🤖 ML Stats caricate da Firebase:', Object.keys(firebaseData).length, 'categorie');
+          console.log('&#x1F916; ML Stats caricate da Firebase:', Object.keys(firebaseData).length, 'categorie');
           return;
         }
         
@@ -7360,7 +8304,7 @@
         const saved = localStorage.getItem('bp2_ml_stats');
         if (saved) {
           state.mlStats = JSON.parse(saved);
-          console.log('🤖 ML Stats da localStorage');
+          console.log('&#x1F916; ML Stats da localStorage');
         }
       } catch (e) {
         console.warn('ML Stats load error:', e);
@@ -7418,7 +8362,7 @@
               
               updateBetResult(bet.id, won ? 'won' : 'lost', result);
               updated = true;
-              console.log(`📊 Risultato verificato: ${bet.matchName} - ${pick} = ${won ? 'VINTO' : 'PERSO'} (${result})`);
+              console.log(`&#x1F4CA; Risultato verificato: ${bet.matchName} - ${pick} = ${won ? 'VINTO' : 'PERSO'} (${result})`);
             }
           }
         } catch (e) {
@@ -7487,7 +8431,7 @@
       // Aggiorna anche i threshold ML in base ai risultati
       updateMLThresholdsFromStats(pickStats);
       
-      console.log('🤖 ML Stats aggiornate:', pickStats);
+      console.log('&#x1F916; ML Stats aggiornate:', pickStats);
     }
     
     // Aggiorna i threshold ML in base alle statistiche
@@ -7528,7 +8472,7 @@
         console.warn('Firebase save mlThresholds failed:', e)
       );
       
-      console.log('🤖 ML Thresholds aggiornati');
+      console.log('&#x1F916; ML Thresholds aggiornati');
     }
     
     function getTrackingStats() {
@@ -7642,7 +8586,7 @@
         return;
       }
       
-      console.log(`🔍 Verifica automatica di ${pending.length} pronostici pendenti...`);
+      console.log(`&#x1F50D; Verifica automatica di ${pending.length} pronostici pendenti...`);
       let updatedCount = 0;
       
       for (const bet of pending) {
@@ -7734,7 +8678,7 @@
         updatePerformanceHistory();
         updateMLFromResults();
         
-        console.log(`📊 Aggiornati ${updatedCount} pronostici`);
+        console.log(`&#x1F4CA; Aggiornati ${updatedCount} pronostici`);
       }
       
       // Aggiorna interfaccia
@@ -7769,7 +8713,7 @@
       
       // Se mercato non trovato o non supportato, skippa
       if (!market) {
-        console.log(`🤖 ML: Mercato non riconosciuto per "${pick}"`);
+        console.log(`&#x1F916; ML: Mercato non riconosciuto per "${pick}"`);
         return;
       }
       
@@ -7835,8 +8779,8 @@
       }
       
       // Log dettagliato per debug
-      const trendEmoji = ml.streak > 0 ? '📈' : (ml.streak < 0 ? '📉' : '➖');
-      console.log(`🤖 ML Update [${market}]: ${isWon ? 'WIN ✅' : 'LOSS ❌'} | Accuracy: ${oldAccuracy}% → ${ml.accuracy}% (${ml.correctPredictions}/${ml.totalPredictions}) | Threshold: ${oldThreshold}% ${ml.threshold !== oldThreshold ? '→ ' + ml.threshold + '%' : ''} | Streak: ${ml.streak} ${trendEmoji}`);
+      const trendEmoji = ml.streak > 0 ? '&#x1F4C8;' : (ml.streak < 0 ? '&#x1F4C9;' : '➖');
+      console.log(`&#x1F916; ML Update [${market}]: ${isWon ? 'WIN ✅' : 'LOSS ❌'} | Accuracy: ${oldAccuracy}% → ${ml.accuracy}% (${ml.correctPredictions}/${ml.totalPredictions}) | Threshold: ${oldThreshold}% ${ml.threshold !== oldThreshold ? '→ ' + ml.threshold + '%' : ''} | Streak: ${ml.streak} ${trendEmoji}`);
     }
     
     function saveMLThresholds() {
@@ -7947,7 +8891,7 @@
 
     function renderHeader() {
       const userDisplay = authState.isLoggedIn 
-        ? `<span class="user-email" title="${authState.email}">👤 ${authState.email.split('@')[0]}</span>`
+        ? `<span class="user-email" title="${authState.email}">&#x1F464; ${authState.email.split('@')[0]}</span>`
         : '';
       
       return `
@@ -7974,16 +8918,16 @@
               </div>
               ${userDisplay}
               <button class="auth-btn ${authState.isLoggedIn ? 'logged-in' : ''}" onclick="${authState.isLoggedIn ? 'firebaseLogout()' : 'toggleLoginModal()'}" title="${authState.isLoggedIn ? 'Esci' : 'Accedi per sincronizzare su tutti i dispositivi'}">
-                ${authState.isLoggedIn ? '🚪 Esci' : '🔐 Accedi'}
+                ${authState.isLoggedIn ? '&#x1F6AA; Esci' : '&#x1F510; Accedi'}
               </button>
               <button class="settings-btn" onclick="showPerformance()" title="Performance & Analytics">
-                📊
+                &#x1F4CA;
               </button>
               <button class="settings-btn" onclick="toggleSettingsPanel()" title="Impostazioni">
                 ⚙️
               </button>
               <div class="slip-badge" id="openSlip">
-                🎫 ${state.slip.length} pronostici
+                &#x1F3AB; ${state.slip.length} pronostici
               </div>
             </div>
           </div>
@@ -7998,7 +8942,7 @@
         <div class="login-modal-overlay" onclick="toggleLoginModal()">
           <div class="login-modal" onclick="event.stopPropagation()">
             <div class="login-header">
-              <h2>🔐 Accedi a BettingPro</h2>
+              <h2>&#x1F510; Accedi a BettingPro</h2>
               <button class="login-close" onclick="toggleLoginModal()">×</button>
             </div>
             <div class="login-body">
@@ -8012,16 +8956,16 @@
                 
                 <div class="login-buttons">
                   <button class="login-btn primary" onclick="handleLogin()" ${authState.isLoading ? 'disabled' : ''}>
-                    ${authState.isLoading ? '⏳ Attendere...' : '🔑 Accedi'}
+                    ${authState.isLoading ? '⏳ Attendere...' : '&#x1F511; Accedi'}
                   </button>
                   <button class="login-btn secondary" onclick="handleRegister()" ${authState.isLoading ? 'disabled' : ''}>
-                    ${authState.isLoading ? '⏳ Attendere...' : '📝 Registrati'}
+                    ${authState.isLoading ? '⏳ Attendere...' : '&#x1F4DD; Registrati'}
                   </button>
                 </div>
               </div>
               
               <div class="login-note">
-                <p>💡 <strong>Nota:</strong> La registrazione è gratuita e ti permette di:</p>
+                <p>&#x1F4A1; <strong>Nota:</strong> La registrazione è gratuita e ti permette di:</p>
                 <ul>
                   <li>✅ Sincronizzare i pronostici tracciati su tutti i dispositivi</li>
                   <li>✅ Mantenere le statistiche ML personalizzate</li>
@@ -8074,12 +9018,12 @@
           </div>
           
           <div class="settings-section">
-            <div class="settings-section-title">📊 Win Rate per Segno</div>
+            <div class="settings-section-title">&#x1F4CA; Win Rate per Segno</div>
             ${renderWinRateByPick(stats)}
           </div>
           
           <div class="settings-section">
-            <div class="settings-section-title">🔧 Funzionalità</div>
+            <div class="settings-section-title">&#x1F527; Funzionalità</div>
             <div class="settings-row">
               <span class="settings-label">Mostra Classifica</span>
               <div class="settings-toggle ${s.showStandings ? 'active' : ''}" 
@@ -8098,13 +9042,13 @@
           </div>
           
           <div class="settings-section">
-            <div class="settings-section-title">📈 Storico Ultimi Pronostici</div>
+            <div class="settings-section-title">&#x1F4C8; Storico Ultimi Pronostici</div>
             ${renderHistoryChart()}
           </div>
           
           <div class="settings-section">
             <button class="btn btn-secondary" style="width:100%" onclick="resetAllData()">
-              🗑️ Reset tutti i dati
+              &#x1F5D1;️ Reset tutti i dati
             </button>
           </div>
         </div>
@@ -8220,7 +9164,7 @@
       
       return `
         <div class="panel">
-          <div class="panel-title">📊 Performance & Analytics</div>
+          <div class="panel-title">&#x1F4CA; Performance & Analytics</div>
           
           <!-- STATS OVERVIEW -->
           <div class="stats-overview" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
@@ -8248,7 +9192,7 @@
           ${mlInsights.length > 0 ? `
           <div class="ml-insights">
             <div class="ml-insights-header">
-              <div class="ml-insights-icon">🤖</div>
+              <div class="ml-insights-icon">&#x1F916;</div>
               <div>
                 <div class="ml-insights-title">Machine Learning Insights</div>
                 <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">
@@ -8262,9 +9206,9 @@
                 <div class="ml-suggestion-header">
                   <span class="ml-suggestion-market">${insight.market}</span>
                   <span class="ml-suggestion-status ${insight.status}">${
-                    insight.status === 'improving' ? '📈 In miglioramento' :
-                    insight.status === 'declining' ? '📉 In calo' :
-                    insight.status === 'learning' ? '🎓 Apprendimento' : '➡️ Stabile'
+                    insight.status === 'improving' ? '&#x1F4C8; In miglioramento' :
+                    insight.status === 'declining' ? '&#x1F4C9; In calo' :
+                    insight.status === 'learning' ? '&#x1F393; Apprendimento' : '➡️ Stabile'
                   }</span>
                 </div>
                 <div class="ml-suggestion-body">
@@ -8281,7 +9225,7 @@
             <!-- Win Rate nel Tempo -->
             <div class="chart-container" style="grid-column: span 2;">
               <div class="chart-header">
-                <div class="chart-title">📈 Win Rate nel Tempo (Ultimi 30 giorni)</div>
+                <div class="chart-title">&#x1F4C8; Win Rate nel Tempo (Ultimi 30 giorni)</div>
               </div>
               <div class="chart-canvas-wrapper">
                 <canvas id="winRateChart"></canvas>
@@ -8291,7 +9235,7 @@
             <!-- Performance per Mercato -->
             <div class="chart-container">
               <div class="chart-header">
-                <div class="chart-title">🎯 Performance per Mercato</div>
+                <div class="chart-title">&#x1F3AF; Performance per Mercato</div>
               </div>
               <div class="chart-canvas-wrapper">
                 <canvas id="marketPerformanceChart"></canvas>
@@ -8301,7 +9245,7 @@
             <!-- Distribuzione Risultati -->
             <div class="chart-container">
               <div class="chart-header">
-                <div class="chart-title">📊 Distribuzione Risultati</div>
+                <div class="chart-title">&#x1F4CA; Distribuzione Risultati</div>
               </div>
               <div class="chart-canvas-wrapper">
                 <canvas id="resultsDistributionChart"></canvas>
@@ -8312,7 +9256,7 @@
           <!-- BOTTONE VERIFICA AUTOMATICA -->
           <div style="text-align: center; margin-top: 24px;">
             <button class="btn btn-primary" onclick="manualVerifyBets()" style="padding: 12px 32px; font-size: 1rem;">
-              🔍 Verifica Risultati Pendenti
+              &#x1F50D; Verifica Risultati Pendenti
             </button>
             <div style="font-size: 0.75rem; color: var(--text-dark); margin-top: 8px;">
               Verifica automaticamente i risultati delle partite terminate
@@ -8485,25 +9429,25 @@
     // === DEBUG FUNCTIONS ===
     window.debugTracking = function() {
       const stats = getTrackingStats();
-      console.log('=== 📊 TRACKING SYSTEM DEBUG ===');
+      console.log('=== &#x1F4CA; TRACKING SYSTEM DEBUG ===');
       console.log(`Total Bets: ${stats.total}`);
       console.log(`Won: ${stats.won} | Lost: ${stats.lost} | Pending: ${stats.pending}`);
       console.log(`Win Rate: ${stats.winRate}%`);
-      console.log('\n=== 🤖 MACHINE LEARNING STATUS ===');
+      console.log('\n=== &#x1F916; MACHINE LEARNING STATUS ===');
       Object.entries(state.mlThresholds).forEach(([market, data]) => {
         console.log(`[${market}] Accuracy: ${data.accuracy}% (${data.correctPredictions}/${data.totalPredictions}) | Threshold: ${data.threshold}%`);
       });
-      console.log('\n=== 📈 PERFORMANCE HISTORY ===');
+      console.log('\n=== &#x1F4C8; PERFORMANCE HISTORY ===');
       console.log(`Records: ${state.performanceHistory.length}`);
       if (state.performanceHistory.length > 0) {
         const latest = state.performanceHistory[state.performanceHistory.length - 1];
         console.log(`Latest: ${latest.date} - WR: ${latest.winRate}% (${latest.won}W/${latest.lost}L)`);
       }
-      console.log('\n=== 🎯 TRACKED BETS ===');
+      console.log('\n=== &#x1F3AF; TRACKED BETS ===');
       state.trackedBets.forEach((bet, idx) => {
         console.log(`${idx + 1}. [${bet.status.toUpperCase()}] ${bet.matchName} → ${bet.pick} (${bet.prob}%)`);
       });
-      console.log('\n💡 Tip: Scrivi debugTracking() in console per vedere queste info');
+      console.log('\n&#x1F4A1; Tip: Scrivi debugTracking() in console per vedere queste info');
     };
     
     window.debugFirebase = function() {
@@ -8514,7 +9458,7 @@
       console.log(`Firebase Path: users/${USER_ID}/`);
       
       if (firebaseEnabled && db) {
-        console.log('\n📥 Caricamento dati da Firebase...');
+        console.log('\n&#x1F4E5; Caricamento dati da Firebase...');
         
         Promise.all([
           loadFromFirebase('trackedBets'),
@@ -8532,7 +9476,7 @@
         console.log('\n⚠️ Firebase non disponibile - dati salvati solo in localStorage');
       }
       
-      console.log('\n💡 Tips:');
+      console.log('\n&#x1F4A1; Tips:');
       console.log('  - debugFirebase() per vedere questo status');
       console.log('  - debugTracking() per vedere i dati locali');
     };
@@ -8547,9 +9491,196 @@
       state.view = 'matches';
       state.selectedMatch = null;
       state.analysis = null;
+      state.superAnalysis = null;
+      state.superAIAnalysis = null;
+      state.superAnalysisRunning = false;
+      state.superAIRunning = false;
       render();
     }
     
+    async function triggerSuperAnalysis() {
+      if (!state.analysis || state.superAnalysisRunning) return;
+      
+      state.superAnalysisRunning = true;
+      state.superAIRunning = false;
+      state.superAnalysis = null;
+      state.superAIAnalysis = null;
+      render();
+      
+      // STEP 1: calcolo locale istantaneo (~400ms)
+      await new Promise(r => setTimeout(r, 300));
+      try {
+        state.superAnalysis = runSuperAlgorithm(state.selectedMatch, state.analysis);
+        console.log('&#x1F9E0; Super Algo locale completato:', state.superAnalysis.picks.length, 'mercati');
+      } catch (e) {
+        console.error('Super Algo locale error:', e);
+        state.superAnalysis = null;
+      }
+      state.superAnalysisRunning = false;
+      render();
+      
+      // Scroll immediato al pannello
+      await new Promise(r => setTimeout(r, 100));
+      const panel = document.getElementById('superAlgoPanel');
+      if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      // STEP 2: analisi AI Claude con news (asincrona)
+      if (!state.superAnalysis) return;
+      state.superAIRunning = true;
+      render();
+      
+      try {
+        const aiResult = await callClaudeForSuperAnalysis(state.selectedMatch, state.analysis, state.superAnalysis);
+        state.superAIAnalysis = aiResult;
+      } catch (e) {
+        console.error('Super AI error:', e);
+        state.superAIAnalysis = { error: e.message, newsFound: false };
+      }
+      state.superAIRunning = false;
+      render();
+    }
+    
+    async function callClaudeForSuperAnalysis(match, analysis, superData) {
+      const homeTeam = match.homeTeam || match.teams?.home?.name || match.home?.name || match.home || 'Team Casa';
+      const awayTeam = match.awayTeam || match.teams?.away?.name || match.away?.name || match.away || 'Team Ospite';
+      const league = match.league?.name || match.competition?.name || match.leagueName || '';
+      const country = match.league?.country || match.country || '';
+      const matchDate = match.date || match.fixture?.date || match.kickoff || 'oggi';
+      const { xG, p1X2, pOU, pBTTS, exactScores, h2h, homeForm, awayForm, homePosition, awayPosition, homeInjuries, awayInjuries } = analysis;
+      
+      // Costruisce sommario infortuni
+      const homeInj = (homeInjuries||[]).slice(0,3).map(i => i.player?.name||i.name||'N/D').join(', ') || 'nessuno noto';
+      const awayInj = (awayInjuries||[]).slice(0,3).map(i => i.player?.name||i.name||'N/D').join(', ') || 'nessuno noto';
+      
+      // Top esiti attesi
+      const topPicks = superData.picks.slice(0,6).map((p,i) => 
+        `${i+1}. ${p.value}: prob ${p.prob.toFixed(1)}%, superScore ${p.superScore.toFixed(1)}, convergenza ${(p.convergence*100).toFixed(0)}%, confidenza ${p.confidence}`
+      ).join('\n');
+      
+      // Exact scores top 3
+      const topScores = (exactScores||[]).slice(0,4).map(s => `${s.h}-${s.a}(${s.p.toFixed(1)}%)`).join(' ');
+      
+      // H2H summary
+      const h2hSummary = h2h ? `${h2h.homeWins}V-${h2h.draws}P-${h2h.awayWins}S, media gol: ${h2h.avgGoals}` : 'N/D';
+      
+      const prompt = `Sei Oracle AI, il sistema di pronostico calcistico piu' avanzato al mondo. La tua missione e' analizzare questa partita con la massima precisione possibile e fornire il pronostico ottimale. NON puoi permetterti errori — ogni previsione deve essere basata su dati solidi.
+
+=== PARTITA ===
+${homeTeam} vs ${awayTeam}
+Campionato: ${league} ${country ? '('+country+')' : ''}
+Data: ${matchDate}
+
+=== DATI STATISTICI ALGORITMO PRINCIPALE ===
+PROBABILITA' 1X2 (Poisson + Dixon-Coles):
+  Casa (1): ${p1X2.home.toFixed(2)}%
+  Pareggio (X): ${p1X2.draw.toFixed(2)}%
+  Ospite (2): ${p1X2.away.toFixed(2)}%
+
+xG ATTESI:
+  ${homeTeam}: ${xG.home.toFixed(3)}
+  ${awayTeam}: ${xG.away.toFixed(3)}
+  Totale: ${xG.total.toFixed(3)}
+
+GOL:
+  Over 1.5: ${pOU[1.5].over.toFixed(1)}% | Under 1.5: ${pOU[1.5].under.toFixed(1)}%
+  Over 2.5: ${pOU[2.5].over.toFixed(1)}% | Under 2.5: ${pOU[2.5].under.toFixed(1)}%
+  Over 3.5: ${pOU[3.5].over.toFixed(1)}% | Under 3.5: ${pOU[3.5].under.toFixed(1)}%
+  GG: ${pBTTS.toFixed(1)}% | NG: ${(100-pBTTS).toFixed(1)}%
+
+RISULTATI ESATTI PIU' PROBABILI: ${topScores}
+
+TESTA A TESTA: ${h2hSummary}
+FORMA RECENTE: ${homeTeam}: ${homeForm||'N/D'} | ${awayTeam}: ${awayForm||'N/D'}
+CLASSIFICA: ${homeTeam} pos.${homePosition||'?'} | ${awayTeam} pos.${awayPosition||'?'}
+INFORTUNI NOTI: ${homeTeam}: ${homeInj} | ${awayTeam}: ${awayInj}
+
+=== RANKING SUPER ALGORITMO MULTI-SEGNALE ===
+${topPicks}
+
+=== ISTRUZIONI OBBLIGATORIE ===
+1. USA IL WEB SEARCH per cercare OBBLIGATORIAMENTE:
+   a) Notizie ultimissimi giorni su ${homeTeam}: infortuni, squalifiche, formazione attesa, stato di forma
+   b) Notizie ultimissimi giorni su ${awayTeam}: infortuni, squalifiche, formazione attesa, stato di forma  
+   c) Contesto della partita: importanza per classifica, derby, rivalita', motivazioni
+   d) Quote bookmakers attuali (se disponibili)
+   e) Meteo/campo (se rilevante)
+
+2. ANALISI CRITICA:
+   - Valuta se i dati statistici riflettono la realta' attuale
+   - Identifica se ci sono informazioni che cambiano il quadro
+   - Considera pattern e tendenze recenti
+   - Valuta il contesto tattico (sistema di gioco, punti di forza/debolezza)
+
+3. PRONOSTICO FINALE:
+   - Scegli il pick con il rapporto rischio/rendimento MIGLIORE
+   - Deve essere realistico e ben motivato
+   - Considera la varianza: preferisci pick ad alta probabilita' a quelli speculativi
+
+Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
+{
+  "newsFound": true,
+  "keyNews": [
+    "Notizia specifica e concreta 1 con dettagli",
+    "Notizia specifica e concreta 2 con dettagli", 
+    "Notizia specifica e concreta 3 con dettagli"
+  ],
+  "teamsContext": "Analisi tattica e contesto motivazionale in 2-3 frasi concrete",
+  "aiVerdict": "Analisi finale in 3-4 frasi: perche' questo e' il momento giusto/sbagliato per giocare, quali fattori incidono di piu', qual e' la lettura corretta della partita",
+  "bestPick": "Mercato + Esito specifico es. 'Over 2.5' o '1 (Casa)' o 'GG'",
+  "bestPickProb": 72,
+  "bestPickReasoning": "Motivazione in 1-2 frasi del perche' questo pick",
+  "alternativePick": "Secondo pick consigliato",
+  "alternativePickProb": 65,
+  "riskLevel": "basso",
+  "algoConfirmed": true,
+  "adjustedTop3": ["pick 1", "pick 2", "pick 3"],
+  "recommendation": "GIOCA",
+  "confidence": 74,
+  "keyFactors": ["fattore 1", "fattore 2", "fattore 3", "fattore 4"],
+  "warningFlags": ["eventuale warning o stringa vuota"],
+  "bookmakerOdds": "quote trovate o null"
+}`;
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 2000,
+          tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`API ${response.status}: ${errText.slice(0,100)}`);
+      }
+      const data = await response.json();
+      
+      // Combina tutti i text blocks
+      const fullText = (data.content || [])
+        .filter(item => item.type === 'text')
+        .map(item => item.text)
+        .join('\n');
+      
+      // Estrai JSON (anche se dentro markdown code blocks)
+      const jsonMatch = fullText.match(/```(?:json)?\s*([\s\S]*?)```/) || 
+                        fullText.match(/(\{[\s\S]*\})/);
+      if (!jsonMatch) throw new Error('Risposta AI non in formato JSON');
+      
+      const raw = jsonMatch[1] || jsonMatch[0];
+      const parsed = JSON.parse(raw.trim());
+      
+      // Normalizza recommendation
+      if (!['GIOCA','SKIP','ATTENDI'].includes(parsed.recommendation)) {
+        const r = (parsed.recommendation||'').toUpperCase();
+        parsed.recommendation = r.includes('GIOCA') || r.includes('PLAY') || r.includes('YES') ? 'GIOCA' :
+                                r.includes('SKIP') || r.includes('EVITA') || r.includes('NO') ? 'SKIP' : 'ATTENDI';
+      }
+      
+      return parsed;
+    }
     function showPerformance() {
       state.view = 'performance';
       render();
@@ -8569,8 +9700,8 @@
         
         <!-- SELEZIONA CAMPIONATO -->
         <div class="panel" style="margin-bottom: 16px;">
-          <div class="panel-title">📋 Seleziona Campionato (${state.matches.length} partite)</div>
-          ${state.leagues.length === 0 ? `<div class="empty"><div class="empty-icon">📭</div>Nessuna partita</div>` : `
+          <div class="panel-title">&#x1F4CB; Seleziona Campionato (${state.matches.length} partite)</div>
+          ${state.leagues.length === 0 ? `<div class="empty"><div class="empty-icon">&#x1F4ED;</div>Nessuna partita</div>` : `
             <select class="select-field" id="leagueSelect">
               <option value="">-- Scegli un campionato --</option>
               ${state.leagues.map(l => `<option value="${l.id}">${esc(l.country)} - ${esc(l.name)} (${l.matchCount})</option>`).join('')}
@@ -8582,7 +9713,7 @@
         ${picks.raddoppi.length > 0 ? `
         <div class="panel" style="margin-bottom: 20px; border: 1px solid var(--accent-green); background: linear-gradient(135deg, rgba(16,185,129,0.05), rgba(34,197,94,0.02));">
           <div class="panel-title" style="color: var(--accent-green); display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 1.3rem;">💰</span> Raddoppi del Giorno
+            <span style="font-size: 1.3rem;">&#x1F4B0;</span> Raddoppi del Giorno
             <span style="background: var(--accent-green); color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">${picks.raddoppi.length} COMBO</span>
           </div>
           <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">
@@ -8664,7 +9795,7 @@
       return `
         <div class="schedina-section">
           <div class="schedina-head">
-            <div class="schedina-title">🎫 La Mia Schedina</div>
+            <div class="schedina-title">&#x1F3AB; La Mia Schedina</div>
             <div class="schedina-stats">
               <div class="schedina-stat"><div class="schedina-stat-n g">${won}</div><div class="schedina-stat-l">Vinte</div></div>
               <div class="schedina-stat"><div class="schedina-stat-n r">${lost}</div><div class="schedina-stat-l">Perse</div></div>
@@ -8702,7 +9833,7 @@
       if (advices.length === 0) {
         return `
           <div class="panel" style="text-align:center;padding:30px;">
-            <div style="font-size:2.5rem;margin-bottom:12px;">🤖</div>
+            <div style="font-size:2.5rem;margin-bottom:12px;">&#x1F916;</div>
             <div style="font-size:1rem;color:var(--text-gray);">Analisi AI in corso...</div>
             <div style="font-size:0.8rem;color:var(--text-dark);margin-top:8px;">Carica le partite per vedere il Consiglio AI</div>
           </div>
@@ -8716,9 +9847,9 @@
         
         <div class="panel" style="margin-bottom:20px;">
           <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-            <span>🤖 Consiglio AI - Tutte le Partite</span>
+            <span>&#x1F916; Consiglio AI - Tutte le Partite</span>
             <div style="display:flex;gap:6px;">
-              ${highCount > 0 ? `<span style="background:rgba(16,185,129,0.15);color:var(--accent-green);padding:3px 10px;border-radius:12px;font-size:0.7rem;font-weight:700;">🔥 ${highCount} Alta</span>` : ''}
+              ${highCount > 0 ? `<span style="background:rgba(16,185,129,0.15);color:var(--accent-green);padding:3px 10px;border-radius:12px;font-size:0.7rem;font-weight:700;">&#x1F525; ${highCount} Alta</span>` : ''}
               <span style="background:var(--bg-input);padding:3px 10px;border-radius:12px;font-size:0.7rem;font-weight:700;color:var(--text-gray);">${advices.length} partite</span>
             </div>
           </div>
@@ -8748,7 +9879,7 @@
                     </div>
                   </div>
                   <div class="advice-xg-bar">
-                    <span>xG 🏠 <span class="advice-xg-val">${a.xgHome}</span></span>
+                    <span>xG &#x1F3E0; <span class="advice-xg-val">${a.xgHome}</span></span>
                     <span>xG Tot <span class="advice-xg-val">${a.xgTotal}</span></span>
                     <span>xG ✈️ <span class="advice-xg-val">${a.xgAway}</span></span>
                     ${a.dataQuality === 'high' ? '<span style="color:var(--accent-green)">✓ Dati</span>' : ''}
@@ -8756,7 +9887,7 @@
                   <div class="advice-main">
                     <div class="advice-main-top">
                       <div class="advice-main-label">Pronostico Consigliato</div>
-                      <div class="advice-main-conf ${a.confidence}">${a.confidence === 'high' ? '🟢 Alta' : a.confidence === 'medium' ? '🟡 Media' : '⚪ Bassa'}</div>
+                      <div class="advice-main-conf ${a.confidence}">${a.confidence === 'high' ? '&#x1F7E2; Alta' : a.confidence === 'medium' ? '&#x1F7E1; Media' : '⚪ Bassa'}</div>
                     </div>
                     <div class="advice-main-row">
                       <div class="advice-main-pick">${esc(a.pick)}</div>
@@ -8786,9 +9917,9 @@
                             data-track-pick="${esc(a.pick)}"
                             data-track-prob="${typeof a.prob === 'number' ? a.prob.toFixed(1) : a.prob}"
                             ${isTracked ? 'disabled' : ''}>
-                      ${isTracked ? '✅ Tracciato' : '🎯 GIOCATO - Traccia questo pronostico'}
+                      ${isTracked ? '✅ Tracciato' : '&#x1F3AF; GIOCATO - Traccia questo pronostico'}
                     </button>
-                    <button class="btn-dettaglio" onclick="selectMatch(${a.matchId})">📊</button>
+                    <button class="btn-dettaglio" onclick="selectMatch(${a.matchId})">&#x1F4CA;</button>
                   </div>
                 </div>
               </div>
@@ -8818,14 +9949,14 @@
           <div class="live-header">
             <div class="live-title"><span class="live-dot"></span> LIVE Alerts</div>
             <div style="display: flex; align-items: center; gap: 12px;">
-              <div class="live-auto-refresh">🔄 Auto-refresh <span class="live-countdown">${state.liveCountdown}s</span></div>
+              <div class="live-auto-refresh">&#x1F504; Auto-refresh <span class="live-countdown">${state.liveCountdown}s</span></div>
               <button class="live-refresh-btn" id="refreshLive">⟳ Aggiorna</button>
             </div>
           </div>
           
           ${alerts.length === 0 ? `
             <div class="live-empty">
-              <div class="live-empty-icon">📡</div>
+              <div class="live-empty-icon">&#x1F4E1;</div>
               <div>Nessun alert al momento</div>
               <div style="font-size: 0.8rem; margin-top: 8px; color: var(--text-dark);">
                 ${state.liveMatches.length} partite live monitorate
@@ -8836,7 +9967,7 @@
               ${alerts.map(alert => `
                 <div class="live-alert-card ${alert.level}">
                   <div class="live-alert-header">
-                    <div class="live-alert-level">${alert.level === 'high' ? '🚨 ALERT ALTO' : alert.level === 'medium' ? '⚠️ ALERT MEDIO' : '🔵 INFO'}</div>
+                    <div class="live-alert-level">${alert.level === 'high' ? '&#x1F6A8; ALERT ALTO' : alert.level === 'medium' ? '⚠️ ALERT MEDIO' : '&#x1F535; INFO'}</div>
                     <div class="live-alert-time"><span class="live-dot"></span> ${alert.match.elapsed}'</div>
                   </div>
                   <div class="live-alert-body">
@@ -8845,23 +9976,23 @@
                       <div class="live-alert-score">${alert.match.goals.home} - ${alert.match.goals.away}</div>
                     </div>
                     <div class="live-alert-stats">
-                      <div class="live-stat">🎯 Tiri in porta: <strong>${alert.stats.shotsOnHome || 0}-${alert.stats.shotsOnAway || 0}</strong></div>
+                      <div class="live-stat">&#x1F3AF; Tiri in porta: <strong>${alert.stats.shotsOnHome || 0}-${alert.stats.shotsOnAway || 0}</strong></div>
                       <div class="live-stat">⚽ Tiri totali: <strong>${alert.stats.shotsHome || 0}-${alert.stats.shotsAway || 0}</strong></div>
-                      <div class="live-stat">🚩 Corner: <strong>${alert.stats.cornersHome || 0}-${alert.stats.cornersAway || 0}</strong></div>
-                      <div class="live-stat">📊 Possesso: <strong>${alert.stats.possessionHome || 50}%-${alert.stats.possessionAway || 50}%</strong></div>
+                      <div class="live-stat">&#x1F6A9; Corner: <strong>${alert.stats.cornersHome || 0}-${alert.stats.cornersAway || 0}</strong></div>
+                      <div class="live-stat">&#x1F4CA; Possesso: <strong>${alert.stats.possessionHome || 50}%-${alert.stats.possessionAway || 50}%</strong></div>
                     </div>
                     <div class="live-alert-pick">
                       <div class="live-pick-label">CONSIGLIO LIVE</div>
                       <div class="live-pick-value">${alert.pick}</div>
                       <div class="live-pick-details">
-                        <span class="live-pick-prob">📈 ${alert.prob}% prob</span>
-                        <span style="color: var(--accent-yellow);">💰 ~@${alert.quota}</span>
+                        <span class="live-pick-prob">&#x1F4C8; ${alert.prob}% prob</span>
+                        <span style="color: var(--accent-yellow);">&#x1F4B0; ~@${alert.quota}</span>
                       </div>
-                      <div class="live-pick-reason">💡 ${alert.reason}</div>
+                      <div class="live-pick-reason">&#x1F4A1; ${alert.reason}</div>
                       <button class="live-track-btn ${state.trackedBets.some(b => b.matchId === alert.match.id && b.isLive) ? 'tracked' : ''}"
                               onclick="trackLiveBet(${alert.match.id}, '${esc(alert.match.home.name)} vs ${esc(alert.match.away.name)}', '${esc(alert.pick)}', ${alert.prob}, ${alert.quota}, event)"
                               ${state.trackedBets.some(b => b.matchId === alert.match.id && b.isLive) ? 'disabled' : ''}>
-                        ${state.trackedBets.some(b => b.matchId === alert.match.id && b.isLive) ? '✅ Tracciato' : '🎯 GIOCATO'}
+                        ${state.trackedBets.some(b => b.matchId === alert.match.id && b.isLive) ? '✅ Tracciato' : '&#x1F3AF; GIOCATO'}
                       </button>
                     </div>
                   </div>
@@ -8871,10 +10002,10 @@
           `}
           
           <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-            <div style="font-size: 0.8rem; color: var(--text-dark); margin-bottom: 8px;">📊 Statistiche Monitorate</div>
+            <div style="font-size: 0.8rem; color: var(--text-dark); margin-bottom: 8px;">&#x1F4CA; Statistiche Monitorate</div>
             <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-gray);">
-              <span>🔴 Partite LIVE: <strong style="color: var(--text-white);">${state.liveMatches.length}</strong></span>
-              <span>🚨 Alert Alti: <strong style="color: var(--accent-red);">${alerts.filter(a => a.level === 'high').length}</strong></span>
+              <span>&#x1F534; Partite LIVE: <strong style="color: var(--text-white);">${state.liveMatches.length}</strong></span>
+              <span>&#x1F6A8; Alert Alti: <strong style="color: var(--accent-red);">${alerts.filter(a => a.level === 'high').length}</strong></span>
               <span>⚠️ Alert Medi: <strong style="color: var(--accent-yellow);">${alerts.filter(a => a.level === 'medium').length}</strong></span>
             </div>
           </div>
@@ -8917,7 +10048,14 @@
       const stat = generateStatisticalAdvice(m, d);
 
       return `
-        <div class="back-btn" id="backToMatches" onclick="backToMatches()">← Partite</div>
+        <div class="analizza-btn-area">
+          <div class="back-btn" id="backToMatches" onclick="backToMatches()" style="margin-bottom:0">← Partite</div>
+          <button class="analizza-btn ${state.superAnalysisRunning ? 'loading' : ''}" id="analizzaBtn" onclick="triggerSuperAnalysis()">
+            ${state.superAnalysisRunning ? '&#9203; Analisi in corso...' : '&#128302; ANALIZZA con Super AI'}
+          </button>
+        </div>
+        
+        ${state.superAnalysis ? renderSuperAnalysis(state.superAnalysis, m) : ''}
         
         <div class="analysis-hero">
           <div class="hero-league">${esc(m.league.country)} • ${esc(m.league.name)} • ${formatDateFull(m.date)} ${formatTime(m.date)}</div>
@@ -8940,7 +10078,7 @@
           <!-- MG CASA / MG OSPITE sotto risultato esatto previsto -->
           <div class="hero-mg-section">
             <div class="hero-mg-box">
-              <div class="hero-mg-label">🏠 MG ${m.home.name.split(' ')[0]}</div>
+              <div class="hero-mg-label">&#x1F3E0; MG ${m.home.name.split(' ')[0]}</div>
               <div class="hero-mg-value">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
               <div class="hero-mg-prob">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
             </div>
@@ -8958,12 +10096,12 @@
           <!-- AI CONSIGLIO -->
           <div class="ai-advice">
           <div class="ai-header">
-            <div class="ai-icon">🤖</div>
+            <div class="ai-icon">&#x1F916;</div>
             <div class="ai-title-group">
               <div class="ai-title">Consiglio AI</div>
               <div class="ai-subtitle">Analisi basata su xG, statistiche e probabilità</div>
             </div>
-            <div class="ai-confidence ${ai.confidence}">${ai.confidence === 'high' ? '🎯 Alta' : ai.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
+            <div class="ai-confidence ${ai.confidence}">${ai.confidence === 'high' ? '&#x1F3AF; Alta' : ai.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
           </div>
           
           <div class="ai-pick">
@@ -8973,11 +10111,11 @@
           </div>
           
           <div class="ai-reasoning">
-            <div class="ai-reasoning-title">💡 Perché questo pronostico</div>
+            <div class="ai-reasoning-title">&#x1F4A1; Perché questo pronostico</div>
             <div class="ai-reasoning-list">
               ${ai.reasons.map(r => `
                 <div class="ai-reason ${r.type}">
-                  <span class="ai-reason-icon">${r.type === 'positive' ? '✅' : r.type === 'negative' ? '⚠️' : '📊'}</span>
+                  <span class="ai-reason-icon">${r.type === 'positive' ? '✅' : r.type === 'negative' ? '⚠️' : '&#x1F4CA;'}</span>
                   <span>${r.text}</span>
                 </div>
               `).join('')}
@@ -8998,19 +10136,19 @@
           <button class="track-btn ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'tracked' : ''}" 
                   onclick="trackPrematchBet(${m.id}, '${esc(m.home.name)} vs ${esc(m.away.name)}', '${esc(ai.pick)}', ${ai.prob.toFixed(0)}, event)"
                   ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'disabled' : ''}>
-            ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? '✅ Pronostico Tracciato' : '🎯 GIOCATO - Traccia questo pronostico'}
+            ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? '✅ Pronostico Tracciato' : '&#x1F3AF; GIOCATO - Traccia questo pronostico'}
           </button>
         </div>
 
         <!-- PRONOSTICO STATISTICO -->
         <div class="statistical-advice">
           <div class="ai-header">
-            <div class="ai-icon">📊</div>
+            <div class="ai-icon">&#x1F4CA;</div>
             <div class="ai-title-group">
               <div class="ai-title" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Pronostico Statistico</div>
               <div class="ai-subtitle">Basato solo sulla probabilità più alta</div>
             </div>
-            <div class="ai-confidence ${stat.confidence}">${stat.confidence === 'high' ? '🎯 Alta' : stat.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
+            <div class="ai-confidence ${stat.confidence}">${stat.confidence === 'high' ? '&#x1F3AF; Alta' : stat.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
           </div>
 
           <div class="ai-pick">
@@ -9020,18 +10158,18 @@
           </div>
 
           <div class="ai-reasoning">
-            <div class="ai-reasoning-title">📈 Dettagli Statistici</div>
+            <div class="ai-reasoning-title">&#x1F4C8; Dettagli Statistici</div>
             <div class="ai-reasoning-list">
               <div class="ai-reason positive">
                 <span class="ai-reason-icon">✅</span>
                 <span>Mercato: ${stat.market}</span>
               </div>
               <div class="ai-reason positive">
-                <span class="ai-reason-icon">📊</span>
+                <span class="ai-reason-icon">&#x1F4CA;</span>
                 <span>Probabilità più alta tra tutti i pronostici</span>
               </div>
               <div class="ai-reason neutral">
-                <span class="ai-reason-icon">🔢</span>
+                <span class="ai-reason-icon">&#x1F522;</span>
                 <span>Basato su calcoli Poisson e xG</span>
               </div>
             </div>
@@ -9058,7 +10196,7 @@
       ${renderHistorySection(m.id)}
       
         <div class="combo-panel">
-          <div class="combo-title">🔥 Combo Suggerite</div>
+          <div class="combo-title">&#x1F525; Combo Suggerite</div>
           <div class="combo-grid">
             ${d.combos.map(c => `
               <div class="combo-card ${isInSlip(m.id, 'combo_'+c.value) ? 'selected' : ''}" data-market="combo_${c.value}" data-value="${c.value}" data-prob="${c.prob.toFixed(0)}">
@@ -9075,7 +10213,7 @@
         <div class="analysis-grid">
           <div class="analysis-card">
             <div class="card-title">
-              <div class="card-title-icon">📊</div>
+              <div class="card-title-icon">&#x1F4CA;</div>
               <span>Expected Goals</span>
               <span class="card-title-badge">${d.xG.total.toFixed(2)}</span>
             </div>
@@ -9092,7 +10230,7 @@
           </div>
           
           <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🎯</div><span>1X2</span></div>
+            <div class="card-title"><div class="card-title-icon">&#x1F3AF;</div><span>1X2</span></div>
             <div class="prob-row">
               <span class="prob-label">1 Casa</span>
               <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${d.p1X2.home}%"></div></div>
@@ -9127,7 +10265,7 @@
           </div>
           
           <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🚩</div><span>Corner</span></div>
+            <div class="card-title"><div class="card-title-icon">&#x1F6A9;</div><span>Corner</span></div>
             <div class="stat-grid">
               <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.corners.home.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
               <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.corners.total.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
@@ -9145,7 +10283,7 @@
           </div>
           
           <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🟨</div><span>Cartellini</span></div>
+            <div class="card-title"><div class="card-title-icon">&#x1F7E8;</div><span>Cartellini</span></div>
             <div class="stat-grid">
               <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.cards.home.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
               <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.cards.total.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
@@ -9164,7 +10302,7 @@
           
           <!-- SEZIONE SCOMMESSE SPECIALI -->
           <div class="analysis-card wide">
-            <div class="card-title"><div class="card-title-icon">🎰</div><span>Multigoal Range</span></div>
+            <div class="card-title"><div class="card-title-icon">&#x1F3B0;</div><span>Multigoal Range</span></div>
             <div class="multigoal-grid">
               ${d.multigoal ? d.multigoal.slice(0, 6).map((mg, i) => `
                 <div class="multigoal-box ${i === 0 ? 'best' : ''}">
@@ -9203,7 +10341,7 @@
           </div>
           
           <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🏠</div><span>MG ${m.home.name.split(' ')[0]}</span></div>
+            <div class="card-title"><div class="card-title-icon">&#x1F3E0;</div><span>MG ${m.home.name.split(' ')[0]}</span></div>
             ${d.multigoalHome ? d.multigoalHome.map(mg => `
               <div class="prob-row">
                 <span class="prob-label">${mg.range} gol</span>
@@ -9225,7 +10363,7 @@
           </div>
           
           <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">📈</div><span>Forma + MG Consigliato</span></div>
+            <div class="card-title"><div class="card-title-icon">&#x1F4C8;</div><span>Forma + MG Consigliato</span></div>
             <div class="form-display">
               <div class="form-team">
                 <span class="form-team-name">${m.home.name.split(' ')[0]}</span>
@@ -9247,7 +10385,7 @@
             <!-- MG PIÙ PROBABILE -->
             <div style="display: flex; gap: 10px; margin-top: 12px;">
               <div class="mg-best-box" style="flex:1">
-                <div class="mg-best-label">🏠 MG ${m.home.name.split(' ')[0]}</div>
+                <div class="mg-best-label">&#x1F3E0; MG ${m.home.name.split(' ')[0]}</div>
                 <div class="mg-best-value">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
                 <div class="mg-best-prob">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
               </div>
@@ -9261,7 +10399,7 @@
           
           <!-- CLASSIFICA E MOTIVAZIONE -->
           <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🏆</div><span>Classifica</span></div>
+            <div class="card-title"><div class="card-title-icon">&#x1F3C6;</div><span>Classifica</span></div>
             ${d.homePosition ? `
               <div class="standings-card">
                 <div class="standings-header">
@@ -9272,7 +10410,7 @@
                   <span class="motivation-badge ${d.homePosition.motivationColor}">${d.homePosition.motivationText}</span>
                 </div>
                 <div class="standings-stats">
-                  <span class="standings-stat">📊 ${d.homePosition.points} pt</span>
+                  <span class="standings-stat">&#x1F4CA; ${d.homePosition.points} pt</span>
                   <span class="standings-stat">✅ ${d.homePosition.won}V</span>
                   <span class="standings-stat">➖ ${d.homePosition.draw}P</span>
                   <span class="standings-stat">❌ ${d.homePosition.lost}S</span>
@@ -9289,7 +10427,7 @@
                   <span class="motivation-badge ${d.awayPosition.motivationColor}">${d.awayPosition.motivationText}</span>
                 </div>
                 <div class="standings-stats">
-                  <span class="standings-stat">📊 ${d.awayPosition.points} pt</span>
+                  <span class="standings-stat">&#x1F4CA; ${d.awayPosition.points} pt</span>
                   <span class="standings-stat">✅ ${d.awayPosition.won}V</span>
                   <span class="standings-stat">➖ ${d.awayPosition.draw}P</span>
                   <span class="standings-stat">❌ ${d.awayPosition.lost}S</span>
@@ -9300,10 +10438,10 @@
           
           <!-- INFORTUNATI -->
           <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">🏥</div><span>Assenze</span></div>
+            <div class="card-title"><div class="card-title-icon">&#x1F3E5;</div><span>Assenze</span></div>
             <div class="injuries-card" style="margin-bottom: 8px;">
               <div class="injuries-header">
-                <span>🏠 ${m.home.name.split(' ')[0]}</span>
+                <span>&#x1F3E0; ${m.home.name.split(' ')[0]}</span>
               </div>
               ${d.homeInjuries && d.homeInjuries.length > 0 ? `
                 <div class="injuries-list">
@@ -9330,7 +10468,7 @@
           </div>
           
           <div class="analysis-card wide">
-            <div class="card-title"><div class="card-title-icon">🎲</div><span>Risultati Esatti</span></div>
+            <div class="card-title"><div class="card-title-icon">&#x1F3B2;</div><span>Risultati Esatti</span></div>
             <div class="scores-grid">
               ${d.exactScores.map((s, i) => `
                 <div class="score-box ${i === 0 ? 'highlight' : ''}">
@@ -9342,7 +10480,7 @@
             <!-- MG CASA / MG OSPITE sotto risultati esatti -->
             <div class="mg-under-scores">
               <div class="mg-box-compact">
-                <div class="mg-box-label">🏠 MG ${m.home.name.split(' ')[0]}</div>
+                <div class="mg-box-label">&#x1F3E0; MG ${m.home.name.split(' ')[0]}</div>
                 <div class="mg-box-value">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
                 <div class="mg-box-prob">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
               </div>
@@ -9382,10 +10520,10 @@
       if (state.slip.length === 0) return '';
       return `
         <div class="slip-floating">
-          <div class="slip-count">🎫 ${state.slip.length} pronostici</div>
-          <button class="slip-btn primary" id="viewSlip">📋 Vedi</button>
-          <button class="slip-btn secondary" id="copySlip">📋 Copia</button>
-          <button class="slip-btn danger" id="clearSlip">🗑️</button>
+          <div class="slip-count">&#x1F3AB; ${state.slip.length} pronostici</div>
+          <button class="slip-btn primary" id="viewSlip">&#x1F4CB; Vedi</button>
+          <button class="slip-btn secondary" id="copySlip">&#x1F4CB; Copia</button>
+          <button class="slip-btn danger" id="clearSlip">&#x1F5D1;️</button>
         </div>
       `;
     }
@@ -9396,7 +10534,7 @@
         <div class="slip-modal" id="slipModal">
           <div class="slip-modal-content">
             <div class="slip-modal-header">
-              <div class="slip-modal-title">🎫 La Tua Schedina</div>
+              <div class="slip-modal-title">&#x1F3AB; La Tua Schedina</div>
               <button class="slip-modal-close" id="closeSlip">×</button>
             </div>
             <div class="slip-modal-body">
@@ -9439,7 +10577,7 @@
           if (id === 'backToLeagues' || id === 'backFromPerformance' || text.includes('Campionati')) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔙 Tornando ai campionati...');
+            console.log('&#x1F519; Tornando ai campionati...');
             state.view = 'leagues';
             state.selectedLeague = null;
             render();
@@ -9450,7 +10588,7 @@
           if (id === 'backToMatches' || text.includes('Partite')) {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔙 Tornando alle partite...');
+            console.log('&#x1F519; Tornando alle partite...');
             state.view = 'matches';
             state.selectedMatch = null;
             state.analysis = null;
@@ -9637,6 +10775,8 @@
     }
 
     // === GLOBAL FUNCTIONS (for inline onclick handlers) ===
+    window.addToSlip = addToSlip;   // usato in super pick cards onclick inline
+    window.state = state;            // accessibile da onclick inline
     window.selectMatch = selectMatch;
     window.toggleSettingsPanel = toggleSettingsPanel;
     window.showPerformance = showPerformance;
@@ -9650,6 +10790,7 @@
     window.resetAllData = resetAllData;
     window.toggleConsigliMode = toggleConsigliMode;
     window.loadLiveMatches = loadLiveMatches;
+    window.triggerSuperAnalysis = triggerSuperAnalysis;
     
     // === AUTH GLOBAL FUNCTIONS ===
     window.firebaseLogin = firebaseLogin;
@@ -9661,11 +10802,11 @@
     
     // === INIT ===
     async function init() {
-      console.log('🚀 BettingPro v6 + Firebase Auth starting...');
+      console.log('&#x1F680; BettingPro v6 + Firebase Auth starting...');
       
       // Ripristina sessione se salvata
       const sessionRestored = await restoreAuthSession();
-      console.log(`👤 User ID: ${USER_ID} ${sessionRestored ? '(session restored)' : '(local)'}`);
+      console.log(`&#x1F464; User ID: ${USER_ID} ${sessionRestored ? '(session restored)' : '(local)'}`);
       
       // Mostra interfaccia subito con dati localStorage
       loadSlipFromLocalStorage();
@@ -9709,7 +10850,7 @@
       // Sync con Firebase ogni 5 minuti (backup automatico)
       setInterval(() => {
         if (firebaseEnabled) {
-          console.log('🔄 Sync automatico con Firebase...');
+          console.log('&#x1F504; Sync automatico con Firebase...');
           saveToFirebase('trackedBets', state.trackedBets).catch(e => console.warn('Auto-sync failed:', e));
           saveToFirebase('mlThresholds', state.mlThresholds).catch(e => console.warn('Auto-sync ML failed:', e));
           saveToFirebase('mlStats', state.mlStats).catch(e => console.warn('Auto-sync mlStats failed:', e));
