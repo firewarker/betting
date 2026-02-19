@@ -344,6 +344,44 @@
       box-shadow: 0 2px 6px rgba(59,130,246,0.3);
     }
     .analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+
+    /* === ADVICE TABS === */
+    .advice-tabs { display:flex; gap:6px; margin-bottom:-1px; position:relative; z-index:1; }
+    .advice-tab {
+      padding: 8px 18px; border-radius: 12px 12px 0 0;
+      border: 1px solid var(--border); border-bottom: none;
+      font-size: 0.78rem; font-weight: 700; cursor: pointer;
+      background: var(--bg-card-light); color: var(--text-gray);
+      transition: all 0.15s;
+    }
+    .advice-tab.active { background: var(--bg-card); color: var(--text-white); border-color: rgba(0,212,255,0.25); }
+    .advice-tab.active.stat { color: var(--accent-cyan); }
+    .advice-panel { display:none; }
+    .advice-panel.active { display:block; }
+
+    /* === ACCORDION SEZIONI === */
+    .section-accordion { margin-bottom: 12px; }
+    .section-accordion-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 16px; background: var(--bg-card);
+      border: 1px solid var(--border); border-radius: 12px;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+      user-select: none;
+    }
+    .section-accordion-header:hover { background: var(--bg-card-light); border-color: rgba(0,212,255,0.15); }
+    .section-accordion-header.open { border-radius: 12px 12px 0 0; border-color: rgba(0,212,255,0.2); border-bottom-color: transparent; }
+    .section-accordion-title { display:flex; align-items:center; gap:8px; font-size:0.82rem; font-weight:700; color:var(--text-white); }
+    .section-accordion-meta { font-size:0.68rem; color:var(--text-dark); }
+    .section-accordion-arrow { font-size:0.7rem; color:var(--text-dark); transition:transform 0.2s; }
+    .section-accordion-header.open .section-accordion-arrow { transform: rotate(180deg); }
+    .section-accordion-body {
+      display: none; border: 1px solid rgba(0,212,255,0.2); border-top: none;
+      border-radius: 0 0 12px 12px; background: var(--bg-card);
+      overflow: hidden;
+    }
+    .section-accordion-body.open { display: block; }
+    .section-accordion-body .analysis-grid { margin: 0; padding: 14px; gap: 12px; }
+    .section-accordion-body .analysis-card { margin: 0; }
     .analysis-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -9958,7 +9996,58 @@
       alert(detail);
     }
     
-    function toggleTheme() {
+    // ============================================================
+    // TABS PRONOSTICI
+    // ============================================================
+    function switchAdviceTab(tab, btnEl) {
+      // Trova tutti i tab e panel nel contenitore padre
+      const container = btnEl.closest('[style*="margin-bottom"]') || btnEl.parentElement.parentElement;
+      const tabs = btnEl.parentElement.querySelectorAll('.advice-tab');
+      const panels = container.querySelectorAll('.advice-panel');
+      tabs.forEach(t => t.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      btnEl.classList.add('active');
+      // Trova il panel corrispondente al tab
+      const activePanel = container.querySelector(`[id^="advicePanel_${tab}_"]`);
+      if (activePanel) activePanel.classList.add('active');
+    }
+
+    // ============================================================
+    // ACCORDION SEZIONI
+    // ============================================================
+    function toggleAccordion(header) {
+      const body = header.nextElementSibling;
+      const isOpen = header.classList.contains('open');
+      header.classList.toggle('open', !isOpen);
+      body.classList.toggle('open', !isOpen);
+    }
+
+    // Salva stato accordion in sessionStorage
+    function saveAccordionState() {
+      const states = {};
+      document.querySelectorAll('.section-accordion-header').forEach((h, i) => {
+        states[i] = h.classList.contains('open');
+      });
+      sessionStorage.setItem('accordion_state', JSON.stringify(states));
+    }
+
+    function restoreAccordionState() {
+      try {
+        const states = JSON.parse(sessionStorage.getItem('accordion_state') || '{}');
+        document.querySelectorAll('.section-accordion-header').forEach((h, i) => {
+          const body = h.nextElementSibling;
+          if (states[i] === true) {
+            h.classList.add('open');
+            body.classList.add('open');
+          } else if (states[i] === false) {
+            h.classList.remove('open');
+            body.classList.remove('open');
+          }
+        });
+      } catch(e) {}
+    }
+
+        function toggleTheme() {
       const isLight = document.body.classList.toggle('light-mode');
       localStorage.setItem('bp2_theme', isLight ? 'light' : 'dark');
       render(); // aggiorna icona pulsante
@@ -11308,104 +11397,108 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           </div>
         </div>
         
-        <!-- DUAL ADVICE: AI + STATISTICAL -->
-        <div class="dual-advice-container">
+        <!-- TABS PRONOSTICI: AI + STATISTICO -->
+        <div style="margin-bottom:4px;">
+          <!-- Tab switcher -->
+          <div class="advice-tabs">
+            <button class="advice-tab active" onclick="switchAdviceTab('ai', this)">
+              🤖 Consiglio AI
+              <span style="margin-left:6px;font-size:0.65rem;opacity:0.7;">${ai.prob.toFixed(0)}%</span>
+            </button>
+            <button class="advice-tab stat" onclick="switchAdviceTab('stat', this)">
+              📊 Statistico Puro
+              <span style="margin-left:6px;font-size:0.65rem;opacity:0.7;">${stat.prob.toFixed(0)}%</span>
+            </button>
+          </div>
 
-          <!-- AI CONSIGLIO -->
-          <div class="ai-advice">
-          <div class="ai-header">
-            <div class="ai-icon">&#x1F916;</div>
-            <div class="ai-title-group">
-              <div class="ai-title">Consiglio AI</div>
-              <div class="ai-subtitle">Analisi basata su xG, statistiche e probabilità</div>
-            </div>
-            <div class="ai-confidence ${ai.confidence}">${ai.confidence === 'high' ? '&#x1F3AF; Alta' : ai.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
-          </div>
-          
-          <div class="ai-pick">
-            <div class="ai-pick-label">Pronostico Consigliato</div>
-            <div class="ai-pick-value">${ai.pick}</div>
-            <div class="ai-pick-prob">${ai.prob.toFixed(0)}% probabilità</div>
-          </div>
-          
-          <div class="ai-reasoning">
-            <div class="ai-reasoning-title">&#x1F4A1; Perché questo pronostico</div>
-            <div class="ai-reasoning-list">
-              ${ai.reasons.map(r => `
-                <div class="ai-reason ${r.type}">
-                  <span class="ai-reason-icon">${r.type === 'positive' ? '✅' : r.type === 'negative' ? '⚠️' : '&#x1F4CA;'}</span>
-                  <span>${r.text}</span>
+          <!-- Panel AI -->
+          <div id="advicePanel_ai_${m.id}" class="advice-panel active" style="background:var(--bg-card);border:1px solid rgba(0,212,255,0.2);border-radius:0 12px 12px 12px;">
+            <div class="ai-advice" style="border:none;border-radius:0 12px 12px 12px;">
+              <div class="ai-header">
+                <div class="ai-icon">&#x1F916;</div>
+                <div class="ai-title-group">
+                  <div class="ai-title">Consiglio AI</div>
+                  <div class="ai-subtitle">Analisi basata su xG, statistiche e probabilità</div>
                 </div>
-              `).join('')}
+                <div class="ai-confidence ${ai.confidence}">${ai.confidence === 'high' ? '&#x1F3AF; Alta' : ai.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
+              </div>
+              <div class="ai-pick">
+                <div class="ai-pick-label">Pronostico Consigliato</div>
+                <div class="ai-pick-value">${ai.pick}</div>
+                <div class="ai-pick-prob">${ai.prob.toFixed(0)}% probabilità</div>
+              </div>
+              <div class="ai-reasoning">
+                <div class="ai-reasoning-title">&#x1F4A1; Perché questo pronostico</div>
+                <div class="ai-reasoning-list">
+                  ${ai.reasons.map(r => `
+                    <div class="ai-reason ${r.type}">
+                      <span class="ai-reason-icon">${r.type === 'positive' ? '✅' : r.type === 'negative' ? '⚠️' : '&#x1F4CA;'}</span>
+                      <span>${r.text}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              ${ai.alternatives.length > 0 ? `
+                <div class="ai-alternatives">
+                  <div class="ai-alt-title">Alternative valide:</div>
+                  <div class="ai-alt-grid">
+                    ${ai.alternatives.map(a => `<div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>`).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              <button class="track-btn ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'tracked' : ''}"
+                      onclick="trackPrematchBet(${m.id}, '${esc(m.home.name)} vs ${esc(m.away.name)}', '${esc(ai.pick)}', ${ai.prob.toFixed(0)}, event)"
+                      ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'disabled' : ''}>
+                ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? '✅ Pronostico Tracciato' : '&#x1F3AF; GIOCATO - Traccia questo pronostico'}
+              </button>
             </div>
           </div>
-          
-          ${ai.alternatives.length > 0 ? `
-            <div class="ai-alternatives">
-              <div class="ai-alt-title">Alternative valide:</div>
-              <div class="ai-alt-grid">
-                ${ai.alternatives.map(a => `
-                  <div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>
-                `).join('')}
+
+          <!-- Panel STATISTICO -->
+          <div id="advicePanel_stat_${m.id}" class="advice-panel" style="background:var(--bg-card);border:1px solid rgba(0,212,255,0.2);border-radius:12px 0 12px 12px;">
+            <div class="statistical-advice" style="border:none;border-radius:12px 0 12px 12px;">
+              <div class="ai-header">
+                <div class="ai-icon">&#x1F4CA;</div>
+                <div class="ai-title-group">
+                  <div class="ai-title" style="background:linear-gradient(135deg,var(--accent-cyan),var(--accent-green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Pronostico Statistico</div>
+                  <div class="ai-subtitle">Poisson + Dixon-Coles + xG puri — zero filtri AI</div>
+                </div>
+                <div class="ai-confidence ${stat.confidence}">${stat.confidence === 'high' ? '&#x1F3AF; Alta' : stat.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
               </div>
+              <div class="ai-pick">
+                <div class="ai-pick-label">Probabilità Massima</div>
+                <div class="ai-pick-value">${stat.pick}</div>
+                <div class="ai-pick-prob">${stat.prob.toFixed(0)}% probabilità</div>
+              </div>
+              <div class="ai-reasoning">
+                <div class="ai-reasoning-title">&#x1F4C8; Dettagli modello</div>
+                <div class="ai-reasoning-list">
+                  <div class="ai-reason positive"><span class="ai-reason-icon">✅</span><span>Mercato: ${stat.market}</span></div>
+                  <div class="ai-reason neutral"><span class="ai-reason-icon">&#x1F4CA;</span><span>1X2 → Casa ${d.p1X2.home.toFixed(0)}% | X ${d.p1X2.draw.toFixed(0)}% | Ospite ${d.p1X2.away.toFixed(0)}%</span></div>
+                  <div class="ai-reason neutral"><span class="ai-reason-icon">🎯</span><span>xG → ${m.home.name.split(' ')[0]} ${d.xG.home.toFixed(2)} | ${m.away.name.split(' ')[0]} ${d.xG.away.toFixed(2)} | Totale ${d.xG.total.toFixed(2)}</span></div>
+                  <div class="ai-reason neutral"><span class="ai-reason-icon">⚽</span><span>Over 1.5: ${d.pOU[1.5].over.toFixed(0)}% | Over 2.5: ${d.pOU[2.5].over.toFixed(0)}% | GG: ${d.pBTTS.toFixed(0)}%</span></div>
+                </div>
+              </div>
+              ${stat.alternatives.length > 0 ? `
+                <div class="ai-alternatives">
+                  <div class="ai-alt-title">Top alternative pure:</div>
+                  <div class="ai-alt-grid">
+                    ${stat.alternatives.map(a => `<div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>`).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              ${stat.pick !== ai.pick ? `
+                <div style="margin-top:12px;padding:10px 12px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;font-size:0.72rem;color:#fbbf24;">
+                  ⚠️ Il modello statistico puro diverge dall'AI: <strong>${stat.pick}</strong> vs <strong>${ai.pick}</strong> — considera entrambi prima di decidere.
+                </div>
+              ` : `
+                <div style="margin-top:12px;padding:10px 12px;background:rgba(0,229,160,0.06);border:1px solid rgba(0,229,160,0.15);border-radius:8px;font-size:0.72rem;color:#00e5a0;">
+                  ✅ AI e modello statistico concordano su <strong>${ai.pick}</strong> — segnale di convergenza forte.
+                </div>
+              `}
             </div>
-          ` : ''}
-          
-          <button class="track-btn ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'tracked' : ''}" 
-                  onclick="trackPrematchBet(${m.id}, '${esc(m.home.name)} vs ${esc(m.away.name)}', '${esc(ai.pick)}', ${ai.prob.toFixed(0)}, event)"
-                  ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'disabled' : ''}>
-            ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? '✅ Pronostico Tracciato' : '&#x1F3AF; GIOCATO - Traccia questo pronostico'}
-          </button>
+          </div>
         </div>
-
-        <!-- PRONOSTICO STATISTICO -->
-        <div class="statistical-advice">
-          <div class="ai-header">
-            <div class="ai-icon">&#x1F4CA;</div>
-            <div class="ai-title-group">
-              <div class="ai-title" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Pronostico Statistico</div>
-              <div class="ai-subtitle">Basato solo sulla probabilità più alta</div>
-            </div>
-            <div class="ai-confidence ${stat.confidence}">${stat.confidence === 'high' ? '&#x1F3AF; Alta' : stat.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
-          </div>
-
-          <div class="ai-pick">
-            <div class="ai-pick-label">Pronostico con Prob. Massima</div>
-            <div class="ai-pick-value">${stat.pick}</div>
-            <div class="ai-pick-prob">${stat.prob.toFixed(0)}% probabilità</div>
-          </div>
-
-          <div class="ai-reasoning">
-            <div class="ai-reasoning-title">&#x1F4C8; Dettagli Statistici</div>
-            <div class="ai-reasoning-list">
-              <div class="ai-reason positive">
-                <span class="ai-reason-icon">✅</span>
-                <span>Mercato: ${stat.market}</span>
-              </div>
-              <div class="ai-reason positive">
-                <span class="ai-reason-icon">&#x1F4CA;</span>
-                <span>Probabilità più alta tra tutti i pronostici</span>
-              </div>
-              <div class="ai-reason neutral">
-                <span class="ai-reason-icon">&#x1F522;</span>
-                <span>Basato su calcoli Poisson e xG</span>
-              </div>
-            </div>
-          </div>
-
-          ${stat.alternatives.length > 0 ? `
-            <div class="ai-alternatives">
-              <div class="ai-alt-title">Top 3 alternative:</div>
-              <div class="ai-alt-grid">
-                ${stat.alternatives.map(a => `
-                  <div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-        </div>
-
-      </div>
       
       <!-- TRADER VERDICT -->
       ${safeRender(() => renderTraderVerdict(ai, stat, d), '', 'TraderVerdict')}
@@ -11418,27 +11511,27 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       
 
         
-        <div class="analysis-grid">
-          <div class="analysis-card">
-            <div class="card-title">
-              <div class="card-title-icon">&#x1F4CA;</div>
-              <span>Expected Goals</span>
-              <span class="card-title-badge">${d.xG.total.toFixed(2)}</span>
+        <!-- ═══ SEZIONI ACCORDION ═══ -->
+
+        <!-- SEZIONE A: Probabilità -->
+        <div class="section-accordion">
+          <div class="section-accordion-header open" onclick="toggleAccordion(this)">
+            <div class="section-accordion-title">
+              <span>🎯</span> Probabilità & Mercati Principali
             </div>
-            <div class="prob-row">
-              <span class="prob-label">${m.home.name.split(' ')[0]}</span>
-              <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${(d.xG.home/3)*100}%"></div></div>
-              <span class="prob-value">${d.xG.home.toFixed(2)}</span>
-            </div>
-            <div class="prob-row">
-              <span class="prob-label">${m.away.name.split(' ')[0]}</span>
-              <div class="prob-bar-track"><div class="prob-bar-fill green" style="width:${(d.xG.away/3)*100}%"></div></div>
-              <span class="prob-value">${d.xG.away.toFixed(2)}</span>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="section-accordion-meta">1X2 · Over/Under · GG</span>
+              <span class="section-accordion-arrow">▼</span>
             </div>
           </div>
-          
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">&#x1F3AF;</div><span>1X2</span></div>
+          <div class="section-accordion-body open">
+            <div class="analysis-grid">
+              <div class="analysis-card">
+                <div class="card-title">
+                  <div class="card-title-icon">🎯</div>
+                  <span>1X2 &amp; xG</span>
+              <span class="card-title-badge">xG ${d.xG.total.toFixed(2)}</span>
+            </div>
             <div class="prob-row">
               <span class="prob-label">1 Casa</span>
               <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${d.p1X2.home}%"></div></div>
@@ -11453,6 +11546,11 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
               <span class="prob-label">2 Ospite</span>
               <div class="prob-bar-track"><div class="prob-bar-fill purple" style="width:${d.p1X2.away}%"></div></div>
               <span class="prob-value">${d.p1X2.away.toFixed(0)}%</span>
+            </div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-gray);">
+              <span>xG <strong style="color:var(--accent-cyan);">${d.xG.home.toFixed(2)}</strong></span>
+              <span style="color:var(--text-dark);">Expected Goals</span>
+              <span>xG <strong style="color:var(--accent-red);">${d.xG.away.toFixed(2)}</strong></span>
             </div>
           </div>
           
@@ -11471,9 +11569,25 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
               <span class="prob-value">${d.pBTTS.toFixed(0)}%</span>
             </div>
           </div>
-          
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">&#x1F6A9;</div><span>Corner</span></div>
+            </div> <!-- fine analysis-grid sezione A -->
+          </div> <!-- fine accordion-body A -->
+        </div> <!-- fine accordion A -->
+
+        <!-- SEZIONE B: Statistiche Avanzate -->
+        <div class="section-accordion">
+          <div class="section-accordion-header" onclick="toggleAccordion(this)">
+            <div class="section-accordion-title">
+              <span>📐</span> Statistiche Avanzate
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="section-accordion-meta">Corner · Cartellini</span>
+              <span class="section-accordion-arrow">▼</span>
+            </div>
+          </div>
+          <div class="section-accordion-body">
+            <div class="analysis-grid">
+              <div class="analysis-card">
+                <div class="card-title"><div class="card-title-icon">&#x1F6A9;</div><span>Corner</span></div>
             <div class="stat-grid">
               <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.corners.home.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
               <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.corners.total.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
@@ -11508,9 +11622,25 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
             </div>
           </div>
           
-          <!-- SEZIONE SCOMMESSE SPECIALI -->
-          <div class="analysis-card wide">
-            <div class="card-title"><div class="card-title-icon">&#x1F3B0;</div><span>Multigoal Range</span></div>
+            </div> <!-- fine analysis-grid sezione B -->
+          </div> <!-- fine accordion-body B -->
+        </div> <!-- fine accordion B -->
+
+        <!-- SEZIONE C: Gol & Score -->
+        <div class="section-accordion">
+          <div class="section-accordion-header" onclick="toggleAccordion(this)">
+            <div class="section-accordion-title">
+              <span>⚽</span> Gol, Score & Multigoal
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="section-accordion-meta">MG · Gol per Tempo · Risultati Esatti</span>
+              <span class="section-accordion-arrow">▼</span>
+            </div>
+          </div>
+          <div class="section-accordion-body">
+            <div class="analysis-grid">
+              <div class="analysis-card wide">
+                <div class="card-title"><div class="card-title-icon">&#x1F3B0;</div><span>Multigoal Range</span></div>
             <div class="multigoal-grid">
               ${d.multigoal ? d.multigoal.slice(0, 6).map((mg, i) => `
                 <div class="multigoal-box ${i === 0 ? 'best' : ''}">
@@ -11548,66 +11678,26 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
             ` : '<div>N/A</div>'}
           </div>
           
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">&#x1F3E0;</div><span>MG ${m.home.name.split(' ')[0]}</span></div>
-            ${d.multigoalHome ? d.multigoalHome.map(mg => `
-              <div class="prob-row">
-                <span class="prob-label">${mg.range} gol</span>
-                <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${mg.prob}%"></div></div>
-                <span class="prob-value">${mg.prob.toFixed(0)}%</span>
-              </div>
-            `).join('') : '<div>N/A</div>'}
-          </div>
-          
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">✈️</div><span>MG ${m.away.name.split(' ')[0]}</span></div>
-            ${d.multigoalAway ? d.multigoalAway.map(mg => `
-              <div class="prob-row">
-                <span class="prob-label">${mg.range} gol</span>
-                <div class="prob-bar-track"><div class="prob-bar-fill purple" style="width:${mg.prob}%"></div></div>
-                <span class="prob-value">${mg.prob.toFixed(0)}%</span>
-              </div>
-            `).join('') : '<div>N/A</div>'}
-          </div>
-          
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">&#x1F4C8;</div><span>Forma + MG Consigliato</span></div>
-            <div class="form-display">
-              <div class="form-team">
-                <span class="form-team-name">${m.home.name.split(' ')[0]}</span>
-                <span class="form-string">${d.homeForm ? d.homeForm.split('').map(c => 
-                  c === 'W' ? '<span class="form-w">V</span>' : 
-                  c === 'D' ? '<span class="form-d">P</span>' : 
-                  '<span class="form-l">S</span>'
-                ).join('') : 'N/A'}</span>
-              </div>
-              <div class="form-team">
-                <span class="form-team-name">${m.away.name.split(' ')[0]}</span>
-                <span class="form-string">${d.awayForm ? d.awayForm.split('').map(c => 
-                  c === 'W' ? '<span class="form-w">V</span>' : 
-                  c === 'D' ? '<span class="form-d">P</span>' : 
-                  '<span class="form-l">S</span>'
-                ).join('') : 'N/A'}</span>
-              </div>
+            </div> <!-- fine analysis-grid sezione C -->
+          </div> <!-- fine accordion-body C -->
+        </div> <!-- fine accordion C -->
+
+        <!-- SEZIONE D: Squadre -->
+        <div class="section-accordion">
+          <div class="section-accordion-header" onclick="toggleAccordion(this)">
+            <div class="section-accordion-title">
+              <span>🏟</span> Squadre & Contesto
             </div>
-            <!-- MG PIÙ PROBABILE -->
-            <div style="display: flex; gap: 10px; margin-top: 12px;">
-              <div class="mg-best-box" style="flex:1">
-                <div class="mg-best-label">&#x1F3E0; MG ${m.home.name.split(' ')[0]}</div>
-                <div class="mg-best-value">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
-                <div class="mg-best-prob">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
-              </div>
-              <div class="mg-best-box" style="flex:1">
-                <div class="mg-best-label">✈️ MG ${m.away.name.split(' ')[0]}</div>
-                <div class="mg-best-value">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
-                <div class="mg-best-prob">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
-              </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="section-accordion-meta">Classifica · Formazioni · Assenze · Comparazione</span>
+              <span class="section-accordion-arrow">▼</span>
             </div>
           </div>
-          
-          <!-- CLASSIFICA E MOTIVAZIONE -->
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">&#x1F3C6;</div><span>Classifica</span></div>
+          <div class="section-accordion-body">
+            <div class="analysis-grid">
+              <!-- CLASSIFICA E MOTIVAZIONE -->
+              <div class="analysis-card">
+                <div class="card-title"><div class="card-title-icon">&#x1F3C6;</div><span>Classifica</span></div>
             ${d.homePosition ? `
               <div class="standings-card">
                 <div class="standings-header">
@@ -11642,6 +11732,19 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
                 </div>
               </div>
             ` : ''}
+            <!-- Forma recente compatta -->
+            ${(d.homeForm || d.awayForm) ? `
+            <div style="margin-top:10px;padding:8px 12px;background:var(--bg-card-light);border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:0.62rem;color:var(--text-dark);">${m.home.name.split(' ')[0]}</span>
+                <span style="font-size:0.8rem;">${(d.homeForm||'').split('').map(c=>c==='W'?'<span style="color:#00e5a0">▲</span>':c==='D'?'<span style="color:#fbbf24">—</span>':'<span style="color:#f87171">▼</span>').join('')}</span>
+              </div>
+              <span style="font-size:0.6rem;color:var(--text-dark);">forma</span>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:0.8rem;">${(d.awayForm||'').split('').map(c=>c==='W'?'<span style="color:#00e5a0">▲</span>':c==='D'?'<span style="color:#fbbf24">—</span>':'<span style="color:#f87171">▼</span>').join('')}</span>
+                <span style="font-size:0.62rem;color:var(--text-dark);">${m.away.name.split(' ')[0]}</span>
+              </div>
+            </div>` : ''}
           </div>
           
           <!-- FORMAZIONI UFFICIALI -->
@@ -11688,21 +11791,6 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
                 </div>
               </div>
             </div>
-            ${d.bookmakerOdds ? `
-            <div style="margin-top:12px;padding:10px 12px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:10px;display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
-              <span style="font-size:0.65rem;color:#f59e0b;font-weight:700;">💰 Quote ${d.bookmakerOdds.bookmakerName}</span>
-              <span style="font-size:0.75rem;color:#e2e8f0;">&#x1F3E0; @${d.bookmakerOdds.homeOdd}</span>
-              <span style="font-size:0.75rem;color:#e2e8f0;">X @${d.bookmakerOdds.drawOdd}</span>
-              <span style="font-size:0.75rem;color:#e2e8f0;">✈️ @${d.bookmakerOdds.awayOdd}</span>
-              <span style="font-size:0.62rem;color:rgba(148,163,184,0.5);">Prior bayesiano applicato al modello (30%)</span>
-            </div>` : ''}
-            ${(d.homeFatigue !== 1.0 || d.awayFatigue !== 1.0) ? `
-            <div style="margin-top:10px;padding:8px 12px;background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.15);border-radius:8px;font-size:0.72rem;color:#fca5a5;">
-              ⚡ <strong>Fattore stanchezza:</strong>
-              ${d.homeFatigue < 0.97 ? esc(m.home.name) + ' -' + ((1-d.homeFatigue)*100).toFixed(0) + '% xG' : ''}
-              ${d.homeFatigue < 0.97 && d.awayFatigue < 0.97 ? ' &nbsp;|&nbsp; ' : ''}
-              ${d.awayFatigue < 0.97 ? esc(m.away.name) + ' -' + ((1-d.awayFatigue)*100).toFixed(0) + '% xG' : ''}
-            </div>` : ''}
           </div>
           ` : ''}
 
@@ -11763,8 +11851,9 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
                 <div class="mg-box-prob">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
               </div>
             </div>
-          </div>
-        </div>
+              </div> <!-- fine analysis-grid sezione D -->
+            </div> <!-- fine accordion-body D -->
+          </div> <!-- fine accordion D -->
         
         <div class="predictions-panel">
           <div class="predictions-header">
@@ -12107,6 +12196,8 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     window.backToLeagues = backToLeagues;
     window.backToMatches = backToMatches;
     window.navigateMatch = navigateMatch;
+    window.switchAdviceTab = switchAdviceTab;
+    window.toggleAccordion = toggleAccordion;
     window.toggleTheme = toggleTheme;
     window.openHistoryDetail = openHistoryDetail;
     window.selectMatch_CDG = selectMatch_CDG;
