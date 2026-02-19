@@ -3990,18 +3990,36 @@
     let firebaseEnabled = true;
     
     // Funzioni Firebase per salvare/caricare dati utente via REST API
+    // Sanitizza chiavi ricorsivamente per Firebase
+    // Firebase proibisce nelle CHIAVI: . # $ [ ] /
+    function sanitizeFirebaseKeys(obj) {
+      if (Array.isArray(obj)) return obj.map(v => sanitizeFirebaseKeys(v));
+      if (obj !== null && typeof obj === 'object') {
+        const out = {};
+        for (const [k, v] of Object.entries(obj)) {
+          // Sostituisce caratteri vietati nelle chiavi con equivalenti sicuri
+          const safeKey = k.replace(/\./g, '_dot_')
+                           .replace(/#/g, '_hash_')
+                           .replace(/\$/g, '_dol_')
+                           .replace(/\[/g, '_ob_')
+                           .replace(/\]/g, '_cb_')
+                           .replace(/\//g, '_sl_');
+          out[safeKey] = sanitizeFirebaseKeys(v);
+        }
+        return out;
+      }
+      return obj;
+    }
+
     async function saveToFirebase(path, data) {
       try {
-        // Sanifica i dati prima di salvare (rimuove NaN, Infinity, funzioni)
-        const sanitizedData = JSON.parse(JSON.stringify(data, (key, value) => {
-          if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
-            return 0;
-          }
-          if (typeof value === 'function') {
-            return undefined;
-          }
+        // Sanifica valori (NaN, Infinity, funzioni) + chiavi proibite da Firebase
+        const clean = JSON.parse(JSON.stringify(data, (key, value) => {
+          if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) return 0;
+          if (typeof value === 'function') return undefined;
           return value;
         }));
+        const sanitizedData = sanitizeFirebaseKeys(clean);
         
         const response = await fetch(`${CONFIG.FIREBASE.url}/users/${USER_ID}/${path}.json`, {
           method: 'PUT',
@@ -4020,15 +4038,35 @@
       }
     }
     
+    // De-sanitizza chiavi: _dot_ → . etc.
+    function desanitizeFirebaseKeys(obj) {
+      if (Array.isArray(obj)) return obj.map(v => desanitizeFirebaseKeys(v));
+      if (obj !== null && typeof obj === 'object') {
+        const out = {};
+        for (const [k, v] of Object.entries(obj)) {
+          const origKey = k.replace(/_dot_/g, '.')
+                           .replace(/_hash_/g, '#')
+                           .replace(/_dol_/g, '$')
+                           .replace(/_ob_/g, '[')
+                           .replace(/_cb_/g, ']')
+                           .replace(/_sl_/g, '/');
+          out[origKey] = desanitizeFirebaseKeys(v);
+        }
+        return out;
+      }
+      return obj;
+    }
+
     async function loadFromFirebase(path) {
       try {
         const response = await fetch(`${CONFIG.FIREBASE.url}/users/${USER_ID}/${path}.json`);
         if (response.ok) {
-          const data = await response.json();
-          if (data) {
+          const raw = await response.json();
+          if (raw) {
             console.log(`✅ Caricato da Firebase: ${path}`);
+            return desanitizeFirebaseKeys(raw);
           }
-          return data;
+          return raw;
         }
         throw new Error(`HTTP ${response.status}`);
       } catch (e) {
@@ -4321,17 +4359,50 @@
     
     function savePredictionHistory() {
       try {
-        const twoDaysAgo = new Date();
-        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-        const cutoffDate = twoDaysAgo.toISOString().split('T')[0];
-        
+        // Mantieni solo ultime 24h (1 giorno) per ridurre dimensioni
+        const oneDayAgo = new Date();
+        oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+        const cutoffDate = oneDayAgo.toISOString().split('T')[0];
+
         Object.keys(state.predictionHistory).forEach(key => {
           if (state.predictionHistory[key].date < cutoffDate) {
             delete state.predictionHistory[key];
           }
         });
-        
-        localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
+
+        // Limita a max 5 predizioni per partita (era 10)
+        Object.keys(state.predictionHistory).forEach(key => {
+          const preds = state.predictionHistory[key].predictions;
+          if (preds && preds.length > 5) {
+            state.predictionHistory[key].predictions = preds.slice(-5);
+          }
+        });
+
+        // Limita a max 50 partite totali (LRU)
+        const keys = Object.keys(state.predictionHistory);
+        if (keys.length > 50) {
+          // Rimuovi le più vecchie
+          keys.slice(0, keys.length - 50).forEach(k => delete state.predictionHistory[k]);
+        }
+
+        try {
+          localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
+        } catch(quotaErr) {
+          // localStorage pieno: taglia ulteriormente e riprova
+          console.warn('localStorage quota: taglio storico...');
+          const allKeys = Object.keys(state.predictionHistory);
+          // Tieni solo le ultime 20 partite
+          allKeys.slice(0, allKeys.length - 20).forEach(k => delete state.predictionHistory[k]);
+          try {
+            localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
+            console.log('✅ Storico ridotto e salvato');
+          } catch(e2) {
+            // Caso estremo: svuota tutto
+            state.predictionHistory = {};
+            localStorage.removeItem('bp2_prediction_history');
+            console.warn('⚠️ Storico azzerato per quota localStorage');
+          }
+        }
       } catch(e) { console.warn('Errore salvataggio storico:', e); }
     }
     
@@ -5983,10 +6054,13 @@
 
       // Con API PRO FootyStats il CORS è abilitato → chiamata diretta prima
       // Cloudflare Worker come fallback sicuro, poi corsproxy.io come ultimo
+      // Worker URL: bettingpro-ai.lucalagan.workers.dev deve rispondere con Access-Control-Allow-Origin: *
+      // Se il Worker fallisce per CORS, usiamo proxy pubblici come fallback
       const attempts = [
-        { url: url.toString(),                                                                        label: 'FootyStats-Direct'  },
+        { url: url.toString(),                                                                                 label: 'FootyStats-Direct'  },
         { url: 'https://bettingpro-ai.lucalagan.workers.dev/footystats?target=' + encodeURIComponent(url.toString()), label: 'FootyStats-Worker'  },
-        { url: 'https://corsproxy.io/?' + encodeURIComponent(url.toString()),                        label: 'FootyStats-CORSio'  },
+        { url: 'https://corsproxy.io/?' + encodeURIComponent(url.toString()),                                  label: 'FootyStats-CORSio'  },
+        { url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url.toString()),                     label: 'FootyStats-AllOrigins' },
       ];
 
       for (const attempt of attempts) {
@@ -6003,7 +6077,11 @@
           console.log('\u2705 FootyStats OK via', attempt.label);
           return data;
         } catch(e) {
-          console.warn('FootyStats', attempt.label, 'fallito:', e.message);
+          if (attempt.label === 'FootyStats-CORSio' || attempt.label === 'FootyStats-AllOrigins') {
+            console.warn('FootyStats', attempt.label, 'fallito:', e.message);
+          } else {
+            console.debug('FootyStats', attempt.label, 'fallito (CORS atteso):', e.message);
+          }
         }
       }
 
@@ -11951,7 +12029,33 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     // === INIT ===
     async function init() {
       console.log('&#x1F680; BettingPro v6 + Firebase Auth starting...');
-      
+
+      // === PULIZIA localStorage ALL'AVVIO ===
+      // Svuota bp2_prediction_history se supera 1MB (previene QuotaExceededError)
+      try {
+        const histRaw = localStorage.getItem('bp2_prediction_history');
+        if (histRaw && histRaw.length > 500_000) { // > 500KB = troppo grande
+          console.warn('⚠️ bp2_prediction_history troppo grande (' + (histRaw.length/1024).toFixed(0) + 'KB), pulizia...');
+          const hist = JSON.parse(histRaw);
+          // Tieni solo le ultime 15 partite
+          const keys = Object.keys(hist);
+          const toKeep = keys.slice(-15);
+          const trimmed = {};
+          toKeep.forEach(k => {
+            trimmed[k] = hist[k];
+            // Tieni solo ultime 3 predictions per partita
+            if (trimmed[k].predictions) trimmed[k].predictions = trimmed[k].predictions.slice(-3);
+          });
+          localStorage.setItem('bp2_prediction_history', JSON.stringify(trimmed));
+          state.predictionHistory = trimmed;
+          console.log('✅ Storico ridotto a ' + toKeep.length + ' partite');
+        }
+      } catch(e) {
+        // Se anche questo fallisce, azzera
+        try { localStorage.removeItem('bp2_prediction_history'); state.predictionHistory = {}; } catch(_) {}
+        console.warn('Storico prediction azzerato per errore');
+      }
+
       // Ripristina sessione se salvata
       const sessionRestored = await restoreAuthSession();
       console.log(`&#x1F464; User ID: ${USER_ID} ${sessionRestored ? '(session restored)' : '(local)'}`);
