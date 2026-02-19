@@ -3990,6 +3990,137 @@
     console.log('✅ Firebase REST API configurato');
     console.log(`&#x1F464; User ID: ${USER_ID}`);
 
+
+    // ============================================================
+    // RELIABILITY LAYER v2.0
+    // Logger, helpers sicuri, error boundary, cache, retry, validazione
+    // ============================================================
+
+    // --- Logger strutturato ---
+    const Logger = {
+      errors: [],
+      log(section, error, level = 'error') {
+        const entry = { section, msg: error?.message || String(error), time: new Date().toISOString(), level };
+        this.errors.unshift(entry);
+        if (this.errors.length > 50) this.errors.pop();
+        if (level === 'error') console.error('[' + section + ']', error);
+        else console.warn('[' + section + ']', error);
+      },
+      clear() { this.errors = []; },
+      recent(n = 10) { return this.errors.slice(0, n); }
+    };
+
+    // --- Helper sicuri ---
+    const safeFixed = (val, dec = 1, fb = 'N/D') => {
+      const n = parseFloat(val);
+      return (!isNaN(n) && isFinite(n)) ? n.toFixed(dec) : fb;
+    };
+    const safeGet = (obj, path, fb = null) => {
+      try { return path.split('.').reduce((o, k) => o?.[k], obj) ?? fb; }
+      catch(e) { return fb; }
+    };
+    const safeProb = (val, fb = 0) => {
+      const n = parseFloat(val);
+      return (!isNaN(n) && isFinite(n)) ? Math.min(100, Math.max(0, n)) : fb;
+    };
+    const safeArr = (val, fb = []) => Array.isArray(val) ? val : fb;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    // --- Error Boundary per sezioni render ---
+    function safeRender(fn, fb = '', ctx = '') {
+      try {
+        const r = fn();
+        return r != null ? r : fb;
+      } catch(e) {
+        Logger.log(ctx || fn.name || 'render', e);
+        return fb;
+      }
+    }
+
+    // --- Validazione dati analisi ---
+    function validateAnalysisData(d) {
+      if (!d) return null;
+      try {
+        d.xG = d.xG || {};
+        d.xG.home  = isNaN(parseFloat(d.xG.home))  ? 1.2 : Math.max(0.1, parseFloat(d.xG.home));
+        d.xG.away  = isNaN(parseFloat(d.xG.away))  ? 1.0 : Math.max(0.1, parseFloat(d.xG.away));
+        d.xG.total = d.xG.home + d.xG.away;
+        if (!Array.isArray(d.exactScores) || d.exactScores.length === 0)
+          d.exactScores = [{ h: 1, a: 1, prob: 10, p: 10 }];
+        d.exactScores = d.exactScores.map(s => ({
+          h:    parseInt(s.h)    >= 0 ? parseInt(s.h)    : 1,
+          a:    parseInt(s.a)    >= 0 ? parseInt(s.a)    : 0,
+          prob: safeProb(s.prob, 5),
+          p:    safeProb(s.p || s.prob, 5),
+        }));
+        d.h2h = d.h2h || {};
+        d.h2h.matches  = parseInt(d.h2h.matches)  || 0;
+        d.h2h.homeWins = parseInt(d.h2h.homeWins) || 0;
+        d.h2h.draws    = parseInt(d.h2h.draws)    || 0;
+        d.h2h.awayWins = parseInt(d.h2h.awayWins) || 0;
+        d.h2h.avgGoals = d.h2h.avgGoals || '2.5';
+        d.p1X2  = d.p1X2  || { home: 33.33, draw: 33.33, away: 33.33 };
+        d.pOU   = d.pOU   || { 1.5: {over:65,under:35}, 2.5:{over:50,under:50}, 3.5:{over:30,under:70}, 4.5:{over:15,under:85} };
+        d.pBTTS = typeof d.pBTTS === 'number' ? d.pBTTS : 50;
+        d.homeForm = d.homeForm || 'N/A';
+        d.awayForm = d.awayForm || 'N/A';
+        d.predictions   = safeArr(d.predictions);
+        d.homeInjuries  = safeArr(d.homeInjuries);
+        d.awayInjuries  = safeArr(d.awayInjuries);
+        d.multigoalHome = safeArr(d.multigoalHome, [{range:'1-2',prob:40}]);
+        d.multigoalAway = safeArr(d.multigoalAway, [{range:'0-1',prob:50}]);
+        return d;
+      } catch(e) {
+        Logger.log('validateAnalysisData', e);
+        return d;
+      }
+    }
+
+    // --- Cache analisi (30 minuti) ---
+    const analysisCache = new Map();
+    const CACHE_TTL = 30 * 60 * 1000;
+    function getCachedAnalysis(matchId) {
+      const e = analysisCache.get(matchId);
+      if (!e) return null;
+      if (Date.now() - e.ts > CACHE_TTL) { analysisCache.delete(matchId); return null; }
+      console.log('\u2705 Cache hit:', matchId);
+      return e.data;
+    }
+    function setCachedAnalysis(matchId, data) {
+      analysisCache.set(matchId, { data, ts: Date.now() });
+      if (analysisCache.size > 20) analysisCache.delete(analysisCache.keys().next().value);
+    }
+
+    // --- Fetch con retry + backoff esponenziale ---
+    async function fetchWithRetry(url, options = {}, cfg = {}) {
+      const { retries = 3, baseDelay = 800, timeout = 15000, label = '' } = cfg;
+      let lastErr;
+      for (let i = 1; i <= retries; i++) {
+        const ctrl = new AbortController();
+        const tid  = setTimeout(() => ctrl.abort(), timeout);
+        try {
+          const res = await fetch(url, { ...options, signal: ctrl.signal });
+          clearTimeout(tid);
+          if (res.ok) return res;
+          if (res.status === 429) {
+            const wait = baseDelay * Math.pow(3, i);
+            console.warn('[' + label + '] Rate limit, attendo ' + wait + 'ms');
+            await sleep(wait); continue;
+          }
+          throw new Error('HTTP ' + res.status);
+        } catch(e) {
+          clearTimeout(tid);
+          lastErr = e;
+          if (i < retries) {
+            const d = baseDelay * Math.pow(2, i - 1);
+            console.warn('[' + label + '] Tentativo ' + i + '/' + retries + ' fallito, retry in ' + d + 'ms');
+            await sleep(d);
+          }
+        }
+      }
+      throw lastErr || new Error(label + ': tutti i tentativi falliti');
+    }
+
     let state = {
       view: 'leagues', // 'leagues', 'matches', 'analysis', 'performance'
       selectedDate: 0, // 0=oggi, -1=ieri, 1=domani, 2=dopodomani
@@ -5370,50 +5501,27 @@
     async function callAPIFootball(endpoint, params = {}) {
       const url = new URL(CONFIG.API_FOOTBALL.baseURL + endpoint);
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
-      
-      // Helper per fetch con timeout
-      const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-        try {
-          const res = await fetch(url, { ...options, signal: controller.signal });
-          clearTimeout(timeoutId);
-          return res;
-        } catch (e) {
-          clearTimeout(timeoutId);
-          throw e;
-        }
-      };
-      
       try {
-        const res = await fetchWithTimeout(url.toString(), {
+        const res = await fetchWithRetry(url.toString(), {
           headers: {
             'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
             'x-rapidapi-host': 'v3.football.api-sports.io'
           }
-        }, 15000);
-        
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        }, { retries: 3, baseDelay: 600, timeout: 15000, label: 'API-Football' });
         const data = await res.json();
-        
-        // Aggiorna lo stato SOLO se era offline
         if (state.api.football !== 'online') {
           state.api.football = 'online';
           localStorage.setItem('api_football_status', 'online');
           render();
         }
-        
         return data;
       } catch (e) {
-        console.error('API Football error:', e);
-        
-        // Aggiorna lo stato SOLO se era online
+        Logger.log('callAPIFootball:' + endpoint, e);
         if (state.api.football !== 'offline') {
           state.api.football = 'offline';
           localStorage.setItem('api_football_status', 'offline');
           render();
         }
-        
         return null;
       }
     }
@@ -5575,91 +5683,48 @@
       render();
     }
 
+    // === FOOTYSTATS API — PRO plan: chiamata diretta supportata ===
     async function callFootyStats(endpoint, params = {}) {
       const url = new URL(CONFIG.FOOTYSTATS.baseURL + endpoint);
       url.searchParams.append('key', CONFIG.FOOTYSTATS.key);
       Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
-      
-      // Helper per fetch con timeout
-      const fetchWithTimeout = async (url, timeout = 8000) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      // Con API PRO FootyStats il CORS è abilitato → chiamata diretta prima
+      // Cloudflare Worker come fallback sicuro, poi corsproxy.io come ultimo
+      const attempts = [
+        { url: url.toString(),                                                                        label: 'FootyStats-Direct'  },
+        { url: 'https://bettingpro-ai.lucalagan.workers.dev/footystats?target=' + encodeURIComponent(url.toString()), label: 'FootyStats-Worker'  },
+        { url: 'https://corsproxy.io/?' + encodeURIComponent(url.toString()),                        label: 'FootyStats-CORSio'  },
+      ];
+
+      for (const attempt of attempts) {
         try {
-          const res = await fetch(url, { signal: controller.signal });
-          clearTimeout(timeoutId);
-          return res;
-        } catch (e) {
-          clearTimeout(timeoutId);
-          throw e;
-        }
-      };
-      
-      try {
-        // Prova prima senza proxy (potrebbe funzionare)
-        try {
-          const directRes = await fetchWithTimeout(url.toString(), 5000);
-          if (directRes.ok) {
-            const data = await directRes.json();
-            
-            if (state.api.footystats !== 'online') {
-              state.api.footystats = 'online';
-              localStorage.setItem('api_footystats_status', 'online');
-              render();
-            }
-            
-            return data;
+          const res = await fetchWithRetry(attempt.url, {}, {
+            retries: 2, baseDelay: 500, timeout: 12000, label: attempt.label
+          });
+          const data = await res.json();
+          if (state.api.footystats !== 'online') {
+            state.api.footystats = 'online';
+            localStorage.setItem('api_footystats_status', 'online');
+            render();
           }
-        } catch (e) {
-          // Ignora errori CORS, proviamo con i proxy
+          console.log('\u2705 FootyStats OK via', attempt.label);
+          return data;
+        } catch(e) {
+          console.warn('FootyStats', attempt.label, 'fallito:', e.message);
         }
-        
-        // Lista di proxy CORS alternativi (aggiornata e ampliata)
-        const proxies = [
-          'https://api.allorigins.win/raw?url=',
-          'https://corsproxy.io/?',
-          'https://api.codetabs.com/v1/proxy?quest=',
-          'https://cors-anywhere.herokuapp.com/',
-          'https://thingproxy.freeboard.io/fetch/'
-        ];
-        
-        // Prova ogni proxy in sequenza
-        for (const proxy of proxies) {
-          try {
-            const proxyUrl = proxy + encodeURIComponent(url.toString());
-            const res = await fetchWithTimeout(proxyUrl, 10000);
-            if (res.ok) {
-              const data = await res.json();
-              
-              if (state.api.footystats !== 'online') {
-                state.api.footystats = 'online';
-                localStorage.setItem('api_footystats_status', 'online');
-                render();
-              }
-              
-              console.log(`✅ FootyStats funziona con proxy: ${proxy}`);
-              return data;
-            }
-          } catch (e) {
-            console.log(`❌ Proxy ${proxy} fallito, provo il prossimo...`);
-            continue;
-          }
-        }
-        
-        throw new Error('Tutti i proxy CORS hanno fallito');
-      } catch (e) {
-        console.error('FootyStats error:', e);
-        
-        if (state.api.footystats !== 'offline') {
-          state.api.footystats = 'offline';
-          localStorage.setItem('api_footystats_status', 'offline');
-          render();
-        }
-        
-        return null;
       }
+
+      Logger.log('callFootyStats', new Error('Tutti i tentativi falliti per ' + endpoint));
+      if (state.api.footystats !== 'offline') {
+        state.api.footystats = 'offline';
+        localStorage.setItem('api_footystats_status', 'offline');
+        render();
+      }
+      return null;
     }
 
-    // === DATA LOADING ===
+        // === DATA LOADING ===
     async function loadMatches(dateOffset = 0) {
       state.loading = true;
       state.selectedDate = dateOffset;
@@ -6011,11 +6076,27 @@
 
     // === ANALYSIS ENGINE ===
     async function analyzeMatch(match) {
+      if (!match) { Logger.log('analyzeMatch', new Error('match undefined')); return; }
       state.selectedMatch = match;
       state.view = 'analysis';
       state.loading = true;
       state.analysis = null;
+      state.superAnalysis = null;
+      state.superAIAnalysis = null;
       render();
+
+      // Controlla cache (evita chiamate API ripetute per la stessa partita)
+      const cached = getCachedAnalysis(match.id);
+      if (cached) {
+        state.analysis = cached;
+        state.loading = false;
+        render();
+        if (!state.superAnalysis) {
+          try { state.superAnalysis = runSuperAlgorithm(match, cached); render(); }
+          catch(e) { Logger.log('SuperAlgo-cache', e); }
+        }
+        return;
+      }
       
       let homeStats = null, awayStats = null, h2h = [], apiPred = null;
       let homeLastMatches = [], awayLastMatches = [];
@@ -6093,9 +6174,12 @@
       const homeInjuryImpact = calculateInjuryImpact(homeInjuries);
       const awayInjuryImpact = calculateInjuryImpact(awayInjuries);
       
-      state.analysis = buildAnalysis(match, homeStats, awayStats, h2h, apiPred, fsMatch, homeForm, awayForm, {
+      const rawAnalysis = buildAnalysis(match, homeStats, awayStats, h2h, apiPred, fsMatch, homeForm, awayForm, {
         homePosition, awayPosition, homeInjuries, awayInjuries, homeInjuryImpact, awayInjuryImpact
       });
+      state.analysis = validateAnalysisData(rawAnalysis);
+      // Salva in cache per riuso rapido
+      if (state.analysis) setCachedAnalysis(match.id, state.analysis);
       
       // SALVA NELLO STORICO VARIAZIONI
       if (state.analysis) {
@@ -7548,8 +7632,8 @@
       }
 
       // Indice di affidabilità del GAP (più dati = più affidabile)
-      const reliability = d.h2h && d.h2h.totalMatches >= 5 ? 'Alta' :
-                          d.h2h && d.h2h.totalMatches >= 3 ? 'Media' : 'Bassa';
+      const h2hCount = d.h2h ? (d.h2h.totalMatches || d.h2h.matches || 0) : 0;
+      const reliability = h2hCount >= 5 ? 'Alta' : h2hCount >= 3 ? 'Media' : 'Bassa';
       const relColor = reliability === 'Alta' ? '#00e5a0' : reliability === 'Media' ? '#fbbf24' : '#f87171';
 
       // Gol attesi per tempo
@@ -10029,7 +10113,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
                       </div>
                       <div class="schedina-item-right">
                         <div class="schedina-item-pick">${esc(b.pick)}</div>
-                        <span style="font-size:0.72rem;font-weight:700;color:var(--accent-cyan)">${b.prob?b.prob.toFixed(0)+'%':''}</span>
+                        <span style="font-size:0.72rem;font-weight:700;color:var(--accent-cyan)">${b.prob != null && !isNaN(b.prob) ? parseFloat(b.prob).toFixed(0)+'%' : ''}</span>
                         <div class="schedina-item-status">${b.status==='won'?'&#x2705;':b.status==='lost'?'&#x274C;':'&#x23F3;'}</div>
                       </div>
                     </div>
@@ -10244,14 +10328,14 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
               ${state.superAnalysisRunning ? '&#9203; Analisi in corso...' : '&#128302; ANALIZZA con Super AI'}
             </button>
             <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
-              ${d.h2h && d.h2h.totalMatches >= 3 ? `<span style="font-size:0.6rem;background:rgba(0,229,160,0.12);color:#00e5a0;padding:2px 7px;border-radius:4px;">✔ H2H ${d.h2h.totalMatches} gare</span>` : '<span style="font-size:0.6rem;background:rgba(248,113,113,0.1);color:#f87171;padding:2px 7px;border-radius:4px;">⚠ H2H scarso</span>'}
+              ${(d.h2h && (d.h2h.matches || d.h2h.totalMatches) >= 3) ? `<span style="font-size:0.6rem;background:rgba(0,229,160,0.12);color:#00e5a0;padding:2px 7px;border-radius:4px;">✔ H2H ${d.h2h.matches || d.h2h.totalMatches} gare</span>` : '<span style="font-size:0.6rem;background:rgba(248,113,113,0.1);color:#f87171;padding:2px 7px;border-radius:4px;">⚠ H2H scarso</span>'}
               ${d.xG && d.xG.total > 0 ? '<span style="font-size:0.6rem;background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 7px;border-radius:4px;">✔ xG ok</span>' : ''}
               ${d.homeStats ? '<span style="font-size:0.6rem;background:rgba(139,92,246,0.1);color:#a78bfa;padding:2px 7px;border-radius:4px;">✔ Stats</span>' : ''}
             </div>
           </div>
         </div>
         
-        ${state.superAnalysis ? renderSuperAnalysis(state.superAnalysis, m) : ''}
+        ${state.superAnalysis ? safeRender(() => renderSuperAnalysis(state.superAnalysis, m), '', 'SuperAnalysis') : ''}
         
         <div class="analysis-hero">
           <div class="hero-league">${esc(m.league.country)} • ${esc(m.league.name)} • ${formatDateFull(m.date)} ${formatTime(m.date)}</div>
@@ -10261,9 +10345,9 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
               <div class="hero-team-name">${esc(m.home.name)}</div>
             </div>
             <div class="hero-prediction">
-              <div class="hero-score-box">${d.exactScores[0].h}</div>
+              <div class="hero-score-box">${d.exactScores && d.exactScores[0] ? d.exactScores[0].h : '?'}</div>
               <div class="hero-vs">VS</div>
-              <div class="hero-score-box">${d.exactScores[0].a}</div>
+              <div class="hero-score-box">${d.exactScores && d.exactScores[0] ? d.exactScores[0].a : '?'}</div>
             </div>
             <div class="hero-team">
               ${m.away.logo ? `<img src="${m.away.logo}" class="hero-team-logo" onerror="this.style.display='none'">` : `<div class="hero-team-logo-fallback">${getInitials(m.away.name)}</div>`}
@@ -10386,13 +10470,13 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       </div>
       
       <!-- TRADER VERDICT -->
-      ${renderTraderVerdict(ai, stat, d)}
+      ${safeRender(() => renderTraderVerdict(ai, stat, d), '', 'TraderVerdict')}
       
       <!-- STORICO VARIAZIONI -->
       ${renderHistorySection(m.id)}
       
       <!-- GAP ANALYSER -->
-      ${renderGAPAnalyser(m, d)}
+      ${safeRender(() => renderGAPAnalyser(m, d), '', 'GAPAnalyser')}
       
 
         
@@ -10986,6 +11070,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     window.toggleLoginModal = toggleLoginModal;
     window.handleLogin = handleLogin;
     window.handleRegister = handleRegister;
+    window.render = render;
     
     // === INIT ===
     async function init() {
