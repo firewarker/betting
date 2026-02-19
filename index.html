@@ -4449,15 +4449,15 @@
     }
     
     // Seleziona una partita dal filtro e avvia l'analisi
-    function selectMatch(matchId) {
-      const match = state.matches.find(m => m.id === matchId);
+    function selectMatch(matchOrId) {
+      // Accetta sia l'oggetto match che l'ID numerico
+      const match = (typeof matchOrId === 'object' && matchOrId !== null)
+        ? matchOrId
+        : state.matches.find(m => m.id === matchOrId);
       if (match) {
-        state.superAnalysis = null;
-        state.superAIAnalysis = null;
-        state.superAnalysisRunning = false;
-        state.superAIRunning = false;
+        analyzeMatch(match);
       } else {
-        console.warn('Partita non trovata:', matchId);
+        console.warn('Partita non trovata:', matchOrId);
       }
     }
 
@@ -7486,6 +7486,187 @@
     }
 
     // Funzione per generare il verdetto del trader
+
+    // === GAP ANALYSER — True Spread per il Calcio ===
+    function renderGAPAnalyser(match, d) {
+      if (!match || !d || !d.xG || !d.xG.home == null || !d.xG.away == null) return '';
+      if (isNaN(d.xG.home) || isNaN(d.xG.away)) return '';
+      const xgH = d.xG.home;
+      const xgA = d.xG.away;
+      const gap = xgH - xgA;
+      const totXG = d.xG.total;
+
+      // True Spread = handicap asiatico reale basato sul GAP xG
+      // Regola: ogni 0.5 xG di differenza = 0.5 handicap
+      const rawSpread = isNaN(gap) ? 0 : Math.round(gap * 2) / 2; // arrotondato a 0.5
+      
+      // Determina handicap consigliato e squadra da giocare
+      let spreadLabel = 'Nessun vantaggio netto';
+      let spreadColor = '#64748b';
+      let favTeam = '';
+      let underdogTeam = '';
+      let playRecommendation = '';
+      let playColor = '#64748b';
+      let evLabel = '';
+      
+      if (gap > 0.75) {
+        favTeam = match.home.name;
+        underdogTeam = match.away.name;
+        const handicap = rawSpread.toFixed(1);
+        spreadLabel = `${favTeam} -${handicap} (Asian Handicap)`;
+        spreadColor = '#00d4ff';
+        playRecommendation = `Gioca ${favTeam} con handicap -${handicap}`;
+        playColor = '#00e5a0';
+        evLabel = '✅ VALORE';
+      } else if (gap < -0.75) {
+        favTeam = match.away.name;
+        underdogTeam = match.home.name;
+        const handicap = Math.abs(rawSpread).toFixed(1);
+        spreadLabel = `${favTeam} -${handicap} (Asian Handicap)`;
+        spreadColor = '#f87171';
+        playRecommendation = `Gioca ${favTeam} con handicap -${handicap}`;
+        playColor = '#00e5a0';
+        evLabel = '✅ VALORE';
+      } else if (gap > 0.25) {
+        spreadLabel = 'Lieve vantaggio Casa';
+        spreadColor = '#00d4ff';
+        playRecommendation = 'Partita equilibrata — preferenza Casa';
+        playColor = '#fbbf24';
+        evLabel = '⚠️ BORDERLINE';
+      } else if (gap < -0.25) {
+        spreadLabel = 'Lieve vantaggio Ospite';
+        spreadColor = '#f87171';
+        playRecommendation = 'Partita equilibrata — preferenza Ospite';
+        playColor = '#fbbf24';
+        evLabel = '⚠️ BORDERLINE';
+      } else {
+        spreadLabel = 'Partita equilibrata (Pick: X)';
+        spreadColor = '#fbbf24';
+        playRecommendation = 'Nessun vantaggio netto — considera il Pareggio';
+        playColor = '#fbbf24';
+        evLabel = '⚪ NEUTRO';
+      }
+
+      // Indice di affidabilità del GAP (più dati = più affidabile)
+      const reliability = d.h2h && d.h2h.totalMatches >= 5 ? 'Alta' :
+                          d.h2h && d.h2h.totalMatches >= 3 ? 'Media' : 'Bassa';
+      const relColor = reliability === 'Alta' ? '#00e5a0' : reliability === 'Media' ? '#fbbf24' : '#f87171';
+
+      // Gol attesi per tempo
+      const firstHalfXG = (totXG * 0.44).toFixed(2); // ~44% gol nel 1T (dato reale Serie A media)
+      const secondHalfXG = (totXG * 0.56).toFixed(2);
+
+      // Over/Under raccomandato basato su xG totale
+      let ouRec = '';
+      let ouColor = '#64748b';
+      if (totXG >= 3.0) { ouRec = 'Over 2.5 (xG molto alto)'; ouColor = '#00e5a0'; }
+      else if (totXG >= 2.4) { ouRec = 'Over 2.5 (xG favorevole)'; ouColor = '#fbbf24'; }
+      else if (totXG >= 1.8) { ouRec = 'Zona grigia — 50/50'; ouColor = '#64748b'; }
+      else { ouRec = 'Under 2.5 (xG basso)'; ouColor = '#f87171'; }
+
+      return `
+        <div style="background:linear-gradient(135deg,rgba(0,212,255,0.04),rgba(139,92,246,0.04));
+                    border:1px solid rgba(0,212,255,0.2);border-radius:18px;padding:20px;margin-bottom:20px;">
+          
+          <!-- Header -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div style="font-size:0.72rem;color:#00d4ff;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;">
+                &#x1F4D0; GAP Analyser — True Spread
+              </div>
+              <div style="font-size:0.75rem;color:rgba(148,163,184,0.6);">
+                Handicap reale basato su Expected Goals differenziali
+              </div>
+            </div>
+            <span style="font-size:0.65rem;background:rgba(${reliability==='Alta'?'0,229,160':reliability==='Media'?'251,191,36':'248,113,113'},0.15);
+                         color:${relColor};padding:3px 10px;border-radius:8px;font-weight:700;">
+              Affidabilità ${reliability}
+            </span>
+          </div>
+
+          <!-- GAP visivo -->
+          <div style="background:rgba(0,0,0,0.3);border-radius:14px;padding:16px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <div style="text-align:center;flex:1;">
+                <div style="font-size:0.7rem;color:rgba(148,163,184,0.6);margin-bottom:4px;">${esc(match.home.name.split(' ')[0])}</div>
+                <div style="font-size:1.8rem;font-weight:800;color:#00d4ff;">${xgH.toFixed(2)}</div>
+                <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);">xG attesi</div>
+              </div>
+              <div style="text-align:center;padding:0 12px;">
+                <div style="font-size:0.7rem;color:rgba(148,163,184,0.5);margin-bottom:4px;">GAP</div>
+                <div style="font-size:1.4rem;font-weight:900;color:${gap > 0.25 ? '#00d4ff' : gap < -0.25 ? '#f87171' : '#fbbf24'};">
+                  ${gap > 0 ? '+' : ''}${gap.toFixed(2)}
+                </div>
+              </div>
+              <div style="text-align:center;flex:1;">
+                <div style="font-size:0.7rem;color:rgba(148,163,184,0.6);margin-bottom:4px;">${esc(match.away.name.split(' ')[0])}</div>
+                <div style="font-size:1.8rem;font-weight:800;color:#f87171;">${xgA.toFixed(2)}</div>
+                <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);">xG attesi</div>
+              </div>
+            </div>
+            
+            <!-- Barra GAP visiva -->
+            <div style="position:relative;height:8px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;">
+              <div style="position:absolute;left:50%;top:0;height:100%;width:2px;background:rgba(255,255,255,0.2);transform:translateX(-50%);"></div>
+              ${gap > 0 ? `
+                <div style="position:absolute;left:50%;top:0;height:100%;width:${Math.min(50, Math.abs(gap/3.5)*100)}%;
+                             background:linear-gradient(90deg,rgba(0,212,255,0.3),#00d4ff);border-radius:0 4px 4px 0;"></div>
+              ` : `
+                <div style="position:absolute;right:50%;top:0;height:100%;width:${Math.min(50, Math.abs(gap/3.5)*100)}%;
+                             background:linear-gradient(270deg,rgba(248,113,113,0.3),#f87171);border-radius:4px 0 0 4px;"></div>
+              `}
+            </div>
+          </div>
+
+          <!-- True Spread e Raccomandazione -->
+          <div style="background:rgba(${playColor==='#00e5a0'?'0,229,160':playColor==='#fbbf24'?'251,191,36':'100,116,139'},0.08);
+                      border:1px solid rgba(${playColor==='#00e5a0'?'0,229,160':playColor==='#fbbf24'?'251,191,36':'100,116,139'},0.2);
+                      border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-size:0.65rem;color:rgba(148,163,184,0.6);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">True Spread</div>
+                <div style="font-size:0.9rem;font-weight:700;color:${spreadColor};">${spreadLabel}</div>
+                <div style="font-size:0.75rem;color:rgba(148,163,184,0.7);margin-top:4px;">${playRecommendation}</div>
+              </div>
+              <div style="background:rgba(0,0,0,0.3);padding:6px 12px;border-radius:8px;white-space:nowrap;">
+                <div style="font-size:0.7rem;font-weight:800;color:${playColor};">${evLabel}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Statistiche aggiuntive -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
+            <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);margin-bottom:4px;">xG Totale</div>
+              <div style="font-size:1.2rem;font-weight:800;color:#e2e8f0;">${totXG.toFixed(2)}</div>
+              <div style="font-size:0.65rem;color:${ouColor};font-weight:700;">${ouRec}</div>
+            </div>
+            <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);margin-bottom:4px;">xG 1° Tempo</div>
+              <div style="font-size:1.2rem;font-weight:800;color:#a78bfa;">${firstHalfXG}</div>
+              <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);">${firstHalfXG >= 1.2 ? 'Over 0.5 1T probabile' : 'Primo tempo chiuso'}</div>
+            </div>
+            <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);margin-bottom:4px;">xG 2° Tempo</div>
+              <div style="font-size:1.2rem;font-weight:800;color:#f59e0b;">${secondHalfXG}</div>
+              <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);">${secondHalfXG >= 1.5 ? 'Secondo tempo prolifico' : 'Ritmo moderato'}</div>
+            </div>
+            <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);margin-bottom:4px;">Risultato Esatto</div>
+              <div style="font-size:1.2rem;font-weight:800;color:#00e5a0;">${d.exactScores && d.exactScores[0] ? d.exactScores[0].h + ' - ' + d.exactScores[0].a : '?-?'}</div>
+              <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);">${d.exactScores && d.exactScores[0] && d.exactScores[0].prob != null ? d.exactScores[0].prob.toFixed(1) + '% probabilità' : 'N/D'}</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;font-size:0.62rem;color:rgba(148,163,184,0.35);line-height:1.5;">
+            &#x2139;&#xFE0F; Il GAP Analyser calcola il True Spread basandosi sugli Expected Goals differenziali.
+            Un GAP &gt;0.75 indica vantaggio netto della squadra di casa; &lt;-0.75 dell'ospite.
+            Usa sempre in combinazione con il Super Algoritmo Oracle per la decisione finale.
+          </div>
+        </div>
+      `;
+    }
+
     function renderTraderVerdict(ai, stat, d) {
       const bestProb = Math.max(ai.prob, stat.prob);
       const bestPick = ai.prob >= stat.prob ? ai.pick : stat.pick;
@@ -9910,7 +10091,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
                 </div>
                 <div style="display:flex;flex-direction:column;gap:6px;">
                   ${results.map((a,i) => `
-                    <div onclick="{ const m=state.matches.find(x=>x.id===${a.matchId}); if(m)selectMatch(m); }"
+                    <div onclick="{ const m=state.matches.find(x=>x.id===${a.matchId}); if(m)analyzeMatch(m); }"
                          style="background:var(--bg-card);border:1px solid ${i===0?af.color:'var(--border)'};border-radius:10px;
                                 padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;
                                 ${i===0?'box-shadow:0 0 10px '+af.color+'20;':''}">
@@ -10049,7 +10230,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     function renderAnalysis() {
       const m = state.selectedMatch;
       const d = state.analysis;
-      if (!d) return `<div class="back-btn" id="backToMatches" onclick="backToMatches()">← Partite</div><div class="empty">Errore analisi</div>`;
+      if (!m || !d) return `<div class="back-btn" id="backToMatches" onclick="backToMatches()">← Partite</div><div class="empty">Caricamento...</div>`;
       
       // Genera consiglio AI
       const ai = generateAIAdvice(m, d);
@@ -10209,6 +10390,9 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       
       <!-- STORICO VARIAZIONI -->
       ${renderHistorySection(m.id)}
+      
+      <!-- GAP ANALYSER -->
+      ${renderGAPAnalyser(m, d)}
       
 
         
@@ -10780,6 +10964,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     window.addToSlip = addToSlip;   // usato in super pick cards onclick inline
     window.state = state;            // accessibile da onclick inline
     window.selectMatch = selectMatch;
+    window.analyzeMatch = analyzeMatch;
     window.toggleSettingsPanel = toggleSettingsPanel;
     window.showPerformance = showPerformance;
     window.toggleSetting = toggleSetting;
