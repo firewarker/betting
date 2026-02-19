@@ -4122,6 +4122,64 @@
     console.log('✅ Firebase REST API configurato');
     console.log(`&#x1F464; User ID: ${USER_ID}`);
 
+    // ============================================================
+    // CACHE ANALISI ORACLE AI — Firebase
+    // Ogni analisi viene salvata con chiave matchId+data
+    // Scade automaticamente dopo 23 ore (prima della partita del giorno dopo)
+    // ============================================================
+
+    function getAICacheKey(matchId) {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      return 'aiCache/' + String(matchId) + '_' + today.replace(/-/g, '');
+    }
+
+    async function getCachedAIAnalysis(matchId) {
+      try {
+        const key = getAICacheKey(matchId);
+        const data = await loadFromFirebase(key);
+        if (!data) return null;
+
+        // Verifica scadenza (23 ore)
+        const savedAt = data._savedAt || 0;
+        const ageHours = (Date.now() - savedAt) / (1000 * 60 * 60);
+        if (ageHours > 23) {
+          console.log('Cache AI scaduta per match', matchId);
+          return null;
+        }
+
+        console.log('✅ Cache AI trovata per match', matchId, '— età:', ageHours.toFixed(1), 'h');
+        return data.result;
+      } catch(e) {
+        console.warn('Errore lettura cache AI:', e.message);
+        return null;
+      }
+    }
+
+    async function saveAIAnalysisToCache(matchId, result) {
+      try {
+        const key = getAICacheKey(matchId);
+        const payload = {
+          _savedAt: Date.now(),
+          _matchId: matchId,
+          result: result
+        };
+        await saveToFirebase(key, payload);
+        console.log('✅ Analisi AI salvata in cache Firebase per match', matchId);
+      } catch(e) {
+        console.warn('Errore salvataggio cache AI:', e.message);
+      }
+    }
+
+    async function clearAICache(matchId) {
+      try {
+        const key = getAICacheKey(matchId);
+        await fetch(CONFIG.FIREBASE.url + '/users/' + USER_ID + '/' + key + '.json', { method: 'DELETE' });
+        console.log('🗑 Cache AI eliminata per match', matchId);
+      } catch(e) {
+        console.warn('Errore eliminazione cache:', e.message);
+      }
+    }
+
 
     // ============================================================
     // RELIABILITY LAYER v2.0
@@ -4345,6 +4403,7 @@
       superAnalysis: null,    // Super Algoritmo result (locale)
       superAIAnalysis: null,  // Analisi AI Claude con news
       superAnalysisRunning: false,
+      aiFromCache: false,     // true se analisi AI caricata da cache Firebase
       superAIRunning: false,
       // STORICO VARIAZIONI PRONOSTICI
       predictionHistory: JSON.parse(localStorage.getItem('bp2_prediction_history') || '{}')
@@ -7839,6 +7898,8 @@
       }
       
       // AI section
+      const fromCache = state.aiFromCache || false;
+
       let aiSection = '';
       if (aiLoading) {
         aiSection = `
@@ -7874,8 +7935,19 @@
             <div class="super-ai-header">
               <span class="super-ai-live">&#x1F916; ORACLE AI</span>
               <span style="font-weight:700;font-size:0.9rem;">Analisi Intelligente + News Live</span>
-              <span style="margin-left:auto;font-size:0.75rem;color:${aiData.newsFound ? '#00e5a0' : '#fbbf24'};">
-                ${aiData.newsFound ? '&#x1F4F0; News trovate' : '&#x26A0; Dati limitati'}
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+                ${fromCache ? `
+                  <span style="font-size:0.68rem;background:rgba(139,92,246,0.15);color:#a78bfa;padding:2px 8px;border-radius:10px;border:1px solid rgba(139,92,246,0.3);">
+                    &#x26A1; Cache
+                  </span>
+                  <button onclick="refreshAIAnalysis()" style="font-size:0.65rem;background:rgba(0,212,255,0.1);color:#00d4ff;border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:2px 8px;cursor:pointer;">
+                    &#x1F504; Aggiorna
+                  </button>
+                ` : `
+                  <span style="font-size:0.75rem;color:${aiData.newsFound ? '#00e5a0' : '#fbbf24'};">
+                    ${aiData.newsFound ? '&#x1F4F0; News trovate' : '&#x26A0; Dati limitati'}
+                  </span>
+                `}
               </span>
             </div>
             
@@ -10802,13 +10874,15 @@
       render();
     }
     
-    async function triggerSuperAnalysis() {
+    async function triggerSuperAnalysis(forceRefresh) {
       if (!state.analysis || state.superAnalysisRunning) return;
+      const matchId = state.selectedMatch?.id;
       
       state.superAnalysisRunning = true;
       state.superAIRunning = false;
       state.superAnalysis = null;
       state.superAIAnalysis = null;
+      state.aiFromCache = false;
       render();
       
       // STEP 1: calcolo locale istantaneo (~400ms)
@@ -10828,20 +10902,52 @@
       const panel = document.getElementById('superAlgoPanel');
       if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       
-      // STEP 2: analisi AI Claude con news (asincrona)
       if (!state.superAnalysis) return;
+
+      // STEP 2: controlla cache Firebase PRIMA di chiamare l'API
+      if (!forceRefresh && matchId) {
+        try {
+          const cached = await getCachedAIAnalysis(matchId);
+          if (cached) {
+            console.log('⚡ Analisi AI caricata dalla cache — zero chiamate API');
+            state.superAIAnalysis = cached;
+            state.aiFromCache = true;
+            state.superAIRunning = false;
+            render();
+            return;
+          }
+        } catch(e) {
+          console.warn('Errore lettura cache, procedo con chiamata API:', e.message);
+        }
+      }
+
+      // STEP 3: nessuna cache — chiama l'API
       state.superAIRunning = true;
+      state.aiFromCache = false;
       render();
       
       try {
         const aiResult = await callClaudeForSuperAnalysis(state.selectedMatch, state.analysis, state.superAnalysis);
         state.superAIAnalysis = aiResult;
+        // Salva in cache Firebase per uso futuro
+        if (matchId && aiResult && !aiResult.error) {
+          saveAIAnalysisToCache(matchId, aiResult);
+        }
       } catch (e) {
         console.error('Super AI error:', e);
         state.superAIAnalysis = { error: e.message, newsFound: false };
       }
       state.superAIRunning = false;
       render();
+    }
+    
+    // Forza nuovo aggiornamento ignorando la cache
+    function refreshAIAnalysis() {
+      if (state.selectedMatch?.id) {
+        clearAICache(state.selectedMatch.id).then(() => {
+          triggerSuperAnalysis(true);
+        });
+      }
     }
     
     async function callClaudeForSuperAnalysis(match, analysis, superData) {
@@ -11347,9 +11453,20 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
             })()}
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-            <button class="analizza-btn ${state.superAnalysisRunning ? 'loading' : ''}" id="analizzaBtn" onclick="triggerSuperAnalysis()">
-              ${state.superAnalysisRunning ? '&#9203; Analisi in corso...' : '&#128302; ANALIZZA con Super AI'}
-            </button>
+            ${state.superAIAnalysis && !state.superAIAnalysis.error ? `
+              <div style="display:flex;gap:6px;align-items:center;">
+                <button class="analizza-btn" style="background:rgba(139,92,246,0.15);border-color:rgba(139,92,246,0.3);" onclick="triggerSuperAnalysis()">
+                  &#x26A1; ${state.aiFromCache ? 'Cached — Rianalizza' : 'Rianalizza'}
+                </button>
+                <button onclick="refreshAIAnalysis()" title="Forza aggiornamento ignorando la cache" style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:6px 10px;cursor:pointer;color:#00d4ff;font-size:0.72rem;">
+                  &#x1F504;
+                </button>
+              </div>
+            ` : `
+              <button class="analizza-btn ${state.superAnalysisRunning ? 'loading' : ''}" id="analizzaBtn" onclick="triggerSuperAnalysis()">
+                ${state.superAnalysisRunning ? '&#9203; Analisi in corso...' : '&#128302; ANALIZZA con Super AI'}
+              </button>
+            `}
             <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
               ${(d.h2h && (d.h2h.matches || d.h2h.totalMatches) >= 3) ? `<span style="font-size:0.6rem;background:rgba(0,229,160,0.12);color:#00e5a0;padding:2px 7px;border-radius:4px;">✔ H2H ${d.h2h.matches || d.h2h.totalMatches} gare</span>` : '<span style="font-size:0.6rem;background:rgba(248,113,113,0.1);color:#f87171;padding:2px 7px;border-radius:4px;">⚠ H2H scarso</span>'}
               ${d.xG && d.xG.total > 0 ? '<span style="font-size:0.6rem;background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 7px;border-radius:4px;">✔ xG ok</span>' : ''}
@@ -11678,6 +11795,56 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
             ` : '<div>N/A</div>'}
           </div>
           
+              <!-- CARD: MG SQUADRE con barre percentuali -->
+              <div class="analysis-card wide">
+                <div class="card-title">
+                  <div class="card-title-icon">⚽</div>
+                  <span>Gol per Squadra</span>
+                  <span class="card-title-badge">Range probabilità</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                  <!-- CASA -->
+                  <div>
+                    <div style="font-size:0.72rem;font-weight:800;color:var(--accent-cyan);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                      🏠 ${esc(m.home.name.split(' ')[0])}
+                      <span style="font-size:0.62rem;color:var(--text-dark);font-weight:400;">xG ${d.xG.home.toFixed(2)}</span>
+                    </div>
+                    ${d.multigoalHome ? d.multigoalHome.map(mg => `
+                      <div class="prob-row" style="margin-bottom:8px;">
+                        <span class="prob-label" style="min-width:36px;font-weight:700;">${mg.range}</span>
+                        <div class="prob-bar-track">
+                          <div class="prob-bar-fill cyan" style="width:${Math.min(100,mg.prob)}%"></div>
+                        </div>
+                        <span class="prob-value" style="color:${mg.prob>=65?'#00e5a0':mg.prob>=50?'#fbbf24':'var(--text-gray)'};">${mg.prob.toFixed(0)}%</span>
+                      </div>
+                    `).join('') : '<div style="color:var(--text-dark)">N/A</div>'}
+                  </div>
+                  <!-- OSPITE -->
+                  <div>
+                    <div style="font-size:0.72rem;font-weight:800;color:var(--accent-red);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+                      ✈️ ${esc(m.away.name.split(' ')[0])}
+                      <span style="font-size:0.62rem;color:var(--text-dark);font-weight:400;">xG ${d.xG.away.toFixed(2)}</span>
+                    </div>
+                    ${d.multigoalAway ? d.multigoalAway.map(mg => `
+                      <div class="prob-row" style="margin-bottom:8px;">
+                        <span class="prob-label" style="min-width:36px;font-weight:700;">${mg.range}</span>
+                        <div class="prob-bar-track">
+                          <div class="prob-bar-fill" style="width:${Math.min(100,mg.prob)}%;background:linear-gradient(90deg,#f87171,#fca5a5);"></div>
+                        </div>
+                        <span class="prob-value" style="color:${mg.prob>=65?'#00e5a0':mg.prob>=50?'#fbbf24':'var(--text-gray)'};">${mg.prob.toFixed(0)}%</span>
+                      </div>
+                    `).join('') : '<div style="color:var(--text-dark)">N/A</div>'}
+                  </div>
+                </div>
+                <!-- Nota GG compatta -->
+                <div style="margin-top:12px;padding:8px 12px;background:var(--bg-card-light);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                  <span style="font-size:0.72rem;color:var(--text-gray);">GG (entrambe segnano)</span>
+                  <span style="font-size:0.9rem;font-weight:800;color:${d.pBTTS>=65?'#00e5a0':d.pBTTS>=50?'#fbbf24':'#f87171'};">${d.pBTTS.toFixed(0)}%</span>
+                  <span style="font-size:0.72rem;color:var(--text-gray);">NG</span>
+                  <span style="font-size:0.9rem;font-weight:800;color:${(100-d.pBTTS)>=65?'#00e5a0':(100-d.pBTTS)>=50?'#fbbf24':'#f87171'};">${(100-d.pBTTS).toFixed(0)}%</span>
+                </div>
+              </div>
+
             </div> <!-- fine analysis-grid sezione C -->
           </div> <!-- fine accordion-body C -->
         </div> <!-- fine accordion C -->
@@ -12197,6 +12364,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     window.backToMatches = backToMatches;
     window.navigateMatch = navigateMatch;
     window.switchAdviceTab = switchAdviceTab;
+    window.refreshAIAnalysis = refreshAIAnalysis;
     window.toggleAccordion = toggleAccordion;
     window.toggleTheme = toggleTheme;
     window.openHistoryDetail = openHistoryDetail;
