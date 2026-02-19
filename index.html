@@ -3945,17 +3945,23 @@
       console.log('&#x1F4E5; Caricamento dati da Firebase...');
       
       try {
-        const [tracked, ml, mlStats, perf] = await Promise.all([
+        const [tracked, ml, mlStats, perf, predHist] = await Promise.all([
           loadFromFirebase('trackedBets'),
           loadFromFirebase('mlThresholds'),
           loadFromFirebase('mlStats'),
-          loadFromFirebase('performanceHistory')
+          loadFromFirebase('performanceHistory'),
+          loadFromFirebase('predictionHistory')
         ]);
         
         if (tracked) state.trackedBets = tracked;
         if (ml) state.mlThresholds = ml;
         if (mlStats) state.mlStats = mlStats;
         if (perf) state.performanceHistory = perf;
+        if (predHist) {
+          // Merge: Firebase ha la fonte di verità, localStorage è fallback
+          state.predictionHistory = { ...state.predictionHistory, ...predHist };
+          console.log('✅ Storico variazioni sincronizzato da Firebase:', Object.keys(predHist).length, 'partite');
+        }
         
         console.log('✅ Dati caricati da Firebase');
       } catch (error) {
@@ -4385,7 +4391,14 @@
           keys.slice(0, keys.length - 50).forEach(k => delete state.predictionHistory[k]);
         }
 
-        try {
+        // Salva su Firebase in background — sincronizza su tutti i device
+        if (typeof saveToFirebase === 'function') {
+          saveToFirebase('predictionHistory', state.predictionHistory).catch(e =>
+            console.debug('predictionHistory Firebase sync:', e.message)
+          );
+        }
+
+                try {
           localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
         } catch(quotaErr) {
           // localStorage pieno: taglia ulteriormente e riprova
@@ -10213,6 +10226,97 @@
               <div style="font-size:0.6rem;color:var(--text-dark);">SCORE OSPITE</div>
             </div>
           </div>
+
+          <!-- RIASSUNTO CONSIGLIATO -->
+          ${(() => {
+            // Analisi delle metriche per generare consigli
+            const attack  = metrics[0], defense = metrics[1], forma = metrics[2];
+            const xgM     = metrics[3], corner  = metrics[4], wr    = metrics[5];
+            const tips = [];
+
+            // --- 1X2 ---
+            const winnerScore = diff; // positivo = casa, negativo = ospite
+            if (winnerScore > 20) {
+              tips.push({ market: '1 (Casa)', icon: '🏠', color: '#00d4ff',
+                reason: esc(m.home.name) + ' superiore in ' + [attack.home>attack.away?'attacco':'', wr.home>wr.away?'win rate':'', xgM.home>xgM.away?'xG':''].filter(Boolean).join(', '), conf: 'alta' });
+            } else if (winnerScore < -20) {
+              tips.push({ market: '2 (Ospite)', icon: '✈️', color: '#f87171',
+                reason: esc(m.away.name) + ' superiore in ' + [attack.away>attack.home?'attacco':'', wr.away>wr.home?'win rate':'', xgM.away>xgM.home?'xG':''].filter(Boolean).join(', '), conf: 'alta' });
+            } else {
+              tips.push({ market: 'X o doppia', icon: '⚖️', color: '#fbbf24',
+                reason: 'Squadre equilibrate — vantaggio incerto, considera 1X o X2', conf: 'media' });
+            }
+
+            // --- OVER/UNDER ---
+            const avgXgNorm = (xgM.home + xgM.away) / 2;
+            const avgAttNorm = (attack.home + attack.away) / 2;
+            const avgDefNorm = (defense.home + defense.away) / 2;
+            if (avgXgNorm > 55 && avgAttNorm > 55) {
+              tips.push({ market: 'Over 2.5', icon: '⚡', color: '#00e5a0',
+                reason: 'Alto xG combinato (' + d.xG.home.toFixed(2) + ' + ' + d.xG.away.toFixed(2) + ' = ' + d.xG.total.toFixed(2) + ')', conf: 'alta' });
+            } else if (avgXgNorm < 40 || avgDefNorm > 65) {
+              tips.push({ market: 'Under 2.5', icon: '🔒', color: '#a78bfa',
+                reason: 'Difese solide — xG totale ' + d.xG.total.toFixed(2) + ', basso volume atteso', conf: 'alta' });
+            } else {
+              tips.push({ market: 'Over 1.5', icon: '⚽', color: '#fbbf24',
+                reason: 'Produzione offensiva sufficiente per almeno 2 gol', conf: 'media' });
+            }
+
+            // --- BTTS ---
+            const homeAttacks = attack.home > 45;
+            const awayAttacks = attack.away > 45;
+            const homeDefWeak = defense.home < 50;
+            const awayDefWeak = defense.away < 50;
+            if (homeAttacks && awayAttacks && homeDefWeak && awayDefWeak) {
+              tips.push({ market: 'GG (Entrambe segnano)', icon: '🎯', color: '#00e5a0',
+                reason: 'Entrambe attaccano bene e difendono poco', conf: 'media' });
+            } else if (defense.home > 65 || defense.away > 65) {
+              tips.push({ market: 'NG (Solo una segna)', icon: '🛡', color: '#a78bfa',
+                reason: (defense.home > defense.away ? esc(m.home.name) : esc(m.away.name)) + ' ha difesa molto solida', conf: 'media' });
+            }
+
+            // --- CLEAN SHEET ---
+            if (defense.away > 72 && attack.home < 45) {
+              tips.push({ market: esc(m.away.name) + ' CS', icon: '🧤', color: '#a78bfa',
+                reason: esc(m.away.name) + ' difende eccellentemente, ' + esc(m.home.name) + ' attacca poco', conf: 'media' });
+            } else if (defense.home > 72 && attack.away < 45) {
+              tips.push({ market: esc(m.home.name) + ' CS', icon: '🧤', color: '#00d4ff',
+                reason: esc(m.home.name) + ' difende eccellentemente, ' + esc(m.away.name) + ' attacca poco', conf: 'media' });
+            }
+
+            const confColor = c => c === 'alta' ? '#00e5a0' : '#fbbf24';
+            const confBg    = c => c === 'alta' ? 'rgba(0,229,160,0.08)' : 'rgba(251,191,36,0.08)';
+            const confBord  = c => c === 'alta' ? 'rgba(0,229,160,0.25)' : 'rgba(251,191,36,0.2)';
+
+            return `
+              <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+                <div style="font-size:0.68rem;font-weight:800;color:var(--text-gray);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;">
+                  🎯 Cosa consiglia questa comparazione
+                </div>
+                <div style="display:flex;flex-direction:column;gap:7px;">
+                  ${tips.map(t => `
+                    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;
+                      background:${confBg(t.conf)};border:1px solid ${confBord(t.conf)};border-radius:10px;">
+                      <span style="font-size:1rem;flex-shrink:0;">${t.icon}</span>
+                      <div style="flex:1;min-width:0;">
+                        <span style="font-size:0.8rem;font-weight:800;color:${t.color};">${t.market}</span>
+                        <span style="font-size:0.68rem;color:var(--text-gray);margin-left:8px;">${t.reason}</span>
+                      </div>
+                      <span style="font-size:0.6rem;font-weight:700;color:${confColor(t.conf)};
+                        background:${confBg(t.conf)};border:1px solid ${confBord(t.conf)};
+                        padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0;">
+                        ${t.conf}
+                      </span>
+                    </div>
+                  `).join('')}
+                </div>
+                <div style="margin-top:8px;font-size:0.62rem;color:var(--text-dark);font-style:italic;">
+                  ⚠️ Basato solo sulle metriche comparative — verifica con il modello probabilistico completo
+                </div>
+              </div>
+            `;
+          })()}
+
         </div>
       `;
     }
