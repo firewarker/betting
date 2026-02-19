@@ -4008,6 +4008,8 @@
       slipModal: false,
       // Picks del giorno
       dailyPicks: { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], matchAdvices: [] },
+      quickFind: null, // 'home1'|'away2'|'gg'|'over25'|'over15'|'under25'
+      schedinaModal: false,
       // Money Management - Sistema Obiettivo
       money: {
         bankroll: parseFloat(localStorage.getItem('bp2_bankroll')) || 100,
@@ -8907,6 +8909,7 @@
         </main>
         ${renderSlipFloating()}
         ${state.slipModal ? renderSlipModal() : ''}
+        ${state.schedinaModal ? renderSchedinaModal() : ''}
       `;
       attachEvents();
       
@@ -8953,6 +8956,7 @@
               <button class="settings-btn" onclick="toggleSettingsPanel()" title="Impostazioni">
                 ⚙️
               </button>
+              <button onclick="state.schedinaModal=true;render();" style="padding:6px 12px;border-radius:20px;border:1.5px solid var(--accent-gold);background:transparent;color:var(--accent-gold);font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;">&#x1F3AB; Schedina (${state.trackedBets.length})</button>
               <div class="slip-badge" id="openSlip">
                 &#x1F3AB; ${state.slip.length} pronostici
               </div>
@@ -9745,73 +9749,37 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           `}
         </div>
         
-        <!-- RADDOPPI DEL GIORNO -->
-        ${picks.raddoppi.length > 0 ? `
-        <div class="panel" style="margin-bottom: 20px; border: 1px solid var(--accent-green); background: linear-gradient(135deg, rgba(16,185,129,0.05), rgba(34,197,94,0.02));">
-          <div class="panel-title" style="color: var(--accent-green); display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 1.3rem;">&#x1F4B0;</span> Raddoppi del Giorno
-            <span style="background: var(--accent-green); color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">${picks.raddoppi.length} COMBO</span>
+        <!-- STATS BAR -->
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:var(--accent-cyan);">${state.matches.length}</div>
+            <div style="font-size:0.65rem;color:var(--text-dark);">Partite</div>
           </div>
-          <div style="font-size: 0.8rem; color: var(--text-gray); margin-bottom: 16px;">
-            Combinazioni ad alta probabilità con quota target ~2.00
+          <div style="flex:1;min-width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:var(--accent-green);">${state.leagues.length}</div>
+            <div style="font-size:0.65rem;color:var(--text-dark);">Campionati</div>
           </div>
-          <div class="raddoppi-grid">
-            ${picks.raddoppi.map((r, idx) => `
-              <div class="raddoppio-card" data-raddoppio="${idx}">
-                <div class="raddoppio-header">
-                  <span class="raddoppio-badge">COMBO #${idx + 1}</span>
-                  <span class="raddoppio-odds">@ ${r.totalOdds}</span>
-                </div>
-                <div class="raddoppio-bets">
-                  ${r.bets.map(b => `
-                    <div class="raddoppio-bet">
-                      <div class="raddoppio-match">${esc(b.shortName)}</div>
-                      <div class="raddoppio-pick">${b.bet} <span style="opacity: 0.7; font-size: 0.75rem;">(${(b.prob || 0).toFixed(0)}%)</span></div>
-                    </div>
-                  `).join('')}
-                </div>
-                <div class="raddoppio-footer">
-                  <div class="raddoppio-prob">${(r.prob || 0).toFixed(0)}% prob. combinata</div>
-                </div>
-              </div>
-            `).join('')}
+          <div style="flex:1;min-width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:var(--accent-gold);">${picks.matchAdvices.filter(a => a.confidence === 'high').length}</div>
+            <div style="font-size:0.65rem;color:var(--text-dark);">Alta Conf.</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:#a78bfa;">${picks.matchAdvices.length}</div>
+            <div style="font-size:0.65rem;color:var(--text-dark);">Analizzate</div>
           </div>
         </div>
-        ` : `
-        <!-- PLACEHOLDER QUANDO NON CI SONO RADDOPPI -->
-        <div class="panel" style="margin-bottom: 20px; text-align: center; padding: 40px 20px;">
-          <div style="font-size: 4rem; margin-bottom: 16px;">⚽</div>
-          <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-white); margin-bottom: 8px;">Analisi in corso...</div>
-          <div style="font-size: 0.9rem; color: var(--text-gray); max-width: 400px; margin: 0 auto;">
-            I raddoppi del giorno appariranno qui quando saranno disponibili partite con probabilità elevate.
-          </div>
-          <div style="margin-top: 20px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
-            <div style="background: var(--bg-card-light); padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border);">
-              <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-cyan);">${state.matches.length}</div>
-              <div style="font-size: 0.7rem; color: var(--text-dark);">Partite caricate</div>
-            </div>
-            <div style="background: var(--bg-card-light); padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border);">
-              <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-green);">${state.leagues.length}</div>
-              <div style="font-size: 0.7rem; color: var(--text-dark);">Campionati</div>
-            </div>
-            <div style="background: var(--bg-card-light); padding: 12px 20px; border-radius: 12px; border: 1px solid var(--border);">
-              <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-gold);">${picks.matchAdvices.length}</div>
-              <div style="font-size: 0.7rem; color: var(--text-dark);">Partite analizzate</div>
-            </div>
-          </div>
-        </div>
-        `}
         
-        <!-- PRONOSTICI AI DEL GIORNO -->
-        ${renderPronosticiAIList(picks)}
+        <!-- QUICK FIND BUTTONS -->
+        ${renderQuickFind(picks)}
         
       `;
     }
     
     // === SCHEDINA VIRTUALE ===
-    function renderSchedinaVirtuale() {
+    function renderSchedinaVirtuale() { return ''; } // Spostata nel modal
+    
+    function renderSchedinaModal() {
       const myBets = state.trackedBets;
-      if (myBets.length === 0) return '';
       const won = myBets.filter(b => b.status === 'won').length;
       const lost = myBets.filter(b => b.status === 'lost').length;
       const pending = myBets.filter(b => b.status === 'pending').length;
@@ -9821,7 +9789,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         if (a.status === 'pending' && b.status !== 'pending') return -1;
         if (a.status !== 'pending' && b.status === 'pending') return 1;
         return new Date(b.timestamp) - new Date(a.timestamp);
-      }).slice(0, 25);
+      }).slice(0, 30);
       const timeAgo = ts => {
         const d = Math.floor((Date.now() - new Date(ts)) / 60000);
         if (d < 60) return d + 'min fa';
@@ -9829,139 +9797,143 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         return Math.floor(d/1440) + 'g fa';
       };
       return `
-        <div class="schedina-section">
-          <div class="schedina-head">
-            <div class="schedina-title">&#x1F3AB; La Mia Schedina</div>
-            <div class="schedina-stats">
-              <div class="schedina-stat"><div class="schedina-stat-n g">${won}</div><div class="schedina-stat-l">Vinte</div></div>
-              <div class="schedina-stat"><div class="schedina-stat-n r">${lost}</div><div class="schedina-stat-l">Perse</div></div>
-              <div class="schedina-stat"><div class="schedina-stat-n y">${pending}</div><div class="schedina-stat-l">Attesa</div></div>
-            </div>
-          </div>
-          ${completed > 0 ? `<div class="schedina-wr">
-            <span style="font-size:0.75rem;font-weight:700;color:var(--text-gray);">Win Rate</span>
-            <div class="schedina-wr-bar"><div class="schedina-wr-fill" style="width:${wr}%;background:${wr>=60?'var(--accent-green)':wr>=45?'var(--accent-yellow)':'var(--accent-red)'}"></div></div>
-            <span style="font-size:1rem;font-weight:800;color:${wr>=60?'var(--accent-green)':wr>=45?'var(--accent-yellow)':'var(--accent-red)'}">${wr.toFixed(0)}%</span>
-          </div>` : ''}
-          <div class="schedina-list">
-            ${sorted.map(b => `
-              <div class="schedina-item ${b.status}">
-                <div class="schedina-item-left">
-                  <div class="schedina-item-match">${esc(b.matchName)}</div>
-                  <div class="schedina-item-info">${timeAgo(b.timestamp)} ${b.result ? '• ' + b.result : '• ⏳ In attesa'}</div>
+        <div style="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:20px;"
+             onclick="state.schedinaModal=false;render();">
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:20px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;margin-top:60px;"
+               onclick="event.stopPropagation()">
+            <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+              <div style="font-size:1.05rem;font-weight:800;color:var(--accent-gold);">&#x1F3AB; La Mia Schedina</div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="display:flex;gap:8px;">
+                  <div style="text-align:center;padding:3px 10px;background:var(--bg-input);border-radius:8px;">
+                    <div style="font-size:1rem;font-weight:800;color:var(--accent-green);">${won}</div>
+                    <div style="font-size:0.6rem;color:var(--text-dark);">Vinte</div>
+                  </div>
+                  <div style="text-align:center;padding:3px 10px;background:var(--bg-input);border-radius:8px;">
+                    <div style="font-size:1rem;font-weight:800;color:var(--accent-red);">${lost}</div>
+                    <div style="font-size:0.6rem;color:var(--text-dark);">Perse</div>
+                  </div>
+                  <div style="text-align:center;padding:3px 10px;background:var(--bg-input);border-radius:8px;">
+                    <div style="font-size:1rem;font-weight:800;color:var(--accent-yellow);">${pending}</div>
+                    <div style="font-size:0.6rem;color:var(--text-dark);">Attesa</div>
+                  </div>
                 </div>
-                <div class="schedina-item-right">
-                  <div class="schedina-item-pick">${esc(b.pick)}</div>
-                  <span style="font-size:0.72rem;font-weight:700;color:var(--accent-cyan)">${b.prob?b.prob.toFixed(0)+'%':''}</span>
-                  <div class="schedina-item-status">${b.status==='won'?'✅':b.status==='lost'?'❌':'⏳'}</div>
-                </div>
+                <button onclick="state.schedinaModal=false;render();"
+                  style="background:transparent;border:1px solid var(--border);color:var(--text-gray);border-radius:50%;width:30px;height:30px;font-size:1.1rem;cursor:pointer;">&#x2715;</button>
               </div>
-            `).join('')}
+            </div>
+            <div style="padding:16px 20px;">
+              ${completed > 0 ? `
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;background:var(--bg-input);padding:10px 14px;border-radius:10px;">
+                  <span style="font-size:0.8rem;font-weight:700;color:var(--text-gray);">Win Rate</span>
+                  <div style="flex:1;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;">
+                    <div style="width:${wr}%;height:100%;border-radius:4px;background:${wr>=60?'var(--accent-green)':wr>=45?'var(--accent-yellow)':'var(--accent-red)'};transition:width 0.5s;"></div>
+                  </div>
+                  <span style="font-size:1.1rem;font-weight:800;color:${wr>=60?'var(--accent-green)':wr>=45?'var(--accent-yellow)':'var(--accent-red)'};">${wr.toFixed(0)}%</span>
+                </div>
+              ` : ''}
+              ${myBets.length === 0 ? `
+                <div style="text-align:center;padding:30px;color:var(--text-gray);">
+                  <div style="font-size:2.5rem;margin-bottom:10px;">&#x1F4CB;</div>
+                  <div>Nessun pronostico tracciato.</div>
+                  <div style="font-size:0.78rem;margin-top:6px;">Clicca su una partita e aggiungi un pick alla schedina.</div>
+                </div>
+              ` : `
+                <div style="display:flex;flex-direction:column;gap:5px;">
+                  ${sorted.map(b => `
+                    <div class="schedina-item ${b.status}">
+                      <div class="schedina-item-left">
+                        <div class="schedina-item-match">${esc(b.matchName)}</div>
+                        <div class="schedina-item-info">${timeAgo(b.timestamp)} ${b.result ? '&bull; ' + b.result : '&bull; &#x23F3; In attesa'}</div>
+                      </div>
+                      <div class="schedina-item-right">
+                        <div class="schedina-item-pick">${esc(b.pick)}</div>
+                        <span style="font-size:0.72rem;font-weight:700;color:var(--accent-cyan)">${b.prob?b.prob.toFixed(0)+'%':''}</span>
+                        <div class="schedina-item-status">${b.status==='won'?'&#x2705;':b.status==='lost'?'&#x274C;':'&#x23F3;'}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
           </div>
         </div>
       `;
     }
     
     // === NUOVA: Lista Consiglio AI per ogni partita (identico al dettaglio) ===
-    function renderPronosticiAIList(picks) {
+    function renderQuickFind(picks) {
       const advices = picks.matchAdvices || [];
+      const qf = state.quickFind;
       
-      if (advices.length === 0) {
-        return `
-          <div class="panel" style="text-align:center;padding:30px;">
-            <div style="font-size:2.5rem;margin-bottom:12px;">&#x1F916;</div>
-            <div style="font-size:1rem;color:var(--text-gray);">Analisi AI in corso...</div>
-            <div style="font-size:0.8rem;color:var(--text-dark);margin-top:8px;">Carica le partite per vedere il Consiglio AI</div>
-          </div>
-        `;
+      const filters = [
+        { key: 'home1',   label: '🏠 Trova 1',    color: '#00d4ff', match: a => { const p=(a.pick||'').toLowerCase().trim(); return p==='1'||p.startsWith('1 ')||p==='vittoria casa'; } },
+        { key: 'away2',   label: '✈️ Trova 2',    color: '#f87171', match: a => { const p=(a.pick||'').toLowerCase().trim(); return p==='2'||p.startsWith('2 ')||p==='vittoria ospite'; } },
+        { key: 'gg',      label: '⚽ Trova GG',   color: '#00e5a0', match: a => { const p=(a.pick||'').toLowerCase(); return p.includes('gg')||p.includes('entrambe'); } },
+        { key: 'over25',  label: '📈 Over 2.5',   color: '#f59e0b', match: a => (a.pick||'').toLowerCase().includes('over 2.5') },
+        { key: 'over15',  label: '📊 Over 1.5',   color: '#a78bfa', match: a => (a.pick||'').toLowerCase().includes('over 1.5') },
+        { key: 'under25', label: '📉 Under 2.5',  color: '#64748b', match: a => (a.pick||'').toLowerCase().includes('under 2.5') },
+      ];
+      
+      let results = [];
+      let af = null;
+      if (qf) {
+        af = filters.find(f => f.key === qf);
+        if (af) {
+          results = advices
+            .filter(a => { try { return af.match(a); } catch(e){ return false; } })
+            .sort((a,b) => b.prob - a.prob)
+            .slice(0, 10);
+        }
       }
       
-      const highCount = advices.filter(a => a.confidence === 'high').length;
-      
       return `
-        ${renderSchedinaVirtuale()}
-        
-        <div class="panel" style="margin-bottom:20px;">
-          <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-            <span>&#x1F916; Consiglio AI - Tutte le Partite</span>
-            <div style="display:flex;gap:6px;">
-              ${highCount > 0 ? `<span style="background:rgba(16,185,129,0.15);color:var(--accent-green);padding:3px 10px;border-radius:12px;font-size:0.7rem;font-weight:700;">&#x1F525; ${highCount} Alta</span>` : ''}
-              <span style="background:var(--bg-input);padding:3px 10px;border-radius:12px;font-size:0.7rem;font-weight:700;color:var(--text-gray);">${advices.length} partite</span>
-            </div>
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-title" style="margin-bottom:12px;">&#x1F50D; Trova i Migliori Pick</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;${qf ? 'margin-bottom:14px;' : ''}">
+            ${filters.map(f => `
+              <button onclick="state.quickFind=state.quickFind==='${f.key}'?null:'${f.key}';render();"
+                style="padding:7px 13px;border-radius:20px;border:1.5px solid ${f.color};
+                       background:${qf===f.key?f.color:'transparent'};color:${qf===f.key?'#0a0f1e':f.color};
+                       font-size:0.76rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                ${f.label}
+              </button>
+            `).join('')}
           </div>
-          <div style="font-size:0.75rem;color:var(--text-gray);margin-bottom:14px;">
-            Stesso Consiglio AI della pagina dettaglio: pick, motivazioni e alternative
-          </div>
-          <div class="advice-grid">
-            ${advices.map(a => {
-              const isTracked = state.trackedBets.some(b => b.matchId === a.matchId);
-              const probClass = a.prob >= 80 ? 'high' : a.prob >= 60 ? 'medium' : 'low';
-              return `
-              <div class="advice-card">
-                <div class="advice-card-head">
-                  <div class="advice-league">${a.leagueLogo ? `<img src="${a.leagueLogo}" onerror="this.style.display='none'">` : ''} ${esc(a.league)}</div>
-                  <div class="advice-time">⏰ ${a.time}</div>
+          ${qf && af ? `
+            <div style="border-top:1px solid var(--border);padding-top:12px;">
+              ${results.length === 0 ? `
+                <div style="text-align:center;padding:16px;color:var(--text-gray);font-size:0.85rem;">Nessun pick trovato. Carica le partite del giorno.</div>
+              ` : `
+                <div style="font-size:0.71rem;color:var(--text-dark);margin-bottom:10px;">
+                  Top ${results.length} per <strong style="color:${af.color}">${af.label}</strong> &bull; ordinati per probabilit&agrave;
                 </div>
-                <div class="advice-body">
-                  <div class="advice-teams">
-                    <div class="advice-team">
-                      ${a.homeLogo ? `<img src="${a.homeLogo}" onerror="this.style.display='none'">` : ''}
-                      <span class="advice-team-name">${esc(a.homeName)}</span>
-                    </div>
-                    <div class="advice-vs">VS</div>
-                    <div class="advice-team">
-                      <span class="advice-team-name">${esc(a.awayName)}</span>
-                      ${a.awayLogo ? `<img src="${a.awayLogo}" onerror="this.style.display='none'">` : ''}
-                    </div>
-                  </div>
-                  <div class="advice-xg-bar">
-                    <span>xG &#x1F3E0; <span class="advice-xg-val">${a.xgHome}</span></span>
-                    <span>xG Tot <span class="advice-xg-val">${a.xgTotal}</span></span>
-                    <span>xG ✈️ <span class="advice-xg-val">${a.xgAway}</span></span>
-                    ${a.dataQuality === 'high' ? '<span style="color:var(--accent-green)">✓ Dati</span>' : ''}
-                  </div>
-                  <div class="advice-main">
-                    <div class="advice-main-top">
-                      <div class="advice-main-label">Pronostico Consigliato</div>
-                      <div class="advice-main-conf ${a.confidence}">${a.confidence === 'high' ? '&#x1F7E2; Alta' : a.confidence === 'medium' ? '&#x1F7E1; Media' : '⚪ Bassa'}</div>
-                    </div>
-                    <div class="advice-main-row">
-                      <div class="advice-main-pick">${esc(a.pick)}</div>
-                      <div class="advice-main-prob ${probClass}">${typeof a.prob === 'number' ? a.prob.toFixed(0) : a.prob}%</div>
-                    </div>
-                  </div>
-                  ${a.reasons.length > 0 ? `
-                  <div class="advice-reasons">
-                    ${a.reasons.slice(0, 3).map(r => `
-                      <div class="advice-reason ${r.type}">
-                        ${r.type === 'positive' ? '✅' : r.type === 'negative' ? '⚠️' : 'ℹ️'} ${esc(r.text)}
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  ${results.map((a,i) => `
+                    <div onclick="{ const m=state.matches.find(x=>x.id===${a.matchId}); if(m)selectMatch(m); }"
+                         style="background:var(--bg-card);border:1px solid ${i===0?af.color:'var(--border)'};border-radius:10px;
+                                padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;
+                                ${i===0?'box-shadow:0 0 10px '+af.color+'20;':''}">
+                      <div style="min-width:0;flex:1;">
+                        <div style="font-size:0.6rem;color:var(--text-dark);margin-bottom:2px;">${esc(a.league)} &bull; ${a.time}</div>
+                        <div style="font-size:0.82rem;font-weight:700;color:var(--text-white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                          ${esc(a.homeName)} vs ${esc(a.awayName)}
+                        </div>
+                        <div style="font-size:0.7rem;color:${af.color};font-weight:600;margin-top:2px;">${esc(a.pick)}</div>
                       </div>
-                    `).join('')}
-                  </div>
-                  ` : ''}
-                  ${a.alternatives.length > 0 ? `
-                  <div style="font-size:0.65rem;color:var(--text-dark);margin-bottom:4px;font-weight:600;">Alternative valide:</div>
-                  <div class="advice-alts">
-                    ${a.alternatives.map(alt => `
-                      <div class="advice-alt-chip">${esc(alt.pick)} <b>${alt.prob}%</b></div>
-                    `).join('')}
-                  </div>
-                  ` : ''}
-                  <div class="advice-footer">
-                    <button class="btn-giocato ${isTracked ? 'tracked' : ''}"
-                            data-track-matchid="${a.matchId}"
-                            data-track-pick="${esc(a.pick)}"
-                            data-track-prob="${typeof a.prob === 'number' ? a.prob.toFixed(1) : a.prob}"
-                            ${isTracked ? 'disabled' : ''}>
-                      ${isTracked ? '✅ Tracciato' : '&#x1F3AF; GIOCATO - Traccia questo pronostico'}
-                    </button>
-                    <button class="btn-dettaglio" onclick="selectMatch(${a.matchId})">&#x1F4CA;</button>
-                  </div>
+                      <div style="text-align:right;flex-shrink:0;">
+                        <div style="font-size:1.25rem;font-weight:800;color:${a.prob>=75?'#00e5a0':a.prob>=60?'#fbbf24':'var(--text-gray)'};">
+                          ${typeof a.prob==='number'?a.prob.toFixed(0):a.prob}%
+                        </div>
+                        <div style="font-size:0.58rem;color:var(--text-dark);">${a.confidence==='high'?'&#x1F7E2; Alta':a.confidence==='medium'?'&#x1F7E1; Media':'&#x26AA; Bassa'}</div>
+                        ${i===0?'<div style="font-size:0.55rem;color:#f59e0b;font-weight:700;">&#x2B50; TOP</div>':''}
+                      </div>
+                    </div>
+                  `).join('')}
                 </div>
-              </div>
-              `;
-            }).join('')}
-          </div>
+              `}
+            </div>
+          ` : ''}
         </div>
       `;
     }
