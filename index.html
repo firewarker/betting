@@ -3712,6 +3712,89 @@
       .schedina-item { padding: 7px 10px; }
       .schedina-item-match { font-size: 0.7rem; }
     }
+    /* === GIUDIZIO FINALE === */
+    .gf-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+      z-index: 2000; display: flex; align-items: center; justify-content: center;
+      animation: gfFadeIn 0.3s ease;
+    }
+    @keyframes gfFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .gf-modal {
+      background: linear-gradient(145deg, #0c1222 0%, #141d2f 50%, #1a2642 100%);
+      border: 2px solid rgba(168,85,247,0.4);
+      border-radius: 20px;
+      width: 95%; max-width: 600px; max-height: 90vh;
+      overflow-y: auto; padding: 0;
+      box-shadow: 0 0 60px rgba(168,85,247,0.2), 0 0 120px rgba(34,211,238,0.1);
+      animation: gfSlideUp 0.4s ease;
+    }
+    @keyframes gfSlideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .gf-header {
+      background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(34,211,238,0.1));
+      border-bottom: 1px solid rgba(168,85,247,0.2);
+      padding: 20px 24px; position: relative;
+    }
+    .gf-close { position: absolute; top: 16px; right: 20px; background: none; border: none;
+      color: var(--text-dark); font-size: 1.5rem; cursor: pointer; }
+    .gf-close:hover { color: white; }
+    .gf-title { font-size: 1.3rem; font-weight: 800;
+      background: linear-gradient(135deg, #a855f7, #22d3ee);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 4px; }
+    .gf-match-info { font-size: 0.78rem; color: var(--text-gray); }
+    .gf-teams { font-size: 1.1rem; font-weight: 700; color: white; margin-top: 8px; }
+    .gf-body { padding: 20px 24px; }
+    .gf-section { margin-bottom: 20px; }
+    .gf-section-title { font-size: 0.82rem; font-weight: 700; color: var(--accent-purple);
+      margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .gf-result-grid { display: flex; flex-direction: column; gap: 8px; }
+    .gf-result-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; background: var(--bg-card-light);
+      border: 1px solid var(--border); border-radius: 12px;
+      transition: all 0.2s;
+    }
+    .gf-result-item.top { border-color: rgba(168,85,247,0.4);
+      background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(34,211,238,0.05)); }
+    .gf-result-rank { min-width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 800; background: var(--bg-input); color: var(--text-gray); }
+    .gf-result-item.top .gf-result-rank { background: linear-gradient(135deg, #a855f7, #22d3ee); color: white; }
+    .gf-result-value { flex: 1; font-weight: 700; font-size: 0.95rem; }
+    .gf-result-prob { font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; font-weight: 700; }
+    .gf-result-prob.high { color: var(--accent-green); }
+    .gf-result-prob.mid { color: var(--accent-cyan); }
+    .gf-result-prob.low { color: var(--accent-yellow); }
+    .gf-result-bar { width: 60px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }
+    .gf-result-bar-fill { height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, #a855f7, #22d3ee); }
+    .gf-exact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+    .gf-exact-box { background: var(--bg-card-light); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 6px; text-align: center; }
+    .gf-exact-box.top { border-color: rgba(168,85,247,0.5);
+      background: linear-gradient(135deg, rgba(168,85,247,0.12), rgba(34,211,238,0.08)); }
+    .gf-exact-score { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 800; color: white; }
+    .gf-exact-prob { font-size: 0.72rem; color: var(--accent-cyan); margin-top: 2px; }
+    .gf-meta { padding: 16px; background: rgba(168,85,247,0.06); border: 1px solid rgba(168,85,247,0.15);
+      border-radius: 12px; margin-top: 16px; }
+    .gf-meta-title { font-size: 0.75rem; color: var(--accent-purple); font-weight: 700; margin-bottom: 8px; }
+    .gf-meta-row { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-gray);
+      padding: 3px 0; }
+    .gf-meta-val { font-weight: 600; color: var(--accent-cyan); }
+    .gf-timestamp { font-size: 0.65rem; color: var(--text-dark); text-align: center; margin-top: 12px; }
+    .gf-cached-notice { font-size: 0.68rem; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.2);
+      border-radius: 8px; padding: 8px 12px; color: #fbbf24; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .gf-btn {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 14px 20px; margin-top: 16px;
+      background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(34,211,238,0.15));
+      border: 2px solid rgba(168,85,247,0.4); border-radius: 14px;
+      color: white; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: all 0.3s;
+    }
+    .gf-btn:hover { transform: scale(1.02); border-color: rgba(168,85,247,0.7);
+      box-shadow: 0 0 25px rgba(168,85,247,0.3); }
+    .gf-btn:active { transform: scale(0.98); }
   </style>
 </head>
 <body>
@@ -11245,16 +11328,17 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     
     // === NUOVA: Lista Consiglio AI per ogni partita (identico al dettaglio) ===
     function renderQuickFind(picks) {
-      const advices = picks.matchAdvices || [];
       const qf = state.quickFind;
       
+      // Ogni filtro usa l'array dedicato dalle daily picks (con tutte le probabilità calcolate)
       const filters = [
-        { key: 'home1',   label: '🏠 Trova 1',    color: '#00d4ff', match: a => { const p=(a.pick||'').toLowerCase().trim(); return p==='1'||p.startsWith('1 ')||p==='vittoria casa'; } },
-        { key: 'away2',   label: '✈️ Trova 2',    color: '#f87171', match: a => { const p=(a.pick||'').toLowerCase().trim(); return p==='2'||p.startsWith('2 ')||p==='vittoria ospite'; } },
-        { key: 'gg',      label: '⚽ Trova GG',   color: '#00e5a0', match: a => { const p=(a.pick||'').toLowerCase(); return p.includes('gg')||p.includes('entrambe'); } },
-        { key: 'over25',  label: '📈 Over 2.5',   color: '#f59e0b', match: a => (a.pick||'').toLowerCase().includes('over 2.5') },
-        { key: 'over15',  label: '📊 Over 1.5',   color: '#a78bfa', match: a => (a.pick||'').toLowerCase().includes('over 1.5') },
-        { key: 'under25', label: '📉 Under 2.5',  color: '#64748b', match: a => (a.pick||'').toLowerCase().includes('under 2.5') },
+        { key: 'home1',   label: '🏠 Trova 1',    color: '#00d4ff', getData: () => picks.vittorieCasa.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: '1 (Casa)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
+        { key: 'away2',   label: '✈️ Trova 2',    color: '#f87171', getData: () => picks.vittorieOspite.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: '2 (Ospite)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
+        { key: 'gg',      label: '⚽ Trova GG',   color: '#00e5a0', getData: () => picks.gg.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: 'GG (' + p.prob.toFixed(0) + '%)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
+        { key: 'over25',  label: '📈 Over 2.5',   color: '#f59e0b', getData: () => picks.over25.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: 'Over 2.5', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
+        { key: 'over15',  label: '📊 Over 1.5',   color: '#a78bfa', getData: () => (picks.matchAdvices || []).filter(a => { try { const pOU = calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1)); return pOU[1.5].over >= 72; } catch(e) { return false; } }).map(a => ({ ...a, pick: 'Over 1.5', prob: (() => { try { return calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1))[1.5].over; } catch(e) { return 0; } })() })).sort((a,b) => b.prob - a.prob).slice(0, 15) },
+        { key: 'under25', label: '📉 Under 2.5',  color: '#64748b', getData: () => (picks.matchAdvices || []).filter(a => { try { const pOU = calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1)); return pOU[2.5].under >= 50; } catch(e) { return false; } }).map(a => ({ ...a, pick: 'Under 2.5', prob: (() => { try { return calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1))[2.5].under; } catch(e) { return 0; } })() })).sort((a,b) => b.prob - a.prob).slice(0, 15) },
+        { key: 'pareggi', label: '🤝 Trova X',    color: '#c084fc', getData: () => picks.pareggi.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: 'X (Pareggio)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
       ];
       
       let results = [];
@@ -11262,10 +11346,9 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       if (qf) {
         af = filters.find(f => f.key === qf);
         if (af) {
-          results = advices
-            .filter(a => { try { return af.match(a); } catch(e){ return false; } })
-            .sort((a,b) => b.prob - a.prob)
-            .slice(0, 10);
+          try {
+            results = af.getData().sort((a,b) => b.prob - a.prob).slice(0, 15);
+          } catch(e) { console.warn('QuickFind error:', e); results = []; }
         }
       }
       
@@ -11455,6 +11538,9 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
             ${state.superAIAnalysis && !state.superAIAnalysis.error ? `
               <div style="display:flex;gap:6px;align-items:center;">
+                <button class="gf-btn" style="margin-top:0;width:auto;padding:8px 14px;font-size:0.78rem;border-radius:10px;" onclick="openGiudizioFinale(${m.id})">
+                  ⚖️ Giudizio Finale
+                </button>
                 <button class="analizza-btn" style="background:rgba(139,92,246,0.15);border-color:rgba(139,92,246,0.3);" onclick="triggerSuperAnalysis()">
                   &#x26A1; ${state.aiFromCache ? 'Cached — Rianalizza' : 'Rianalizza'}
                 </button>
@@ -11463,9 +11549,14 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
                 </button>
               </div>
             ` : `
-              <button class="analizza-btn ${state.superAnalysisRunning ? 'loading' : ''}" id="analizzaBtn" onclick="triggerSuperAnalysis()">
-                ${state.superAnalysisRunning ? '&#9203; Analisi in corso...' : '&#128302; ANALIZZA con Super AI'}
-              </button>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <button class="gf-btn" style="margin-top:0;width:auto;padding:8px 14px;font-size:0.78rem;border-radius:10px;" onclick="openGiudizioFinale(${m.id})">
+                  ⚖️ Giudizio Finale
+                </button>
+                <button class="analizza-btn ${state.superAnalysisRunning ? 'loading' : ''}" id="analizzaBtn" onclick="triggerSuperAnalysis()">
+                  ${state.superAnalysisRunning ? '&#9203; Analisi in corso...' : '&#128302; ANALIZZA con Super AI'}
+                </button>
+              </div>
             `}
             <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
               ${(d.h2h && (d.h2h.matches || d.h2h.totalMatches) >= 3) ? `<span style="font-size:0.6rem;background:rgba(0,229,160,0.12);color:#00e5a0;padding:2px 7px;border-radius:4px;">✔ H2H ${d.h2h.matches || d.h2h.totalMatches} gare</span>` : '<span style="font-size:0.6rem;background:rgba(248,113,113,0.1);color:#f87171;padding:2px 7px;border-radius:4px;">⚠ H2H scarso</span>'}
@@ -11515,6 +11606,15 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         </div>
         
         <!-- TABS PRONOSTICI: AI + STATISTICO -->
+        <div class="section-accordion">
+          <div class="section-accordion-header open" onclick="toggleAccordion(this)">
+            <div class="section-accordion-title"><span>🤖</span> Pronostici AI & Statistico</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="section-accordion-meta">${ai.pick} ${ai.prob.toFixed(0)}%</span>
+              <span class="section-accordion-arrow">▼</span>
+            </div>
+          </div>
+          <div class="section-accordion-body open" style="padding:0;">
         <div style="margin-bottom:4px;">
           <!-- Tab switcher -->
           <div class="advice-tabs">
@@ -11616,15 +11716,47 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
             </div>
           </div>
         </div>
+          </div>
+        </div>
       
       <!-- TRADER VERDICT -->
-      ${safeRender(() => renderTraderVerdict(ai, stat, d), '', 'TraderVerdict')}
+      <div class="section-accordion">
+        <div class="section-accordion-header open" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>💰</span> Trader Verdict</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body open">
+          ${safeRender(() => renderTraderVerdict(ai, stat, d), '', 'TraderVerdict')}
+        </div>
+      </div>
       
       <!-- STORICO VARIAZIONI -->
-      ${renderHistorySection(m.id)}
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>📈</span> Storico Variazioni</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${renderHistorySection(m.id)}
+        </div>
+      </div>
       
       <!-- GAP ANALYSER -->
-      ${safeRender(() => renderGAPAnalyser(m, d), '', 'GAPAnalyser')}
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>📐</span> GAP Analyser</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${safeRender(() => renderGAPAnalyser(m, d), '', 'GAPAnalyser')}
+        </div>
+      </div>
       
 
         
@@ -12364,6 +12496,8 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     window.backToMatches = backToMatches;
     window.navigateMatch = navigateMatch;
     window.switchAdviceTab = switchAdviceTab;
+    window.openGiudizioFinale = openGiudizioFinale;
+    window.closeGiudizioFinale = closeGiudizioFinale;
     window.refreshAIAnalysis = refreshAIAnalysis;
     window.toggleAccordion = toggleAccordion;
     window.toggleTheme = toggleTheme;
@@ -12389,6 +12523,471 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     window.handleRegister = handleRegister;
     window.render = render;
     
+    // === GIUDIZIO FINALE ===
+    // Cache: { matchId: { timestamp, data, history: [{ timestamp, data }] } }
+    const gfCache = JSON.parse(localStorage.getItem('bp2_giudizio_cache') || '{}');
+
+    function saveGFCache() {
+      try { localStorage.setItem('bp2_giudizio_cache', JSON.stringify(gfCache)); } catch(e) {}
+    }
+
+    function openGiudizioFinale(matchId) {
+      const m = state.selectedMatch;
+      const d = state.analysis;
+      if (!m || !d) return alert('Dati non disponibili. Apri prima l\'analisi della partita.');
+
+      const now = Date.now();
+      const cacheKey = String(matchId);
+      const cached = gfCache[cacheKey];
+      const CACHE_TTL = 15 * 60 * 1000;
+
+      // Se cache fresca E i dati super non sono cambiati, mostra direttamente
+      const superChanged = cached && (
+        (state.superAnalysis && !cached.data.hasSuperAlgo) ||
+        (state.superAIAnalysis && !cached.data.hasSuperAI)
+      );
+
+      if (cached && (now - cached.timestamp) < CACHE_TTL && !superChanged) {
+        renderGiudizioFinaleModal(m, d, cached.data, cached);
+        return;
+      }
+
+      // Calcola giudizio con TUTTI i dati disponibili
+      const giudizio = computeGiudizioFinale(m, d, state.superAnalysis, state.superAIAnalysis);
+
+      // Salva in cache con storico variazioni
+      if (!gfCache[cacheKey]) {
+        gfCache[cacheKey] = { timestamp: now, data: giudizio, history: [] };
+      } else {
+        const prev = gfCache[cacheKey].data;
+        if (prev && prev.topMarkets[0]?.value !== giudizio.topMarkets[0]?.value) {
+          gfCache[cacheKey].history.push({ timestamp: gfCache[cacheKey].timestamp, data: prev });
+          if (gfCache[cacheKey].history.length > 10) gfCache[cacheKey].history.shift();
+        }
+        gfCache[cacheKey].timestamp = now;
+        gfCache[cacheKey].data = giudizio;
+      }
+      saveGFCache();
+      renderGiudizioFinaleModal(m, d, giudizio, gfCache[cacheKey]);
+    }
+
+    function computeGiudizioFinale(match, analysis, superAnalysis, superAIAnalysis) {
+      const { xG, p1X2, pOU, pBTTS, exactScores, multigoal, multigoalHome, multigoalAway,
+              temporalDistribution, h2hInfo, corners, cards, homeForm, awayForm } = analysis;
+      const homeXG = xG.home, awayXG = xG.away, totXG = xG.total;
+
+      const formScore = (f) => {
+        if (!f || f === 'N/A') return 2.5;
+        return f.slice(0,5).split('').reduce((s,c) => s + (c==='W'?1:c==='D'?0.4:0), 0);
+      };
+      const hFS = formScore(homeForm), aFS = formScore(awayForm);
+
+      const h2h = h2hInfo || {};
+      const h2hGames = (h2h.homeWins||0) + (h2h.awayWins||0) + (h2h.draws||0) || 1;
+      const h2hAvgGoals = parseFloat(h2h.avgGoals) || totXG;
+      const h2hBTTS = h2h.bttsCount ? (h2h.bttsCount / h2hGames) * 100 : pBTTS;
+      const h2hOver25 = h2h.over25Count ? (h2h.over25Count / h2hGames) * 100 : pOU[2.5].over;
+
+      const getMLWeight = (market) => {
+        const data = state.mlThresholds && state.mlThresholds[market];
+        if (!data || data.totalPredictions < 10) return 0.50;
+        return Math.min(0.92, Math.max(0.35, parseFloat(data.accuracy) / 100));
+      };
+
+      const hCS = analysis.homeData?.cleanSheetPct || 25;
+      const aCS = analysis.awayData?.cleanSheetPct || 25;
+      const hFTS = analysis.homeData?.failedToScorePct || 25;
+      const aFTS = analysis.awayData?.failedToScorePct || 25;
+
+      const esProb = (fn) => (exactScores || []).filter(fn).reduce((s,e) => s + (e.p || e.prob || 0), 0);
+      const drawExact = esProb(s => s.h === s.a);
+      const homeWinExact = esProb(s => s.h > s.a);
+      const awayWinExact = esProb(s => s.h < s.a);
+      const over25Exact = esProb(s => s.h + s.a >= 3);
+      const bttsExact = esProb(s => s.h >= 1 && s.a >= 1);
+
+      const bk = analysis.bookmakerOdds || {};
+      const bkHome = bk.home || 0;
+      const bkDraw = bk.draw || 0;
+      const bkAway = bk.away || 0;
+      const hasBookmaker = bkHome > 0;
+
+      // === SUPER ALGORITHM DATA ===
+      const hasSuperAlgo = !!(superAnalysis && superAnalysis.picks && superAnalysis.picks.length > 0);
+      const superPicks = hasSuperAlgo ? superAnalysis.picks : [];
+      const getSuperScore = (valueMatch) => {
+        const found = superPicks.find(p => {
+          const v = (p.value||'').toLowerCase();
+          const m = valueMatch.toLowerCase();
+          return v === m || v.includes(m) || m.includes(v);
+        });
+        return found ? found.superScore : 0;
+      };
+      const getSuperConf = (valueMatch) => {
+        const found = superPicks.find(p => {
+          const v = (p.value||'').toLowerCase();
+          const m = valueMatch.toLowerCase();
+          return v === m || v.includes(m) || m.includes(v);
+        });
+        return found ? found.confidence : null;
+      };
+
+      // === SUPER AI (Claude/Groq) DATA ===
+      const hasSuperAI = !!(superAIAnalysis && superAIAnalysis.bestPick && !superAIAnalysis.error);
+      const aiBestPick = hasSuperAI ? (superAIAnalysis.bestPick || '').toLowerCase() : '';
+      const aiConfidence = hasSuperAI ? (superAIAnalysis.confidence || 50) : 0;
+      const aiRecommendation = hasSuperAI ? superAIAnalysis.recommendation : '';
+      const aiAlgoConfirmed = hasSuperAI ? superAIAnalysis.algoConfirmed : false;
+      const aiTop3 = hasSuperAI ? (superAIAnalysis.adjustedTop3 || []).map(s => s.toLowerCase()) : [];
+
+      // Global AI penalty/bonus
+      const aiGlobalMult = aiRecommendation === 'SKIP' ? 0.85 : aiRecommendation === 'GIOCA' ? 1.05 : 1.0;
+
+      const markets = [];
+
+      function scoreMarket(opts) {
+        const { value, icon, prob, signals, weights, mlKey, contextBonus } = opts;
+        const totalWeight = weights.reduce((s,w) => s + w, 0);
+        const activeWeight = signals.reduce((s, active, i) => s + (active ? weights[i] : 0), 0);
+        const convergence = totalWeight > 0 ? activeWeight / totalWeight : 0;
+        const mlW = getMLWeight(mlKey || value);
+        const ctx = contextBonus || 1.0;
+
+        // === SUPER ALGO BONUS ===
+        // Se il Super Algorithm concorda (alto superScore), boost convergenza
+        let superBonus = 1.0;
+        const sScore = getSuperScore(value);
+        const sConf = getSuperConf(value);
+        if (hasSuperAlgo) {
+          if (sScore >= 40) superBonus = 1.15;
+          else if (sScore >= 25) superBonus = 1.08;
+          else if (sScore >= 15) superBonus = 1.03;
+          else superBonus = 0.95;
+          // Extra boost se il Super Algorithm gli da confidenza alta
+          if (sConf === 'high') superBonus *= 1.08;
+        }
+
+        // === SUPER AI (Claude) BONUS ===
+        let aiBonus = 1.0;
+        if (hasSuperAI) {
+          const valLower = value.toLowerCase();
+          // bestPick match diretto
+          if (aiBestPick.includes(valLower) || valLower.includes(aiBestPick) ||
+              (aiBestPick.includes('casa') && valLower.includes('casa')) ||
+              (aiBestPick.includes('ospite') && valLower.includes('ospite')) ||
+              (aiBestPick === valLower)) {
+            aiBonus = 1.20 + (aiConfidence - 50) * 0.003; // Fino a +35% per confidenza 100
+            if (aiAlgoConfirmed) aiBonus *= 1.05;
+          }
+          // In top 3
+          else if (aiTop3.some(t => t.includes(valLower) || valLower.includes(t))) {
+            aiBonus = 1.10;
+          }
+          // Non in top 3: leggera penalita'
+          else {
+            aiBonus = 0.97;
+          }
+          // Applica moltiplicatore globale (SKIP/GIOCA)
+          aiBonus *= aiGlobalMult;
+        }
+
+        const rawScore = (prob / 100) * Math.pow(convergence, 0.7) * (0.4 + 0.6 * mlW) * ctx * superBonus * aiBonus;
+        const superScore = rawScore * 100;
+
+        let confidence;
+        if (prob >= 72 && convergence >= 0.60 && mlW >= 0.55) confidence = 'high';
+        else if (prob >= 55 && convergence >= 0.45) confidence = 'mid';
+        else confidence = 'low';
+        // Upgrade se TUTTI concordano
+        if (confidence === 'mid' && superBonus >= 1.10 && aiBonus >= 1.10) confidence = 'high';
+
+        return { value, icon, prob, convergence, superScore, confidence, 
+                 mlAccuracy: (mlW*100).toFixed(0), signalHits: signals.filter(Boolean).length, signalTotal: signals.length,
+                 superAlgoScore: sScore.toFixed(1), superAlgoConf: sConf || '-',
+                 aiMatch: aiBonus > 1.05 ? 'bestPick' : aiBonus > 1.02 ? 'top3' : '-',
+                 superBonus: superBonus.toFixed(2), aiBonus: aiBonus.toFixed(2) };
+      }
+
+      // Build all markets (same signals as before)
+      const balanced = Math.abs(homeXG - awayXG) < 0.4;
+
+      // 1. VITTORIA CASA
+      markets.push(scoreMarket({ value: '1 (Casa)', icon: '\u{1F3E0}', prob: p1X2.home, mlKey: '1',
+        signals: [p1X2.home>=50, homeXG>awayXG*1.15, hFS>=3.0, (h2h.homeWins||0)>(h2h.awayWins||0), homeWinExact>45, hasBookmaker?bkHome>=45:p1X2.home>=48, aFTS>=28, hFS>aFS, homeXG>=1.3, p1X2.home>=55],
+        weights: [3,3,2,2,2,3,1.5,1,1,2.5],
+        contextBonus: (hasBookmaker&&bkHome>=55)?1.12:homeXG>awayXG*1.3?1.08:1.0 }));
+
+      // 2. PAREGGIO
+      markets.push(scoreMarket({ value: 'X (Pareggio)', icon: '\u{1F91D}', prob: p1X2.draw, mlKey: 'X',
+        signals: [p1X2.draw>=26, balanced, Math.abs(p1X2.home-p1X2.away)<12, drawExact>=25, totXG<2.5, hasBookmaker?bkDraw>=28:p1X2.draw>=27, (h2h.draws||0)>=h2hGames*0.25, hFS>=1.5&&hFS<=3.5&&aFS>=1.5&&aFS<=3.5, pOU[2.5].under>=48, Math.abs(hFS-aFS)<1.5],
+        weights: [3,2.5,2,3,2,2.5,1.5,1.5,1.5,1],
+        contextBonus: balanced&&drawExact>=28?1.15:1.0 }));
+
+      // 3. VITTORIA OSPITE
+      markets.push(scoreMarket({ value: '2 (Ospite)', icon: '\u2708\uFE0F', prob: p1X2.away, mlKey: '2',
+        signals: [p1X2.away>=35, awayXG>homeXG, aFS>=3.0, (h2h.awayWins||0)>=(h2h.homeWins||0), awayWinExact>30, hasBookmaker?bkAway>=35:p1X2.away>=38, hFTS>=28, aFS>hFS, awayXG>=1.1, p1X2.away>=40],
+        weights: [3,3,2,2,2,3,1.5,1,1.5,2.5],
+        contextBonus: (hasBookmaker&&bkAway>=45)?1.12:awayXG>homeXG*1.2?1.08:1.0 }));
+
+      // 4. OVER 1.5
+      markets.push(scoreMarket({ value: 'Over 1.5', icon: '\u26BD', prob: pOU[1.5].over, mlKey: 'Over 1.5',
+        signals: [pOU[1.5].over>=75, totXG>=2.3, h2hAvgGoals>=2.0, homeXG>=0.9&&awayXG>=0.7, hFS+aFS>=4.0, over25Exact+esProb(s=>s.h+s.a===2)>=60, hFTS<30&&aFTS<35, pBTTS>=45],
+        weights: [3,2.5,2,2,1.5,2,1.5,1.5] }));
+
+      // 5. OVER 2.5
+      markets.push(scoreMarket({ value: 'Over 2.5', icon: '\u{1F525}', prob: pOU[2.5].over, mlKey: 'Over 2.5',
+        signals: [pOU[2.5].over>=55, totXG>=2.8, h2hAvgGoals>=2.5, homeXG>=1.2&&awayXG>=1.0, pBTTS>=55, over25Exact>=40, h2hOver25>=50, hFS+aFS>=4.5],
+        weights: [3,3,2,2.5,2,2,1.5,1.5],
+        contextBonus: totXG>=3.3?1.08:1.0 }));
+
+      // 6. UNDER 2.5
+      markets.push(scoreMarket({ value: 'Under 2.5', icon: '\u{1F6E1}\uFE0F', prob: pOU[2.5].under, mlKey: 'Under 2.5',
+        signals: [pOU[2.5].under>=50, totXG<2.3, h2hAvgGoals<2.5, pBTTS<50, hFTS>=25||aFTS>=25, hCS>=30||aCS>=30, esProb(s=>s.h+s.a<=2)>=50, hFS+aFS<5.0],
+        weights: [3,3,2,2,1.5,1.5,2.5,1],
+        contextBonus: totXG<2.0?1.08:1.0 }));
+
+      // 7. GG (BTTS)
+      markets.push(scoreMarket({ value: 'GG (BTTS Si)', icon: '\u26A1', prob: pBTTS, mlKey: 'GG',
+        signals: [pBTTS>=55, homeXG>=0.9&&awayXG>=0.9, h2hBTTS>=50, hFTS<30&&aFTS<30, bttsExact>=55, pOU[1.5].over>=72, hFS>=2.0&&aFS>=2.0, hCS<40&&aCS<40],
+        weights: [3,3,2,2,2.5,1.5,1.5,1] }));
+
+      // 8. NO GG
+      const noGG = 100 - pBTTS;
+      markets.push(scoreMarket({ value: 'NG (BTTS No)', icon: '\u{1F6AB}', prob: noGG, mlKey: 'NG',
+        signals: [noGG>=50, hFTS>=28||aFTS>=28, hCS>=30||aCS>=30, totXG<2.5, esProb(s=>s.h===0||s.a===0)>=45, pOU[2.5].under>=45, h2hBTTS<55],
+        weights: [3,2,2,2,2.5,1.5,1.5] }));
+
+      // 9. 1X
+      const p1X = p1X2.home + p1X2.draw;
+      markets.push(scoreMarket({ value: '1X', icon: '\u{1F3E0}\u{1F91D}', prob: p1X, mlKey: '1X',
+        signals: [p1X>=70, homeXG>=awayXG, hFS>=2.5, p1X2.away<30, hasBookmaker?(bkHome+bkDraw)>=68:p1X>=68, homeWinExact+drawExact>=65],
+        weights: [3,2,1.5,2,2.5,2] }));
+
+      // 10. X2
+      const pX2 = p1X2.draw + p1X2.away;
+      markets.push(scoreMarket({ value: 'X2', icon: '\u{1F91D}\u2708\uFE0F', prob: pX2, mlKey: 'X2',
+        signals: [pX2>=55, awayXG>=homeXG*0.85, aFS>=2.5, p1X2.home<45, hasBookmaker?(bkDraw+bkAway)>=50:pX2>=52, awayWinExact+drawExact>=45],
+        weights: [3,2,1.5,2,2.5,2] }));
+
+      // 11. OVER 3.5
+      markets.push(scoreMarket({ value: 'Over 3.5', icon: '\u{1F4A5}', prob: pOU[3.5].over, mlKey: 'Over 3.5',
+        signals: [pOU[3.5].over>=40, totXG>=3.5, pBTTS>=60, h2hAvgGoals>=3.0, over25Exact>=50],
+        weights: [3,3,2,2,2] }));
+
+      // 12. UNDER 3.5
+      markets.push(scoreMarket({ value: 'Under 3.5', icon: '\u{1F512}', prob: pOU[3.5].under, mlKey: 'Under 3.5',
+        signals: [pOU[3.5].under>=65, totXG<3.0, esProb(s=>s.h+s.a<=3)>=65],
+        weights: [3,3,2.5] }));
+
+      // 13. MULTIGOAL migliore
+      if (multigoal && multigoal.length > 0) {
+        const bestMG = multigoal.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'1-3', prob:0});
+        if (bestMG.prob > 30) {
+          markets.push(scoreMarket({ value: 'MG ' + bestMG.range, icon: '\u{1F4CA}', prob: bestMG.prob,
+            signals: [bestMG.prob>=55, totXG>=1.5, totXG<=4.5], weights: [3,2,2] }));
+        }
+      }
+
+      markets.sort((a, b) => b.superScore - a.superScore);
+
+      const topExact = (exactScores || []).slice(0, 10).map((s, i) => ({
+        score: s.h + '-' + s.a, prob: s.p || s.prob, rank: i + 1
+      }));
+
+      // === AI VERDICT DATA ===
+      const aiVerdict = hasSuperAI ? {
+        bestPick: superAIAnalysis.bestPick,
+        bestPickProb: superAIAnalysis.bestPickProb,
+        reasoning: superAIAnalysis.bestPickReasoning || superAIAnalysis.aiVerdict || '',
+        recommendation: superAIAnalysis.recommendation,
+        confidence: superAIAnalysis.confidence,
+        keyNews: superAIAnalysis.keyNews || [],
+        keyFactors: superAIAnalysis.keyFactors || [],
+        warningFlags: (superAIAnalysis.warningFlags || []).filter(w => w && w.length > 0),
+        riskLevel: superAIAnalysis.riskLevel || '',
+        alternativePick: superAIAnalysis.alternativePick || '',
+        alternativeProb: superAIAnalysis.alternativePickProb || 0,
+        teamsContext: superAIAnalysis.teamsContext || ''
+      } : null;
+
+      const meta = {
+        xGTotal: totXG.toFixed(2), xGHome: homeXG.toFixed(2), xGAway: awayXG.toFixed(2),
+        formaHome: homeForm || 'N/A', formaAway: awayForm || 'N/A',
+        h2hPartite: h2hGames, h2hMediaGol: h2hAvgGoals.toFixed(1), bttsPct: pBTTS.toFixed(0),
+        lineupsUsed: analysis.lineupsAvailable || false,
+        bookmakerUsed: hasBookmaker, bookmakerName: bk.bookmakerName || '',
+        fatigueHome: analysis.homeFatigue || 1.0, fatigueAway: analysis.awayFatigue || 1.0,
+        quality: analysis.quality || 'base', dixonColes: true,
+        signalsAnalyzed: markets.reduce((s,m) => s + m.signalTotal, 0),
+        hasSuperAlgo, hasSuperAI
+      };
+
+      return { topMarkets: markets.slice(0, 10), topExact, meta, aiVerdict, computedAt: Date.now(), hasSuperAlgo, hasSuperAI };
+    }
+
+    function renderGiudizioFinaleModal(match, analysis, giudizio, cacheEntry) {
+      const m = match;
+      const league = (m.league?.country || '') + ' \u2022 ' + (m.league?.name || '');
+      const dateStr = formatDateFull(m.date) + ' ' + formatTime(m.date);
+      const hasHistory = cacheEntry && cacheEntry.history && cacheEntry.history.length > 0;
+      const ai = giudizio.aiVerdict;
+
+      const probClass = (p) => p >= 65 ? 'high' : p >= 45 ? 'mid' : 'low';
+
+      // Data source badges
+      const sources = [];
+      sources.push('\u{1F4CA} Poisson + Dixon-Coles');
+      if (giudizio.meta.bookmakerUsed) sources.push('\u{1F4B0} Quote Bookmaker');
+      if (giudizio.meta.lineupsUsed) sources.push('\u26BD Formazioni Ufficiali');
+      if (giudizio.hasSuperAlgo) sources.push('\u{1F9E0} Super Algorithm');
+      if (giudizio.hasSuperAI) sources.push('\u{1F916} Oracle AI');
+
+      const html = '\n' +
+        '<div class="gf-overlay" id="gfOverlay" onclick="if(event.target===this)closeGiudizioFinale()">\n' +
+        '  <div class="gf-modal">\n' +
+        '    <div class="gf-header">\n' +
+        '      <button class="gf-close" onclick="closeGiudizioFinale()">\u00D7</button>\n' +
+        '      <div class="gf-title">\u2696\uFE0F GIUDIZIO FINALE</div>\n' +
+        '      <div class="gf-match-info">' + league + ' \u2022 ' + dateStr + '</div>\n' +
+        '      <div class="gf-teams">' + esc(m.home.name) + ' vs ' + esc(m.away.name) + '</div>\n' +
+        '      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">' +
+              sources.map(s => '<span style="font-size:0.62rem;background:rgba(168,85,247,0.12);color:#c084fc;padding:3px 8px;border-radius:12px;">' + s + '</span>').join('') +
+        '      </div>\n' +
+        '    </div>\n' +
+        '    <div class="gf-body">\n' +
+
+        // AI VERDICT SECTION (if available)
+        (ai ? (
+          '<div class="gf-section" style="background:linear-gradient(135deg,rgba(168,85,247,0.06),rgba(34,211,238,0.04));border:1px solid rgba(168,85,247,0.2);border-radius:14px;padding:16px;margin-bottom:16px;">\n' +
+          '  <div class="gf-section-title">\u{1F916} Verdetto Oracle AI' +
+          '    <span style="margin-left:auto;font-size:0.7rem;padding:3px 10px;border-radius:10px;font-weight:700;' +
+          (ai.recommendation === 'GIOCA' ? 'background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);">\u2705 ' + ai.recommendation :
+           ai.recommendation === 'SKIP' ? 'background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">\u274C ' + ai.recommendation :
+           'background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);">\u23F3 ' + ai.recommendation) +
+          '</span></div>\n' +
+          '  <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">\n' +
+          '    <div style="flex:1;">\n' +
+          '      <div style="font-size:1.1rem;font-weight:800;color:white;">' + esc(ai.bestPick) + '</div>\n' +
+          '      <div style="font-size:0.75rem;color:var(--accent-cyan);margin-top:2px;">Confidenza: ' + ai.confidence + '% | Rischio: ' + esc(ai.riskLevel) + '</div>\n' +
+          '    </div>\n' +
+          '    <div style="font-size:1.8rem;font-weight:900;color:' + (ai.bestPickProb >= 70 ? '#10b981' : ai.bestPickProb >= 55 ? '#00d4ff' : '#fbbf24') + ';">' + (ai.bestPickProb || '?') + '%</div>\n' +
+          '  </div>\n' +
+          (ai.reasoning ? '<div style="font-size:0.75rem;color:var(--text-gray);margin-bottom:10px;line-height:1.5;">' + esc(ai.reasoning) + '</div>' : '') +
+          (ai.alternativePick ? '<div style="font-size:0.72rem;color:var(--text-dark);">Alternativa: <strong style="color:var(--accent-cyan);">' + esc(ai.alternativePick) + '</strong> (' + ai.alternativeProb + '%)</div>' : '') +
+          (ai.keyNews && ai.keyNews.length > 0 ? (
+            '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(168,85,247,0.15);">' +
+            '  <div style="font-size:0.7rem;color:var(--accent-purple);font-weight:700;margin-bottom:6px;">\u{1F4F0} Notizie Chiave</div>' +
+            ai.keyNews.slice(0,3).map(n => '<div style="font-size:0.68rem;color:var(--text-gray);margin-bottom:3px;">\u2022 ' + esc(n) + '</div>').join('') +
+            '</div>'
+          ) : '') +
+          (ai.warningFlags && ai.warningFlags.length > 0 ? (
+            '<div style="margin-top:8px;padding:8px 10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:8px;">' +
+            ai.warningFlags.map(w => '<div style="font-size:0.68rem;color:#f87171;">\u26A0\uFE0F ' + esc(w) + '</div>').join('') +
+            '</div>'
+          ) : '') +
+          '</div>\n'
+        ) : (
+          '<div class="gf-cached-notice">\u{1F916} Oracle AI non ancora eseguito \u2014 clicca "ANALIZZA con Super AI" per dati piu\u0300 completi</div>\n'
+        )) +
+
+        // CONVERGENZA BADGE
+        (giudizio.hasSuperAlgo || giudizio.hasSuperAI ? (
+          '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">' +
+          (giudizio.hasSuperAlgo ? '<span style="font-size:0.68rem;background:rgba(0,229,160,0.08);color:#00e5a0;padding:4px 10px;border-radius:8px;border:1px solid rgba(0,229,160,0.2);">\u2705 Super Algorithm integrato nel ranking</span>' : '') +
+          (giudizio.hasSuperAI ? '<span style="font-size:0.68rem;background:rgba(168,85,247,0.08);color:#c084fc;padding:4px 10px;border-radius:8px;border:1px solid rgba(168,85,247,0.2);">\u2705 Oracle AI boost applicato</span>' : '') +
+          '</div>'
+        ) : '') +
+
+        // TOP MERCATI
+        '<div class="gf-section">\n' +
+        '  <div class="gf-section-title">\u{1F3C6} Pronostici Classificati (Score Composito)</div>\n' +
+        '  <div class="gf-result-grid">\n' +
+        giudizio.topMarkets.map((mk, i) =>
+          '<div class="gf-result-item ' + (i === 0 ? 'top' : '') + '">' +
+          '  <div class="gf-result-rank">' + (i + 1) + '</div>' +
+          '  <span style="font-size:1.1rem;">' + mk.icon + '</span>' +
+          '  <div class="gf-result-value">' + mk.value +
+          '    <div style="font-size:0.58rem;color:var(--text-dark);margin-top:2px;">' +
+                 mk.signalHits + '/' + mk.signalTotal + ' segnali \u00B7 ML ' + mk.mlAccuracy + '%' +
+                 (mk.aiMatch === 'bestPick' ? ' \u00B7 <span style="color:#a855f7;">\u{1F916}AI Pick</span>' : mk.aiMatch === 'top3' ? ' \u00B7 <span style="color:#c084fc;">\u{1F916}Top3</span>' : '') +
+                 (parseFloat(mk.superAlgoScore) >= 20 ? ' \u00B7 <span style="color:#00e5a0;">\u{1F9E0}' + mk.superAlgoScore + '</span>' : '') +
+          '    </div>' +
+          '  </div>' +
+          '  <div class="gf-result-bar"><div class="gf-result-bar-fill" style="width:' + Math.min(mk.prob, 100) + '%"></div></div>' +
+          '  <div class="gf-result-prob ' + probClass(mk.prob) + '">' + mk.prob.toFixed(0) + '%</div>' +
+          '</div>'
+        ).join('') +
+        '  </div>\n' +
+        '</div>\n' +
+
+        // RISULTATI ESATTI
+        '<div class="gf-section">\n' +
+        '  <div class="gf-section-title">\u{1F3AF} Risultati Esatti (Dixon-Coles)</div>\n' +
+        '  <div class="gf-exact-grid">\n' +
+        giudizio.topExact.map((ex, i) =>
+          '<div class="gf-exact-box ' + (i < 3 ? 'top' : '') + '">' +
+          '  <div class="gf-exact-score">' + ex.score + '</div>' +
+          '  <div class="gf-exact-prob">' + ex.prob.toFixed(1) + '%</div>' +
+          '</div>'
+        ).join('') +
+        '  </div>\n' +
+        '</div>\n' +
+
+        // STORICO VARIAZIONI
+        (hasHistory ? (
+          '<div class="gf-section">' +
+          '  <div class="gf-section-title">\u{1F4C8} Storico Variazioni</div>' +
+          '  <div class="gf-result-grid">' +
+          cacheEntry.history.map((h, i) => {
+            const t = new Date(h.timestamp);
+            const timeStr = t.toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'}) + ' ' + t.toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit'});
+            const topMk = h.data.topMarkets[0];
+            const topEx = h.data.topExact[0];
+            return '<div class="gf-result-item" style="opacity:' + (0.5 + i * 0.05) + ';">' +
+              '<div style="font-size:0.68rem;color:var(--text-dark);min-width:75px;">' + timeStr + '</div>' +
+              '<div class="gf-result-value" style="font-size:0.82rem;">' + (topMk?.icon||'') + ' ' + (topMk?.value||'N/A') + ' ' + (topMk?.prob?.toFixed(0)||'') + '%</div>' +
+              '<div style="font-size:0.72rem;color:var(--text-gray);">Esatto: ' + (topEx?.score||'N/A') + '</div>' +
+              '</div>';
+          }).join('') +
+          '  </div>' +
+          '</div>'
+        ) : '') +
+
+        // META INFO
+        '<div class="gf-meta">\n' +
+        '  <div class="gf-meta-title">\u{1F4CB} Dati Utilizzati</div>\n' +
+        '  <div class="gf-meta-row"><span>xG Totale</span><span class="gf-meta-val">' + giudizio.meta.xGTotal + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>xG Casa / Ospite</span><span class="gf-meta-val">' + giudizio.meta.xGHome + ' / ' + giudizio.meta.xGAway + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Forma</span><span class="gf-meta-val">' + giudizio.meta.formaHome + ' / ' + giudizio.meta.formaAway + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>H2H</span><span class="gf-meta-val">' + giudizio.meta.h2hPartite + ' partite (avg ' + giudizio.meta.h2hMediaGol + ' gol)</span></div>\n' +
+        '  <div class="gf-meta-row"><span>BTTS</span><span class="gf-meta-val">' + giudizio.meta.bttsPct + '%</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Formazioni</span><span class="gf-meta-val">' + (giudizio.meta.lineupsUsed ? '\u2705' : '\u23F3') + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Bookmaker</span><span class="gf-meta-val">' + (giudizio.meta.bookmakerUsed ? '\u2705 ' + giudizio.meta.bookmakerName : '\u274C') + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Super Algorithm</span><span class="gf-meta-val">' + (giudizio.hasSuperAlgo ? '\u2705 Integrato' : '\u274C Non eseguito') + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Oracle AI</span><span class="gf-meta-val">' + (giudizio.hasSuperAI ? '\u2705 Integrato' : '\u274C Non eseguito') + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Segnali</span><span class="gf-meta-val">' + (giudizio.meta.signalsAnalyzed || 'N/A') + '</span></div>\n' +
+        (giudizio.meta.fatigueHome < 0.98 ? '  <div class="gf-meta-row"><span>\u26A1 Stanchezza Casa</span><span class="gf-meta-val" style="color:#f87171;">x' + giudizio.meta.fatigueHome.toFixed(2) + '</span></div>\n' : '') +
+        (giudizio.meta.fatigueAway < 0.98 ? '  <div class="gf-meta-row"><span>\u26A1 Stanchezza Ospite</span><span class="gf-meta-val" style="color:#f87171;">x' + giudizio.meta.fatigueAway.toFixed(2) + '</span></div>\n' : '') +
+        '</div>\n' +
+
+        '<div class="gf-timestamp">\n' +
+        '  Calcolato il ' + new Date(giudizio.computedAt).toLocaleString('it-IT') + ' \u2014 Cache ' + ((Date.now() - giudizio.computedAt)/60000).toFixed(0) + ' min fa\n' +
+        '</div>\n' +
+
+        '    </div>\n' +
+        '  </div>\n' +
+        '</div>\n';
+
+      const existing = document.getElementById('gfOverlay');
+      if (existing) existing.remove();
+      document.body.insertAdjacentHTML('beforeend', html);
+    }
+
+        function closeGiudizioFinale() {
+      const el = document.getElementById('gfOverlay');
+      if (el) el.remove();
+    }
+
     // === INIT ===
     async function init() {
       console.log('&#x1F680; BettingPro v6 + Firebase Auth starting...');
