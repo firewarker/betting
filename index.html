@@ -5918,11 +5918,9 @@
       if (ai && ai.pick) {
         const pick = ai.pick.toLowerCase();
         let won = null;
-        if (pick.includes('1') && !pick.includes('1x') && !pick.includes('1.5') && !pick.includes('x1')) won = hg > ag;
-        else if (pick === '2' || pick.includes('vittoria ospite') || pick.startsWith('2 ')) won = ag > hg;
-        else if (pick === 'x' || pick.includes('pareggio')) won = hg === ag;
-        else if (pick.includes('1x')) won = hg >= ag;
-        else if (pick.includes('x2')) won = ag >= hg;
+        // ORDINE IMPORTANTE: 1x/x2 prima di 1/2/x, over/under specifici prima di generici
+        if (pick.includes('1x') || pick.includes('casa o pareggio')) won = hg >= ag;
+        else if (pick.includes('x2') || pick.includes('pareggio o ospite')) won = ag >= hg;
         else if (pick.includes('over 3.5')) won = totalGoals >= 4;
         else if (pick.includes('over 2.5')) won = totalGoals >= 3;
         else if (pick.includes('over 1.5')) won = totalGoals >= 2;
@@ -5931,6 +5929,9 @@
         else if (pick.includes('under 1.5')) won = totalGoals <= 1;
         else if (pick.includes('gg') || pick.includes('entrambe') || pick.includes('btts s')) won = hg > 0 && ag > 0;
         else if (pick.includes('ng') || pick.includes('btts n')) won = hg === 0 || ag === 0;
+        else if ((pick === '1' || pick.startsWith('1 ') || pick.includes('vittoria casa')) && !pick.includes('1.5')) won = hg > ag;
+        else if (pick === '2' || pick.startsWith('2 ') || pick.includes('vittoria ospite')) won = ag > hg;
+        else if (pick === 'x' || pick.includes('pareggio')) won = hg === ag;
         if (won !== null) checks.push({ label: '🤖 Consiglio AI', pick: ai.pick, won, prob: ai.prob });
       }
 
@@ -5939,16 +5940,19 @@
       if (stat && stat.pick && stat.pick !== ai?.pick) {
         const pick = stat.pick.toLowerCase();
         let won = null;
-        if (pick.includes('1') && !pick.includes('1x') && !pick.includes('1.5')) won = hg > ag;
-        else if (pick === '2' || pick.includes('ospite') || pick.startsWith('2 ')) won = ag > hg;
-        else if (pick === 'x' || pick.includes('pareggio')) won = hg === ag;
-        else if (pick.includes('1x')) won = hg >= ag;
-        else if (pick.includes('x2')) won = ag >= hg;
+        if (pick.includes('1x') || pick.includes('casa o pareggio')) won = hg >= ag;
+        else if (pick.includes('x2') || pick.includes('pareggio o ospite')) won = ag >= hg;
+        else if (pick.includes('over 3.5')) won = totalGoals >= 4;
         else if (pick.includes('over 2.5')) won = totalGoals >= 3;
         else if (pick.includes('over 1.5')) won = totalGoals >= 2;
+        else if (pick.includes('under 3.5')) won = totalGoals <= 3;
         else if (pick.includes('under 2.5')) won = totalGoals <= 2;
+        else if (pick.includes('under 1.5')) won = totalGoals <= 1;
         else if (pick.includes('gg') || pick.includes('btts s')) won = hg > 0 && ag > 0;
         else if (pick.includes('ng') || pick.includes('btts n')) won = hg === 0 || ag === 0;
+        else if ((pick === '1' || pick.startsWith('1 ') || pick.includes('vittoria casa')) && !pick.includes('1.5')) won = hg > ag;
+        else if (pick === '2' || pick.startsWith('2 ') || pick.includes('vittoria ospite')) won = ag > hg;
+        else if (pick === 'x' || pick.includes('pareggio')) won = hg === ag;
         if (won !== null) checks.push({ label: '📊 Statistico', pick: stat.pick, won, prob: stat.prob });
       }
 
