@@ -3782,6 +3782,62 @@
       padding: 3px 0; }
     .gf-meta-val { font-weight: 600; color: var(--accent-cyan); }
     .gf-timestamp { font-size: 0.65rem; color: var(--text-dark); text-align: center; margin-top: 12px; }
+
+    /* === RISULTATO REALE === */
+    .real-result-banner {
+      background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(0,212,255,0.05));
+      border: 1.5px solid rgba(16,185,129,0.25);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-top: 12px;
+    }
+    .real-result-banner.lost {
+      background: linear-gradient(135deg, rgba(239,68,68,0.06), rgba(251,191,36,0.03));
+      border-color: rgba(239,68,68,0.2);
+    }
+    .real-result-header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+    }
+    .real-result-badge {
+      font-size: 0.68rem; font-weight: 800; padding: 3px 10px; border-radius: 8px;
+    }
+    .real-result-badge.ft { background: rgba(16,185,129,0.15); color: #10b981; }
+    .real-result-badge.live { background: rgba(239,68,68,0.15); color: #f87171; animation: pulse 1.5s infinite; }
+    .real-result-score-row {
+      display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px;
+    }
+    .real-result-score {
+      font-size: 2rem; font-weight: 900; color: white;
+      background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(0,212,255,0.1));
+      border: 1px solid rgba(16,185,129,0.3); border-radius: 12px;
+      padding: 6px 18px; min-width: 46px; text-align: center;
+    }
+    .real-result-vs { font-size: 0.72rem; color: var(--text-dark); font-weight: 700; }
+    .real-result-predicted {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-size: 0.72rem; color: var(--text-dark); margin-bottom: 12px;
+    }
+    .verifica-grid {
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .verifica-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 10px; border-radius: 8px; font-size: 0.72rem;
+      background: rgba(255,255,255,0.02);
+    }
+    .verifica-row .v-label { color: var(--text-gray); font-weight: 600; }
+    .verifica-row .v-pick { color: var(--text-white); font-weight: 700; }
+    .verifica-row .v-result { font-weight: 800; }
+    .verifica-row .v-result.win { color: #10b981; }
+    .verifica-row .v-result.lose { color: #ef4444; }
+    .verifica-summary {
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+      margin-top: 10px; padding: 10px; border-radius: 10px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    }
+    .verifica-stat { text-align: center; }
+    .verifica-stat-num { font-size: 1.2rem; font-weight: 900; }
+    .verifica-stat-label { font-size: 0.6rem; color: var(--text-dark); }
     .gf-cached-notice { font-size: 0.68rem; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.2);
       border-radius: 8px; padding: 8px 12px; color: #fbbf24; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     .gf-btn {
@@ -5773,6 +5829,252 @@
       return state.slip.some(s => s.key === `${matchId}_${market}`);
     }
 
+    // === RISULTATO REALE — Fetch & Verifica ===
+    const RESULT_CACHE_KEY = 'bp2_match_results';
+    function getResultCache() {
+      try { return JSON.parse(localStorage.getItem(RESULT_CACHE_KEY) || '{}'); } catch(e) { return {}; }
+    }
+    function saveResultCache(cache) {
+      try {
+        // Mantieni solo gli ultimi 200 risultati
+        const keys = Object.keys(cache);
+        if (keys.length > 200) {
+          keys.sort((a,b) => (cache[a].fetchedAt||0) - (cache[b].fetchedAt||0));
+          keys.slice(0, keys.length - 200).forEach(k => delete cache[k]);
+        }
+        localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(cache));
+      } catch(e) {}
+    }
+
+    async function fetchMatchResult(matchId, force) {
+      if (!matchId) return null;
+      const cache = getResultCache();
+      const key = String(matchId);
+
+      // Cache hit (non forzato): risultato valido per 10 min, FT permanente
+      if (!force && cache[key]) {
+        const age = Date.now() - (cache[key].fetchedAt || 0);
+        if (cache[key].status === 'FT' || cache[key].status === 'AET' || cache[key].status === 'PEN') return cache[key];
+        if (age < 10 * 60 * 1000) return cache[key]; // 10 min per live/NS
+      }
+
+      try {
+        const data = await callAPIFootball('/fixtures', { id: matchId });
+        if (data?.response?.[0]) {
+          const f = data.response[0];
+          const result = {
+            matchId,
+            status: f.fixture.status.short,
+            elapsed: f.fixture.status.elapsed || 0,
+            homeGoals: f.goals.home,
+            awayGoals: f.goals.away,
+            htHome: f.score?.halftime?.home,
+            htAway: f.score?.halftime?.away,
+            ftHome: f.score?.fulltime?.home,
+            ftAway: f.score?.fulltime?.away,
+            etHome: f.score?.extratime?.home,
+            etAway: f.score?.extratime?.away,
+            penHome: f.score?.penalty?.home,
+            penAway: f.score?.penalty?.away,
+            fetchedAt: Date.now()
+          };
+          cache[key] = result;
+          saveResultCache(cache);
+          // Aggiorna anche il match in state.matches
+          const m = state.matches.find(x => x.id === matchId);
+          if (m) {
+            m.status = result.status;
+            m.goals = { home: result.homeGoals, away: result.awayGoals };
+          }
+          return result;
+        }
+      } catch(e) {
+        console.warn('fetchMatchResult error:', e.message);
+      }
+      return cache[key] || null;
+    }
+
+    function isMatchFinished(match) {
+      return ['FT','AET','PEN'].includes(match?.status);
+    }
+    function isMatchLive(match) {
+      return ['1H','2H','HT','ET','P','LIVE'].includes(match?.status);
+    }
+    function isMatchPast(match) {
+      if (!match?.date) return false;
+      const kickoff = new Date(match.date).getTime();
+      // 2 ore dopo il kickoff, probabile che sia finita
+      return Date.now() > kickoff + 2 * 60 * 60 * 1000;
+    }
+
+    function verifyPredictions(match, analysis, result) {
+      if (!result || result.homeGoals == null || result.awayGoals == null) return null;
+      const hg = result.homeGoals, ag = result.awayGoals;
+      const totalGoals = hg + ag;
+      const checks = [];
+
+      // Consiglio AI
+      const ai = generateAIAdvice(match, analysis);
+      if (ai && ai.pick) {
+        const pick = ai.pick.toLowerCase();
+        let won = null;
+        if (pick.includes('1') && !pick.includes('1x') && !pick.includes('1.5') && !pick.includes('x1')) won = hg > ag;
+        else if (pick === '2' || pick.includes('vittoria ospite') || pick.startsWith('2 ')) won = ag > hg;
+        else if (pick === 'x' || pick.includes('pareggio')) won = hg === ag;
+        else if (pick.includes('1x')) won = hg >= ag;
+        else if (pick.includes('x2')) won = ag >= hg;
+        else if (pick.includes('over 3.5')) won = totalGoals >= 4;
+        else if (pick.includes('over 2.5')) won = totalGoals >= 3;
+        else if (pick.includes('over 1.5')) won = totalGoals >= 2;
+        else if (pick.includes('under 3.5')) won = totalGoals <= 3;
+        else if (pick.includes('under 2.5')) won = totalGoals <= 2;
+        else if (pick.includes('under 1.5')) won = totalGoals <= 1;
+        else if (pick.includes('gg') || pick.includes('entrambe') || pick.includes('btts s')) won = hg > 0 && ag > 0;
+        else if (pick.includes('ng') || pick.includes('btts n')) won = hg === 0 || ag === 0;
+        if (won !== null) checks.push({ label: '🤖 Consiglio AI', pick: ai.pick, won, prob: ai.prob });
+      }
+
+      // Statistico
+      const stat = generateStatisticalAdvice(match, analysis);
+      if (stat && stat.pick && stat.pick !== ai?.pick) {
+        const pick = stat.pick.toLowerCase();
+        let won = null;
+        if (pick.includes('1') && !pick.includes('1x') && !pick.includes('1.5')) won = hg > ag;
+        else if (pick === '2' || pick.includes('ospite') || pick.startsWith('2 ')) won = ag > hg;
+        else if (pick === 'x' || pick.includes('pareggio')) won = hg === ag;
+        else if (pick.includes('1x')) won = hg >= ag;
+        else if (pick.includes('x2')) won = ag >= hg;
+        else if (pick.includes('over 2.5')) won = totalGoals >= 3;
+        else if (pick.includes('over 1.5')) won = totalGoals >= 2;
+        else if (pick.includes('under 2.5')) won = totalGoals <= 2;
+        else if (pick.includes('gg') || pick.includes('btts s')) won = hg > 0 && ag > 0;
+        else if (pick.includes('ng') || pick.includes('btts n')) won = hg === 0 || ag === 0;
+        if (won !== null) checks.push({ label: '📊 Statistico', pick: stat.pick, won, prob: stat.prob });
+      }
+
+      // Mercati principali
+      const d = analysis;
+      checks.push({ label: '1X2', pick: d.p1X2.home > d.p1X2.draw && d.p1X2.home > d.p1X2.away ? '1' : d.p1X2.away > d.p1X2.draw ? '2' : 'X',
+        won: (d.p1X2.home > d.p1X2.draw && d.p1X2.home > d.p1X2.away && hg > ag) || (d.p1X2.away > d.p1X2.draw && d.p1X2.away > d.p1X2.home && ag > hg) || (d.p1X2.draw >= d.p1X2.home && d.p1X2.draw >= d.p1X2.away && hg === ag),
+        prob: Math.max(d.p1X2.home, d.p1X2.draw, d.p1X2.away) });
+      checks.push({ label: 'Over 2.5', pick: d.pOU[2.5].over >= 50 ? 'Over 2.5' : 'Under 2.5',
+        won: d.pOU[2.5].over >= 50 ? totalGoals >= 3 : totalGoals <= 2,
+        prob: Math.max(d.pOU[2.5].over, d.pOU[2.5].under) });
+      checks.push({ label: 'GG/NG', pick: d.pBTTS >= 50 ? 'GG' : 'NG',
+        won: d.pBTTS >= 50 ? (hg > 0 && ag > 0) : (hg === 0 || ag === 0),
+        prob: Math.max(d.pBTTS, 100 - d.pBTTS) });
+
+      // Risultato esatto top 1
+      if (d.exactScores && d.exactScores[0]) {
+        const es = d.exactScores[0];
+        checks.push({ label: 'Esatto #1', pick: es.h + '-' + es.a,
+          won: es.h === hg && es.a === ag,
+          prob: es.p || es.prob });
+      }
+
+      const wins = checks.filter(c => c.won === true).length;
+      const losses = checks.filter(c => c.won === false).length;
+      const total = checks.length;
+
+      return { checks, wins, losses, total, accuracy: total > 0 ? ((wins / total) * 100).toFixed(0) : '0' };
+    }
+
+    function renderRealResult(match, analysis) {
+      const result = getResultCache()[String(match.id)];
+      const isLive = isMatchLive(match);
+      const isFT = isMatchFinished(match);
+
+      // Se non c'è risultato e la partita non è iniziata, non mostrare nulla
+      if (!result && !isFT && !isLive) {
+        // Se la partita è passata (>2h da kickoff), mostra pulsante per fetchare
+        if (isMatchPast(match)) {
+          return '<div style="text-align:center;margin-top:10px;">' +
+            '<button onclick="refreshMatchResult(' + match.id + ')" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:8px 16px;cursor:pointer;color:#10b981;font-size:0.78rem;font-weight:700;">' +
+            '\u{1F504} Carica Risultato Finale</button></div>';
+        }
+        return '';
+      }
+      if (!result) return '';
+
+      const hg = result.homeGoals, ag = result.awayGoals;
+      if (hg == null || ag == null) return '';
+
+      const d = analysis;
+      const predictedScore = d.exactScores && d.exactScores[0] ? d.exactScores[0].h + '-' + d.exactScores[0].a : '?-?';
+      const realScore = hg + '-' + ag;
+      const exactMatch = d.exactScores && d.exactScores[0] && d.exactScores[0].h === hg && d.exactScores[0].a === ag;
+
+      const statusLabel = result.status === 'FT' ? 'FINALE' : result.status === 'AET' ? 'DOPO SUPPLEMENTARI' : result.status === 'PEN' ? 'AI RIGORI' : result.status === 'HT' ? 'INTERVALLO' : isLive ? 'LIVE ' + (result.elapsed || '') + '\'' : result.status;
+      const isFinished = ['FT','AET','PEN'].includes(result.status);
+
+      // Verifica pronostici solo se finita
+      const verification = isFinished ? verifyPredictions(match, d, result) : null;
+
+      let html = '<div class="real-result-banner' + (verification && parseInt(verification.accuracy) < 40 ? ' lost' : '') + '">';
+      html += '<div class="real-result-header">';
+      html += '<span style="font-size:0.78rem;font-weight:800;color:white;">\u{1F3C6} Risultato ' + statusLabel + '</span>';
+      html += '<span class="real-result-badge ' + (isFinished ? 'ft' : 'live') + '">' + statusLabel + '</span>';
+      html += '</div>';
+
+      // Score reale
+      html += '<div class="real-result-score-row">';
+      html += '<div class="real-result-score">' + hg + '</div>';
+      html += '<div class="real-result-vs">-</div>';
+      html += '<div class="real-result-score">' + ag + '</div>';
+      html += '</div>';
+
+      // HT score se disponibile
+      if (result.htHome != null && result.htAway != null) {
+        html += '<div style="text-align:center;font-size:0.68rem;color:var(--text-dark);margin-bottom:6px;">Primo Tempo: ' + result.htHome + ' - ' + result.htAway + '</div>';
+      }
+
+      // Confronto col previsto
+      html += '<div class="real-result-predicted">';
+      html += '<span>Previsto: <strong>' + predictedScore + '</strong></span>';
+      html += '<span style="font-size:1rem;">' + (exactMatch ? '\u2705' : '\u274C') + '</span>';
+      html += '<span>Reale: <strong>' + realScore + '</strong></span>';
+      html += '</div>';
+
+      // Verifica pronostici (solo se finita)
+      if (verification) {
+        html += '<div class="verifica-grid">';
+        verification.checks.forEach(function(c) {
+          html += '<div class="verifica-row">';
+          html += '<span class="v-label">' + c.label + '</span>';
+          html += '<span class="v-pick">' + esc(c.pick) + (c.prob ? ' (' + (typeof c.prob === 'number' ? c.prob.toFixed(0) : c.prob) + '%)' : '') + '</span>';
+          html += '<span class="v-result ' + (c.won ? 'win' : 'lose') + '">' + (c.won ? '\u2705' : '\u274C') + '</span>';
+          html += '</div>';
+        });
+        html += '</div>';
+
+        // Riepilogo
+        html += '<div class="verifica-summary">';
+        html += '<div class="verifica-stat"><div class="verifica-stat-num" style="color:#10b981;">' + verification.wins + '</div><div class="verifica-stat-label">\u2705 Azzeccati</div></div>';
+        html += '<div class="verifica-stat"><div class="verifica-stat-num" style="color:#ef4444;">' + verification.losses + '</div><div class="verifica-stat-label">\u274C Sbagliati</div></div>';
+        html += '<div class="verifica-stat"><div class="verifica-stat-num" style="color:' + (parseInt(verification.accuracy) >= 60 ? '#10b981' : parseInt(verification.accuracy) >= 40 ? '#fbbf24' : '#ef4444') + ';">' + verification.accuracy + '%</div><div class="verifica-stat-label">Accuratezza</div></div>';
+        html += '</div>';
+      }
+
+      // Pulsante aggiorna (se live o se i dati sono vecchi)
+      if (!isFinished) {
+        html += '<div style="text-align:center;margin-top:8px;">';
+        html += '<button onclick="refreshMatchResult(' + match.id + ')" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 12px;cursor:pointer;color:var(--text-dark);font-size:0.68rem;">';
+        html += '\u{1F504} Aggiorna</button></div>';
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    async function refreshMatchResult(matchId) {
+      const btn = event?.target;
+      if (btn) { btn.disabled = true; btn.textContent = '\u23F3 Caricamento...'; }
+      const result = await fetchMatchResult(matchId, true);
+      if (btn) { btn.disabled = false; btn.textContent = '\u{1F504} Aggiorna'; }
+      if (result) render();
+    }
+    window.refreshMatchResult = refreshMatchResult;
+
     // === API STATUS CHECK ===
     async function checkAPIStatus() {
       console.log('&#x1F50D; Controllo stato API...');
@@ -6647,6 +6949,11 @@
       state.superAnalysis = null;
       state.superAIAnalysis = null;
       render();
+
+      // Auto-fetch risultato se partita passata o finita
+      if (isMatchFinished(match) || isMatchPast(match) || isMatchLive(match)) {
+        fetchMatchResult(match.id).then(() => { if (state.analysis) render(); }).catch(() => {});
+      }
 
       // Controlla cache (evita chiamate API ripetute per la stessa partita)
       const cached = getCachedAnalysis(match.id);
@@ -11496,13 +11803,19 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           <div class="matches-list">
             ${matches.map((m, idx) => {
               const isLive = ['1H','2H','HT','ET','P','LIVE'].includes(m.status);
+              const isFT = ['FT','AET','PEN'].includes(m.status);
+              const hasGoals = m.goals && m.goals.home != null && m.goals.away != null;
               return `
                 <div class="match-item" data-id="${m.id}" style="transition:background 0.15s,transform 0.1s;" title="Swipe ← per analizzare">
                   <div class="match-item-left">
-                    <div class="match-item-time">${isLive ? m.elapsed+"'" : formatTime(m.date)}</div>
+                    <div class="match-item-time">${isLive ? m.elapsed+"'" : isFT ? '<span style="color:#10b981;font-weight:800;">FT</span>' : formatTime(m.date)}</div>
                     <div class="match-item-teams">${esc(m.home.name)} vs ${esc(m.away.name)}</div>
                   </div>
-                  <div class="match-item-badge ${isLive ? 'live' : ''}">${isLive ? 'LIVE' : formatDate(m.date)}</div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    ${isFT && hasGoals ? '<div style="font-size:1rem;font-weight:900;color:white;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);border-radius:8px;padding:3px 10px;letter-spacing:1px;">' + m.goals.home + ' - ' + m.goals.away + '</div>' : ''}
+                    ${isLive && hasGoals ? '<div style="font-size:1rem;font-weight:900;color:#f87171;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:3px 10px;letter-spacing:1px;animation:pulse 1.5s infinite;">' + m.goals.home + ' - ' + m.goals.away + '</div>' : ''}
+                    <div class="match-item-badge ${isLive ? 'live' : ''}">${isLive ? 'LIVE' : isFT ? '' : formatDate(m.date)}</div>
+                  </div>
                 </div>
               `;
             }).join('')}
@@ -11603,6 +11916,10 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
               <div class="hero-mg-prob">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
             </div>
           </div>
+          
+          <!-- RISULTATO REALE -->
+          ${renderRealResult(m, d)}
+          
         </div>
         
         <!-- TABS PRONOSTICI: AI + STATISTICO -->
