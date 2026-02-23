@@ -4484,6 +4484,7 @@
       liveMode: false,
       liveMatches: [],
       liveAlerts: [],
+      liveMatchPicks: {},
       liveLoading: false,
       liveInterval: null,
       liveBackgroundInterval: null,
@@ -8799,6 +8800,195 @@
       '</div>';
     }
 
+    function renderBettingExchange(match, d, ai, stat) {
+      const { xG, p1X2, pOU, pBTTS, exactScores } = d;
+      const homeXG = xG.home, awayXG = xG.away, totXG = xG.total;
+      const bk = d.bookmakerOdds || {};
+      
+      // === CALCOLO QUOTE EXCHANGE STIMATE ===
+      // Quota = 100 / probabilità (con margine exchange ~2%)
+      const calcQuota = (prob) => prob > 0 ? (100 / (prob * 0.98)).toFixed(2) : '—';
+      const calcLay = (prob) => prob > 0 ? (100 / ((100 - prob) * 0.98)).toFixed(2) : '—';
+      
+      // Trova il favorito chiaro
+      const homeProb = p1X2.home, drawProb = p1X2.draw, awayProb = p1X2.away;
+      const favoriteIs = homeProb > awayProb ? 'home' : 'away';
+      const favProb = favoriteIs === 'home' ? homeProb : awayProb;
+      const favName = favoriteIs === 'home' ? match.home.name : match.away.name;
+      const underdogName = favoriteIs === 'home' ? match.away.name : match.home.name;
+      const underdogProb = favoriteIs === 'home' ? awayProb : homeProb;
+      
+      // Top exact scores
+      const topExact = (exactScores || []).slice(0, 5);
+      const topExactHome = topExact.filter(s => s.h > s.a);
+      const topExactAway = topExact.filter(s => s.a > s.h);
+      const topExactDraw = topExact.filter(s => s.h === s.a);
+      
+      let html = '<div style="display:flex;flex-direction:column;gap:14px;">';
+      
+      // === SEZIONE 1: STRATEGIE BACK ===
+      html += '<div style="background:rgba(16,185,129,0.04);border:1px solid rgba(16,185,129,0.15);border-radius:12px;padding:14px;">';
+      html += '<div style="font-size:0.82rem;font-weight:800;color:#10b981;margin-bottom:10px;">📗 STRATEGIE BACK (Punta a favore)</div>';
+      
+      // Back Favorito
+      if (favProb >= 50) {
+        const quotaBack = calcQuota(favProb);
+        const rating = favProb >= 70 ? '🟢 FORTE' : favProb >= 55 ? '🟡 MODERATO' : '🔴 RISCHIOSO';
+        html += '<div style="padding:10px;background:rgba(16,185,129,0.06);border-radius:8px;margin-bottom:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div><div style="font-size:0.78rem;font-weight:700;color:white;">🏆 Back ' + esc(favName.substring(0,18)) + '</div>';
+        html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-top:2px;">Prob: ' + favProb.toFixed(0) + '% | xG: ' + (favoriteIs==='home'?homeXG:awayXG).toFixed(2) + '</div></div>';
+        html += '<div style="text-align:right;"><div style="font-size:1.1rem;font-weight:900;color:#00d4ff;">@' + quotaBack + '</div>';
+        html += '<div style="font-size:0.58rem;color:var(--text-dark);">' + rating + '</div></div></div>';
+        
+        // Strategia di uscita
+        html += '<div style="font-size:0.65rem;color:var(--text-gray);margin-top:8px;padding-top:8px;border-top:1px solid rgba(16,185,129,0.1);">';
+        html += '💡 <strong>Strategia:</strong> Back pre-match @' + quotaBack + '. ';
+        if (favProb >= 65) {
+          html += 'Se segna entro il 30\', la quota scenderà a ~@' + (parseFloat(quotaBack) * 0.55).toFixed(2) + '. Fai LAY per green-up.';
+        } else {
+          html += 'Rischioso — considera solo se trovi quota ≥' + (parseFloat(quotaBack) * 1.15).toFixed(2) + ' per valore.';
+        }
+        html += '</div></div>';
+      }
+      
+      // Back Risultati Esatti (quote alte, piccola puntata)
+      if (topExact.length > 0) {
+        html += '<div style="padding:10px;background:rgba(168,85,247,0.06);border-radius:8px;margin-bottom:8px;">';
+        html += '<div style="font-size:0.78rem;font-weight:700;color:#c084fc;margin-bottom:8px;">🎯 Back Risultati Esatti (quote alte)</div>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+        topExact.slice(0,4).forEach(es => {
+          const esQuota = calcQuota(es.p || es.prob);
+          const isWin = es.h !== es.a;
+          html += '<div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:8px 12px;text-align:center;flex:1;min-width:60px;">';
+          html += '<div style="font-size:1rem;font-weight:900;color:white;">' + es.h + '-' + es.a + '</div>';
+          html += '<div style="font-size:0.82rem;font-weight:800;color:#c084fc;">@' + esQuota + '</div>';
+          html += '<div style="font-size:0.55rem;color:var(--text-dark);">' + (es.p || es.prob).toFixed(1) + '%</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+        html += '<div style="font-size:0.62rem;color:var(--text-gray);margin-top:8px;">💡 <strong>Strategia:</strong> Puntata piccola (1-2% bankroll) su 2-3 esatti più probabili. Se il primo gol va nella direzione giusta, LAY per garantire profitto.</div>';
+        html += '</div>';
+      }
+      
+      // Back Over 2.5 se probabile
+      if (pOU[2.5].over >= 55) {
+        const oQuota = calcQuota(pOU[2.5].over);
+        html += '<div style="padding:10px;background:rgba(251,191,36,0.06);border-radius:8px;margin-bottom:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div><div style="font-size:0.78rem;font-weight:700;color:white;">🔥 Back Over 2.5</div>';
+        html += '<div style="font-size:0.62rem;color:var(--text-dark);">xG totale: ' + totXG.toFixed(2) + ' | BTTS: ' + pBTTS.toFixed(0) + '%</div></div>';
+        html += '<div style="font-size:1.1rem;font-weight:900;color:#fbbf24;">@' + oQuota + '</div></div>';
+        html += '<div style="font-size:0.62rem;color:var(--text-gray);margin-top:6px;">💡 Ogni gol segnato abbassa la quota. Con 1 gol al 25\' → LAY @' + (parseFloat(oQuota) * 0.6).toFixed(2) + ' circa.</div>';
+        html += '</div>';
+      }
+      
+      html += '</div>'; // fine strategie back
+      
+      // === SEZIONE 2: STRATEGIE LAY ===
+      html += '<div style="background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.15);border-radius:12px;padding:14px;">';
+      html += '<div style="font-size:0.82rem;font-weight:800;color:#ef4444;margin-bottom:10px;">📕 STRATEGIE LAY (Punta contro)</div>';
+      
+      // Lay the Draw
+      if (drawProb <= 30 && favProb >= 55) {
+        const drawQuota = calcQuota(drawProb);
+        const layDrawLiability = (parseFloat(drawQuota) - 1).toFixed(2);
+        html += '<div style="padding:10px;background:rgba(239,68,68,0.06);border-radius:8px;margin-bottom:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div><div style="font-size:0.78rem;font-weight:700;color:white;">🤝❌ Lay the Draw</div>';
+        html += '<div style="font-size:0.62rem;color:var(--text-dark);">Prob pareggio: ' + drawProb.toFixed(0) + '% | Responsabilità: €' + layDrawLiability + ' per €1</div></div>';
+        html += '<div style="font-size:1.1rem;font-weight:900;color:#ef4444;">@' + drawQuota + '</div></div>';
+        html += '<div style="font-size:0.62rem;color:var(--text-gray);margin-top:6px;">💡 <strong>Strategia classica:</strong> LAY pareggio pre-match @' + drawQuota + '. Quando una squadra segna, la quota pareggio sale a @5-8+. Fai BACK pareggio per chiudere in green. ';
+        if (favProb >= 65) html += '<span style="color:#10b981;font-weight:700;">⭐ ALTA probabilità di gol → ottima entry!</span>';
+        html += '</div></div>';
+      }
+      
+      // Lay Underdog
+      if (underdogProb <= 25) {
+        const underdogQuota = calcQuota(underdogProb);
+        html += '<div style="padding:10px;background:rgba(239,68,68,0.06);border-radius:8px;margin-bottom:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div><div style="font-size:0.78rem;font-weight:700;color:white;">📉 Lay ' + esc(underdogName.substring(0,18)) + '</div>';
+        html += '<div style="font-size:0.62rem;color:var(--text-dark);">Prob vittoria: solo ' + underdogProb.toFixed(0) + '%</div></div>';
+        html += '<div style="font-size:1.1rem;font-weight:900;color:#ef4444;">@' + underdogQuota + '</div></div>';
+        html += '<div style="font-size:0.62rem;color:var(--text-gray);margin-top:6px;">💡 Lay underdog = guadagni se non vince (pareggio o sconfitta). Responsabilità: €' + (parseFloat(underdogQuota) - 1).toFixed(2) + ' per €1 di profitto.</div>';
+        html += '</div>';
+      }
+      
+      // Lay Under 2.5 se partita gol-friendly
+      if (pOU[2.5].over >= 60 && totXG >= 2.8) {
+        const u25Quota = calcQuota(pOU[2.5].under);
+        html += '<div style="padding:10px;background:rgba(239,68,68,0.06);border-radius:8px;margin-bottom:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+        html += '<div><div style="font-size:0.78rem;font-weight:700;color:white;">📉 Lay Under 2.5</div>';
+        html += '<div style="font-size:0.62rem;color:var(--text-dark);">xG ' + totXG.toFixed(2) + ' → partita da gol</div></div>';
+        html += '<div style="font-size:1.1rem;font-weight:900;color:#ef4444;">@' + u25Quota + '</div></div>';
+        html += '<div style="font-size:0.62rem;color:var(--text-gray);margin-top:6px;">💡 Lay Under 2.5 = guadagni se escono 3+ gol. Con xG alto e BTTS ' + pBTTS.toFixed(0) + '%, alta probabilità.</div>';
+        html += '</div>';
+      }
+      
+      html += '</div>'; // fine strategie lay
+      
+      // === SEZIONE 3: TRADING PLAN ===
+      html += '<div style="background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.15);border-radius:12px;padding:14px;">';
+      html += '<div style="font-size:0.82rem;font-weight:800;color:#00d4ff;margin-bottom:10px;">📋 TRADING PLAN</div>';
+      
+      // Piano step by step
+      const bestPick = ai.prob >= stat.prob ? ai : stat;
+      const isOverMarket = bestPick.pick.toLowerCase().includes('over');
+      const isGoalMarket = isOverMarket || bestPick.pick.toLowerCase().includes('gg');
+      
+      html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+      
+      // Step 1
+      html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;background:rgba(0,212,255,0.04);border-radius:8px;">';
+      html += '<div style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;color:#00d4ff;flex-shrink:0;">1</div>';
+      html += '<div style="font-size:0.72rem;color:var(--text-gray);"><strong style="color:white;">PRE-MATCH:</strong> ';
+      if (favProb >= 60 && drawProb <= 28) {
+        html += 'BACK <strong>' + esc(favName.substring(0,15)) + '</strong> @' + calcQuota(favProb) + ' + LAY Pareggio @' + calcQuota(drawProb);
+      } else if (isGoalMarket && pOU[2.5].over >= 58) {
+        html += 'BACK Over 2.5 @' + calcQuota(pOU[2.5].over) + ' (xG ' + totXG.toFixed(2) + ')';
+      } else {
+        html += 'BACK ' + esc(bestPick.pick) + ' @' + calcQuota(bestPick.prob);
+      }
+      html += '</div></div>';
+      
+      // Step 2
+      html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;background:rgba(0,212,255,0.04);border-radius:8px;">';
+      html += '<div style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;color:#00d4ff;flex-shrink:0;">2</div>';
+      html += '<div style="font-size:0.72rem;color:var(--text-gray);"><strong style="color:white;">DURANTE (gol favorevole):</strong> ';
+      html += 'La quota scende → fai LAY per chiudere in <strong style="color:#10b981;">GREEN-UP</strong>. Profitto garantito qualsiasi risultato finale.';
+      html += '</div></div>';
+      
+      // Step 3
+      html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;background:rgba(0,212,255,0.04);border-radius:8px;">';
+      html += '<div style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;color:#00d4ff;flex-shrink:0;">3</div>';
+      html += '<div style="font-size:0.72rem;color:var(--text-gray);"><strong style="color:white;">DURANTE (gol sfavorevole):</strong> ';
+      html += 'La quota sale → hai due opzioni: <strong style="color:#ef4444;">RED-OUT</strong> (chiudi in perdita ridotta) oppure <strong style="color:#fbbf24;">ATTENDI</strong> se credi nella rimonta.';
+      html += '</div></div>';
+      
+      // Step 4
+      html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;background:rgba(0,212,255,0.04);border-radius:8px;">';
+      html += '<div style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;color:#00d4ff;flex-shrink:0;">4</div>';
+      html += '<div style="font-size:0.72rem;color:var(--text-gray);"><strong style="color:white;">STOP LOSS:</strong> ';
+      html += 'Se la quota supera @' + (parseFloat(calcQuota(favProb)) * 2.5).toFixed(2) + ' → chiudi. Non inseguire.';
+      html += '</div></div>';
+      
+      html += '</div>';
+      
+      // Riepilogo rischio
+      const riskScore = favProb >= 70 ? 'BASSO' : favProb >= 55 ? 'MEDIO' : 'ALTO';
+      const riskColor = favProb >= 70 ? '#10b981' : favProb >= 55 ? '#fbbf24' : '#ef4444';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:10px;background:rgba(0,212,255,0.06);border-radius:8px;">';
+      html += '<div style="font-size:0.72rem;color:var(--text-gray);">Rischio trading: <strong style="color:' + riskColor + ';">' + riskScore + '</strong></div>';
+      html += '<div style="font-size:0.72rem;color:var(--text-gray);">Bankroll consigliato: <strong style="color:white;">' + (favProb >= 70 ? '3-5%' : favProb >= 55 ? '1-3%' : '0.5-1%') + '</strong></div>';
+      html += '</div>';
+      
+      html += '</div>'; // fine trading plan
+      
+      return html + '</div>';
+    }
+
     // === LIVE BETTING SYSTEM ===
     
     async function loadLiveMatches() {
@@ -8838,438 +9028,297 @@
     }
     
     function calculateLiveAlerts() {
-      const alerts = [];
+      const allAlerts = [];
+      const matchPicks = {};
       
-      // ============================================
-      // === CONFIGURAZIONE CAMPIONATI AD ALTA MEDIA GOL ===
-      // ============================================
       const HIGH_SCORING_LEAGUES = {
-        // Top 5 Europei
         88: { name: 'Eredivisie', avgGoals: 3.2, boost: 12 },
         78: { name: 'Bundesliga', avgGoals: 3.1, boost: 10 },
         144: { name: 'Jupiler Pro', avgGoals: 3.0, boost: 10 },
         218: { name: 'Bundesliga Austria', avgGoals: 3.0, boost: 10 },
         179: { name: 'Premiership Scozia', avgGoals: 2.9, boost: 8 },
-        // Serie A e altri
         135: { name: 'Serie A', avgGoals: 2.8, boost: 6 },
         39: { name: 'Premier League', avgGoals: 2.8, boost: 6 },
         140: { name: 'La Liga', avgGoals: 2.6, boost: 4 },
         61: { name: 'Ligue 1', avgGoals: 2.7, boost: 5 },
-        // Leghe minori ad alto punteggio
         203: { name: 'Super Lig Turchia', avgGoals: 2.9, boost: 8 },
-        94: { name: 'Primeira Liga Portogallo', avgGoals: 2.7, boost: 5 },
-        // Sudamerica (tanti gol)
+        94: { name: 'Primeira Liga', avgGoals: 2.7, boost: 5 },
         71: { name: 'Serie A Brasile', avgGoals: 2.6, boost: 5 },
         128: { name: 'Liga Argentina', avgGoals: 2.5, boost: 4 }
       };
       
-      // ============================================
-      // === MOMENTI CALDI (statisticamente più gol) ===
-      // ============================================
-      const getHotMomentBoost = (elapsed, isFirstHalf) => {
-        if (isFirstHalf) {
-          if (elapsed >= 43 && elapsed <= 45) return 15; // Fine 1T - squadre spingono
-          if (elapsed >= 40 && elapsed <= 42) return 8;  // Pre-fine 1T
-          if (elapsed >= 35 && elapsed <= 39) return 5;  // Fase calda 1T
-        } else {
-          if (elapsed >= 85) return 18;                  // Ultimi minuti - disperazione
-          if (elapsed >= 80 && elapsed <= 84) return 14; // Forcing finale
-          if (elapsed >= 75 && elapsed <= 79) return 10; // Ultimi 15 min
-          if (elapsed >= 55 && elapsed <= 60) return 8;  // Inizio 2T - cambi tattici
-        }
-        return 0;
-      };
-      
-      // ============================================
-      // === FATTORE SVANTAGGIO (squadra sotto attacca) ===
-      // ============================================
-      const getDisadvantageBoost = (homeGoals, awayGoals, elapsed) => {
-        const diff = Math.abs(homeGoals - awayGoals);
-        if (diff === 0) return 0; // Pareggio
-        
-        // Squadra sotto di 1 gol
-        if (diff === 1) {
-          if (elapsed >= 75) return 18; // Ultimi 15 min, spinta massima
-          if (elapsed >= 65) return 12;
-          if (elapsed >= 55) return 8;
-          return 4;
-        }
-        
-        // Squadra sotto di 2 gol
-        if (diff === 2) {
-          if (elapsed >= 70) return 10; // Ancora possibile rimonta
-          if (elapsed >= 60) return 5;
-          return 0; // Troppo presto o partita chiusa
-        }
-        
-        return 0; // 3+ gol di differenza = partita chiusa
-      };
-      
-      // ============================================
-      // === ANALISI PARTITE ===
-      // ============================================
-      
       state.liveMatches.forEach(match => {
         const elapsed = match.elapsed || 0;
-        const homeGoals = match.goals?.home || 0;
-        const awayGoals = match.goals?.away || 0;
-        const totalGoals = homeGoals + awayGoals;
-        const isFirstHalf = match.status === '1H';
-        const isSecondHalf = match.status === '2H';
-        const isHalfTime = match.status === 'HT';
-        
-        // Estrai ID campionato
+        const hg = match.goals?.home || 0;
+        const ag = match.goals?.away || 0;
+        const tot = hg + ag;
+        const is1H = match.status === '1H';
+        const is2H = match.status === '2H';
+        const isHT = match.status === 'HT';
         const leagueId = match.league?.id || 0;
         const leagueInfo = HIGH_SCORING_LEAGUES[leagueId];
         const leagueBoost = leagueInfo ? leagueInfo.boost : 0;
+        const leagueAvgGoals = leagueInfo ? leagueInfo.avgGoals : 2.6;
         
-        // Calcola boost dinamici
-        const hotMomentBoost = getHotMomentBoost(elapsed, isFirstHalf);
-        const disadvantageBoost = getDisadvantageBoost(homeGoals, awayGoals, elapsed);
-        
-        // Estrai statistiche
-        let stats = { 
-          shotsHome: 0, shotsAway: 0, shots: 0,
-          shotsOnHome: 0, shotsOnAway: 0, shotsOn: 0,
-          cornersHome: 0, cornersAway: 0, corners: 0,
-          possessionHome: 50, possessionAway: 50,
-          hasStats: false
-        };
-        
+        // Parse stats
+        let st = { shotsHome:0, shotsAway:0, shotsOnHome:0, shotsOnAway:0, cornersHome:0, cornersAway:0, possHome:50, possAway:50, hasStats:false };
         if (match.stats && match.stats.length >= 2) {
-          const homeStats = match.stats[0]?.statistics || [];
-          const awayStats = match.stats[1]?.statistics || [];
-          
-          const getStat = (arr, type) => {
-            const s = arr.find(s => s.type === type);
-            return s ? (parseInt(s.value) || 0) : 0;
-          };
-          
-          stats.shotsHome = getStat(homeStats, 'Total Shots');
-          stats.shotsAway = getStat(awayStats, 'Total Shots');
-          stats.shotsOnHome = getStat(homeStats, 'Shots on Goal');
-          stats.shotsOnAway = getStat(awayStats, 'Shots on Goal');
-          stats.cornersHome = getStat(homeStats, 'Corner Kicks');
-          stats.cornersAway = getStat(awayStats, 'Corner Kicks');
-          stats.possessionHome = getStat(homeStats, 'Ball Possession') || 50;
-          stats.possessionAway = getStat(awayStats, 'Ball Possession') || 50;
-          
-          stats.shots = stats.shotsHome + stats.shotsAway;
-          stats.shotsOn = stats.shotsOnHome + stats.shotsOnAway;
-          stats.corners = stats.cornersHome + stats.cornersAway;
-          stats.hasStats = (stats.shots >= 1) || (stats.corners >= 1);
+          const hs = match.stats[0]?.statistics || [];
+          const as = match.stats[1]?.statistics || [];
+          const g = (arr, t) => { const s = arr.find(x => x.type === t); return s ? (parseInt(s.value) || 0) : 0; };
+          st.shotsHome = g(hs, 'Total Shots'); st.shotsAway = g(as, 'Total Shots');
+          st.shotsOnHome = g(hs, 'Shots on Goal'); st.shotsOnAway = g(as, 'Shots on Goal');
+          st.cornersHome = g(hs, 'Corner Kicks'); st.cornersAway = g(as, 'Corner Kicks');
+          st.possHome = g(hs, 'Ball Possession') || 50; st.possAway = g(as, 'Ball Possession') || 50;
+          st.hasStats = (st.shotsHome + st.shotsAway >= 1) || (st.cornersHome + st.cornersAway >= 1);
+        }
+        const shotsOn = st.shotsOnHome + st.shotsOnAway;
+        const shots = st.shotsHome + st.shotsAway;
+        const corners = st.cornersHome + st.cornersAway;
+        const pressure = st.hasStats ? (shotsOn * 3) + (shots * 1) + (corners * 1.5) : 0;
+        
+        // Tempo rimanente normalizzato (0-1, 1=inizio, 0=fine)
+        const timeLeft = is1H ? Math.max(0, (45 - elapsed) / 45) : is2H ? Math.max(0, (90 - elapsed) / 45) : isHT ? 0.5 : 0.3;
+        // Gol attesi rimanenti basati su media campionato
+        const expectedRemaining = leagueAvgGoals * timeLeft;
+        
+        // Calcolo pressione per squadra
+        const homeDominance = st.hasStats ? (st.shotsOnHome - st.shotsOnAway) / Math.max(shotsOn, 1) : 0;
+        const awayDominance = -homeDominance;
+        
+        const picks = [];
+        
+        // === FUNZIONE HELPER PER AGGIUNGERE PICK ===
+        function addPick(market, icon, prob, reason, verdict, category) {
+          prob = Math.max(5, Math.min(96, prob));
+          const v = verdict || (prob >= 72 ? 'GIOCA' : prob >= 55 ? 'VALUTA' : 'SKIP');
+          picks.push({ market, icon, prob: Math.round(prob), reason, verdict: v, quota: (100/prob).toFixed(2), cat: category || 'altro' });
         }
         
-        // === CALCOLO PRESSIONE OFFENSIVA ===
-        // Più alto = più probabilità di gol
-        const pressure = stats.hasStats 
-          ? (stats.shotsOn * 3) + (stats.shots * 1) + (stats.corners * 1.5)
-          : 0;
-        const pressureBoost = Math.min(20, pressure * 0.8);
-        
-        // ============================================
-        // === &#x1F525; ALERT SECONDO TEMPO &#x1F525; ===
-        // ============================================
-        
-        // &#x1F3AF; OVER 0.5 - Partita 0-0 (dal 50')
-        if (isSecondHalf && totalGoals === 0 && elapsed >= 50) {
-          let prob = 45;
-          
-          // Base: tempo trascorso
-          prob += (elapsed - 45) * 0.8;
-          
-          // Boost dinamici
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += pressureBoost;
-          
-          // 0-0 tardi = alta pressione
-          if (elapsed >= 70) prob += 12;
-          if (elapsed >= 80) prob += 10;
-          
-          prob = Math.min(94, prob);
-          
-          if (prob >= 58) {
-            const leagueTag = leagueInfo ? ` [${leagueInfo.name}]` : '';
-            alerts.push({
-              match, type: 'over05',
-              level: prob >= 78 ? 'high' : prob >= 65 ? 'medium' : 'low',
-              pick: '⚽ Over 0.5',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `0-0 al ${elapsed}'${leagueTag}${stats.hasStats ? ` | ${stats.shotsOn} tiri in porta` : ''}`,
-              stats, leagueBoost, hotMomentBoost
-            });
+        // =============================================
+        // OVER/UNDER 1° TEMPO
+        // =============================================
+        if (is1H || isHT) {
+          // Over 0.5 1T
+          if (tot === 0 && is1H && elapsed >= 15) {
+            let prob = 35 + (elapsed - 10) * 1.2;
+            if (st.hasStats) prob += Math.min(18, shotsOn * 2.5);
+            prob += leagueBoost * 0.6;
+            if (elapsed >= 35) prob += 8;
+            if (elapsed >= 40) prob += 10;
+            if (elapsed >= 43) prob += 8;
+            addPick('Over 0.5 1°T', '⚽', prob, `0-0 al ${elapsed}'${st.hasStats ? ' | '+shotsOn+' tiri' : ''}${elapsed>=40?' ⏰ Fine 1T!':''}`, null, '1T');
+          }
+          // Over 1.5 1T
+          if (tot >= 1 && is1H && elapsed >= 15) {
+            let prob = 25 + (elapsed - 10) * 0.8 + tot * 12;
+            if (st.hasStats) prob += Math.min(12, shotsOn * 1.8);
+            prob += leagueBoost * 0.4;
+            if (elapsed >= 35) prob += 6;
+            if (elapsed >= 42) prob += 8;
+            if (Math.abs(hg-ag) === 1) prob += 6;
+            addPick('Over 1.5 1°T', '⚽⚽', prob, `${hg}-${ag} al ${elapsed}'`, null, '1T');
+          }
+          // Under 0.5 1T
+          if (tot === 0 && is1H && elapsed >= 30) {
+            let prob = 30 + (elapsed - 25) * 1.8;
+            if (st.hasStats && shotsOn <= 2) prob += 10;
+            if (st.hasStats && shotsOn <= 1) prob += 8;
+            if (elapsed >= 40) prob += 8;
+            if (elapsed >= 43) prob += 6;
+            addPick('Under 0.5 1°T', '🛡️', prob, `Ancora 0-0 al ${elapsed}'${st.hasStats?' | solo '+shotsOn+' tiri':''}`, null, '1T');
+          }
+          // HT: Gol 2°T
+          if (isHT) {
+            let prob = 55 + leagueBoost;
+            if (tot === 0) prob += 15;
+            if (tot === 1) prob += 8;
+            if (st.hasStats && shotsOn >= 4) prob += 8;
+            if (st.hasStats && corners >= 5) prob += 4;
+            addPick('Gol 2°T', '⚽', prob, `${hg}-${ag} HT${st.hasStats?' | '+shotsOn+' tiri, '+corners+' corner':''}`, null, '2T');
           }
         }
         
-        // &#x1F3AF; OVER 1.5 - Partita con 0-1 gol (dal 50')
-        if (isSecondHalf && totalGoals <= 1 && elapsed >= 50 && elapsed <= 85) {
-          let prob = 35;
+        // =============================================
+        // OVER/UNDER 2° TEMPO
+        // =============================================
+        if (is2H) {
+          const elapsed2T = elapsed - 45;
+          // Over 0.5 2T (= almeno 1 gol nel 2T)
+          const goals2T = tot - (hg + ag - tot); // approximation - use total since we don't track per-half
+          // Simplified: just check if another goal can come
+          {
+            let prob = 45 + elapsed2T * 0.5;
+            if (st.hasStats) prob += Math.min(15, shotsOn * 1.5);
+            prob += leagueBoost * 0.5;
+            if (Math.abs(hg-ag) === 1 && elapsed >= 55) prob += 8;
+            if (Math.abs(hg-ag) === 1 && elapsed >= 70) prob += 8;
+            if (hg === ag && elapsed >= 60) prob += 6;
+            if (elapsed >= 75) prob += 5;
+            if (elapsed >= 82) prob -= 10; // poco tempo
+            if (elapsed >= 87) prob -= 15;
+            addPick('Over 0.5 2°T', '⚽', prob, `${hg}-${ag} al ${elapsed}'${Math.abs(hg-ag)===1?' | squadra sotto spinge':''}`, null, '2T');
+          }
           
-          prob += (elapsed - 45) * 0.6;
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += disadvantageBoost;
-          prob += pressureBoost * 0.8;
+          // Over 1.5 2T
+          if (elapsed <= 78) {
+            let prob = 25 + leagueBoost * 0.4;
+            if (st.hasStats) prob += Math.min(12, shotsOn * 1.2);
+            if (hg === 1 && ag === 1) prob += 12;
+            if (Math.abs(hg-ag) >= 2) prob -= 8; // partita chiusa
+            if (Math.abs(hg-ag) === 1) prob += 8;
+            if (tot >= 2 && elapsed <= 65) prob += 8;
+            addPick('Over 1.5 2°T', '⚽⚽', prob, `Servono 2+ gol nel 2T`, null, '2T');
+          }
           
-          if (totalGoals === 1) prob += 15;
-          if (elapsed >= 65) prob += 6;
-          if (elapsed >= 75) prob += 6;
-          
-          // 1-1 apertissima
-          if (homeGoals === 1 && awayGoals === 0 && elapsed >= 70) prob += 8;
-          if (homeGoals === 0 && awayGoals === 1 && elapsed >= 70) prob += 8;
-          
-          prob = Math.min(88, prob);
-          
-          if (prob >= 52) {
-            alerts.push({
-              match, type: 'over15',
-              level: prob >= 72 ? 'high' : prob >= 60 ? 'medium' : 'low',
-              pick: '⚽⚽ Over 1.5',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `${homeGoals}-${awayGoals} al ${elapsed}'${disadvantageBoost > 0 ? ' | Squadra sotto spinge!' : ''}`,
-              stats, leagueBoost, hotMomentBoost, disadvantageBoost
-            });
+          // Under 0.5 2T (nessun gol nel 2T)
+          if (elapsed >= 65) {
+            let prob = 25 + (elapsed - 60) * 1.5;
+            if (st.hasStats && shotsOn <= 3) prob += 10;
+            if (st.hasStats && shotsOn <= 5) prob += 5;
+            if (elapsed >= 80) prob += 10;
+            if (elapsed >= 85) prob += 8;
+            if (elapsed >= 88) prob += 8;
+            if (hg === ag && tot === 0) prob += 5;
+            addPick('Under 0.5 2°T', '🛡️', prob, `Nessun gol nel 2T finora | ${elapsed}'`, null, '2T');
           }
         }
         
-        // &#x1F3AF; OVER 2.5 - Partita con gol (dal 48')
-        if (isSecondHalf && totalGoals >= 1 && totalGoals <= 2 && elapsed >= 48 && elapsed <= 83) {
-          let prob = 30;
-          
-          prob += totalGoals * 10;
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += disadvantageBoost;
-          prob += pressureBoost * 0.7;
-          
-          // Situazioni specifiche
-          if (homeGoals === 1 && awayGoals === 1) prob += 18; // 1-1 = APERTA
-          if (homeGoals === 2 && awayGoals === 0) prob += 10; // 2-0 = ospite spingerà
-          if (homeGoals === 0 && awayGoals === 2) prob += 10; // 0-2 = casa spingerà
-          if (homeGoals === 2 && awayGoals === 1) prob += 12; // 2-1 vivace
-          if (homeGoals === 1 && awayGoals === 2) prob += 12; // 1-2 vivace
-          
-          if (elapsed >= 60) prob += 5;
-          if (elapsed >= 70) prob += 5;
-          
-          prob = Math.min(85, prob);
-          
-          if (prob >= 50) {
-            const situation = (homeGoals === 1 && awayGoals === 1) ? '&#x1F525; Partita APERTA!' : 
-                             (Math.abs(homeGoals - awayGoals) >= 1) ? '⚡ Squadra sotto attacca!' : '';
-            alerts.push({
-              match, type: 'over25',
-              level: prob >= 70 ? 'high' : prob >= 58 ? 'medium' : 'low',
-              pick: '⚽⚽⚽ Over 2.5',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `${homeGoals}-${awayGoals} al ${elapsed}' ${situation}`,
-              stats, leagueBoost, hotMomentBoost, disadvantageBoost
-            });
+        // =============================================
+        // OVER/UNDER TOTALE
+        // =============================================
+        if (elapsed >= 20) {
+          // Over 2.5
+          if (tot <= 2 && elapsed <= 85) {
+            let prob = 20 + tot * 15 + expectedRemaining * 12;
+            if (st.hasStats) prob += Math.min(15, shotsOn * 1.8);
+            prob += leagueBoost * 0.6;
+            if (hg === 1 && ag === 1) prob += 15;
+            if ((hg === 2 && ag === 0) || (hg === 0 && ag === 2)) prob += 10;
+            addPick('Over 2.5', '🔥', prob, tot >= 2 ? `Già ${tot} gol! Partita viva` : `${hg}-${ag} al ${elapsed}'`, null, 'total');
+          }
+          // Under 2.5
+          if (tot <= 2 && elapsed >= 50) {
+            let prob = 35 + (elapsed - 45) * 1.0;
+            if (tot === 0) prob += 15;
+            else if (tot === 1) prob += 5;
+            if (st.hasStats && shotsOn <= 3) prob += 12;
+            if (elapsed >= 75) prob += 10;
+            if (elapsed >= 82) prob += 8;
+            if (elapsed >= 87) prob += 8;
+            if (st.hasStats && shotsOn >= 8) prob -= 12;
+            addPick('Under 2.5', '🛡️', prob, `${hg}-${ag} al ${elapsed}'${st.hasStats?' | '+shotsOn+' tiri':''}`, null, 'total');
+          }
+          // Over 1.5
+          if (tot <= 1 && elapsed <= 82) {
+            let prob = 30 + expectedRemaining * 15;
+            if (tot === 1) prob += 15;
+            if (st.hasStats) prob += Math.min(15, shotsOn * 2);
+            prob += leagueBoost * 0.5;
+            if (is2H && Math.abs(hg-ag) === 1 && elapsed >= 60) prob += 10;
+            addPick('Over 1.5', '⚽⚽', prob, `${hg}-${ag} al ${elapsed}'`, null, 'total');
+          }
+          // Over 3.5
+          if (tot >= 2 && tot <= 3 && elapsed <= 82) {
+            let prob = 18 + tot * 10 + expectedRemaining * 10;
+            if (st.hasStats) prob += Math.min(12, shotsOn * 1.5);
+            prob += leagueBoost * 0.4;
+            if ((hg === 2 && ag === 1) || (hg === 1 && ag === 2)) prob += 12;
+            addPick('Over 3.5', '💥', prob, `Già ${tot} gol al ${elapsed}'`, null, 'total');
           }
         }
         
-        // &#x1F3AF; OVER 3.5 - Partita ricca di gol (dal 50')
-        if (isSecondHalf && totalGoals >= 2 && totalGoals <= 3 && elapsed >= 50 && elapsed <= 82) {
-          let prob = 28;
-          
-          prob += totalGoals * 10;
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += pressureBoost * 0.6;
-          
-          if ((homeGoals === 2 && awayGoals === 1) || (homeGoals === 1 && awayGoals === 2)) prob += 15;
-          if (homeGoals === 2 && awayGoals === 2) prob += 12;
-          if (totalGoals === 3 && elapsed >= 60) prob += 8;
-          
-          prob = Math.min(80, prob);
-          
-          if (prob >= 50) {
-            alerts.push({
-              match, type: 'over35',
-              level: prob >= 68 ? 'high' : prob >= 55 ? 'medium' : 'low',
-              pick: '⚽⚽⚽⚽ Over 3.5',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `&#x1F525; Già ${totalGoals} gol! ${homeGoals}-${awayGoals} al ${elapsed}'`,
-              stats, leagueBoost, hotMomentBoost
-            });
+        // =============================================
+        // GG / NG
+        // =============================================
+        if (elapsed >= 20) {
+          if (hg > 0 && ag > 0) {
+            addPick('GG ✅', '✅', 100, 'Già segnato: ' + hg + '-' + ag, 'VINTO', 'gg');
+          } else if (tot >= 1 && (hg === 0 || ag === 0) && elapsed <= 85) {
+            const trailTeam = hg === 0 ? match.home.name.substring(0,12) : match.away.name.substring(0,12);
+            const trailShots = hg === 0 ? st.shotsOnHome : st.shotsOnAway;
+            let prob = 25 + expectedRemaining * 10;
+            if (st.hasStats && trailShots >= 2) prob += trailShots * 5;
+            prob += leagueBoost * 0.5;
+            if (is2H) prob += 8;
+            if (is2H && elapsed >= 60) prob += 5;
+            if (elapsed >= 82) prob -= 10;
+            if (elapsed >= 87) prob -= 15;
+            addPick('GG', '⚡', prob, `${trailTeam} deve segnare${st.hasStats && trailShots >= 2 ? ' (' + trailShots + ' tiri)' : ''}`, null, 'gg');
+          }
+          if ((hg === 0 || ag === 0) && elapsed >= 55) {
+            let prob = 30 + (elapsed - 50) * 0.8;
+            if (tot === 0) prob += 10;
+            if (st.hasStats) { const zs = hg === 0 ? st.shotsOnHome : st.shotsOnAway; if (zs <= 1) prob += 12; }
+            if (elapsed >= 75) prob += 10;
+            if (elapsed >= 82) prob += 10;
+            addPick('NG', '🚫', prob, `${hg}-${ag} al ${elapsed}'`, null, 'gg');
           }
         }
         
-        // &#x1F3AF; GOL 2° TEMPO (all'intervallo)
-        if (isHalfTime) {
-          let prob = 52;
-          
-          prob += leagueBoost;
-          prob += pressureBoost;
-          
-          if (totalGoals === 0) prob += 18; // 0-0 = pressione massima
-          if (totalGoals === 1) prob += 12;
-          if (stats.hasStats && stats.shotsOn >= 3) prob += 10;
-          if (stats.hasStats && stats.shotsOn >= 5) prob += 8;
-          if (stats.hasStats && stats.corners >= 5) prob += 5;
-          
-          prob = Math.min(90, prob);
-          
-          if (prob >= 58) {
-            alerts.push({
-              match, type: 'goal2T',
-              level: prob >= 78 ? 'high' : prob >= 65 ? 'medium' : 'low',
-              pick: totalGoals === 0 ? '⚽ Gol 2°T' : '⚽ Altro Gol',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `${homeGoals}-${awayGoals} HT${stats.hasStats ? ` | ${stats.shotsOn} tiri, ${stats.corners} corner` : ''}`,
-              stats, leagueBoost
-            });
+        // =============================================
+        // ESITO FINALE (1/X/2, 1X, X2)
+        // =============================================
+        if (elapsed >= 30) {
+          if (hg > ag) {
+            let prob = 40 + (hg - ag) * 10 + (elapsed - 20) * 0.5;
+            if (is2H && elapsed >= 75) prob += 10;
+            if (is2H && elapsed >= 82) prob += 8;
+            if (hg - ag >= 2) prob += 15;
+            addPick('1 (Casa)', '🏠', prob, match.home.name.substring(0,12) + ' avanti ' + hg + '-' + ag, null, 'esito');
+          }
+          if (ag > hg) {
+            let prob = 38 + (ag - hg) * 10 + (elapsed - 20) * 0.5;
+            if (is2H && elapsed >= 75) prob += 10;
+            if (is2H && elapsed >= 82) prob += 8;
+            if (ag - hg >= 2) prob += 15;
+            addPick('2 (Ospite)', '✈️', prob, match.away.name.substring(0,12) + ' avanti ' + hg + '-' + ag, null, 'esito');
+          }
+          if (hg === ag) {
+            let prob = 28;
+            if (is2H) prob += (elapsed - 45) * 0.8;
+            if (elapsed >= 80) prob += 10;
+            if (elapsed >= 85) prob += 12;
+            if (elapsed >= 88) prob += 8;
+            addPick('X (Pareggio)', '🤝', prob, hg + '-' + ag + ' al ' + elapsed + '\'', null, 'esito');
+          }
+          if (hg >= ag) {
+            let p1x = 45 + (hg - ag) * 8 + (elapsed > 60 ? (elapsed - 60) * 0.5 : 0);
+            if (hg > ag) p1x += 10;
+            if (elapsed >= 80) p1x += 8;
+            addPick('1X', '🏠🤝', p1x, match.home.name.substring(0,12) + ' non perde', null, 'esito');
+          }
+          if (ag >= hg) {
+            let px2 = 42 + (ag - hg) * 8 + (elapsed > 60 ? (elapsed - 60) * 0.5 : 0);
+            if (ag > hg) px2 += 10;
+            if (elapsed >= 80) px2 += 8;
+            addPick('X2', '🤝✈️', px2, match.away.name.substring(0,12) + ' non perde', null, 'esito');
           }
         }
         
-        // ============================================
-        // === &#x1F525; ALERT PRIMO TEMPO &#x1F525; ===
-        // ============================================
+        // Ordina per probabilità e prendi i top
+        picks.sort((a, b) => b.prob - a.prob);
+        matchPicks[match.id] = picks;
         
-        // &#x1F3AF; OVER 0.5 1°T (dal 25')
-        if (isFirstHalf && totalGoals === 0 && elapsed >= 25 && elapsed <= 45) {
-          let prob = 38;
-          
-          prob += (elapsed - 20) * 1.5;
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += pressureBoost;
-          
-          // Fine primo tempo = boost extra
-          if (elapsed >= 40) prob += 8;
-          if (elapsed >= 43) prob += 10;
-          
-          prob = Math.min(88, prob);
-          
-          if (prob >= 55) {
-            alerts.push({
-              match, type: 'over05_1T',
-              level: prob >= 72 ? 'high' : prob >= 60 ? 'medium' : 'low',
-              pick: '⚽ Over 0.5 1°T',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `0-0 al ${elapsed}'${elapsed >= 40 ? ' ⏰ Fine 1T vicina!' : ''}${stats.hasStats ? ` | ${stats.shotsOn} tiri` : ''}`,
-              stats, leagueBoost, hotMomentBoost
-            });
-          }
-        }
-        
-        // &#x1F3AF; OVER 1.5 1°T - Se già 1 gol (dal 20')
-        if (isFirstHalf && totalGoals === 1 && elapsed >= 20 && elapsed <= 45) {
-          let prob = 35;
-          
-          prob += (elapsed - 15) * 1.2;
-          prob += hotMomentBoost;
-          prob += leagueBoost;
-          prob += pressureBoost * 0.8;
-          prob += disadvantageBoost;
-          
-          if (elapsed >= 35) prob += 8;
-          if (elapsed >= 42) prob += 10;
-          
-          prob = Math.min(82, prob);
-          
-          if (prob >= 50) {
-            alerts.push({
-              match, type: 'over15_1T',
-              level: prob >= 68 ? 'high' : prob >= 55 ? 'medium' : 'low',
-              pick: '⚽⚽ Over 1.5 1°T',
-              prob: prob.toFixed(0),
-              quota: (100 / prob).toFixed(2),
-              reason: `${homeGoals}-${awayGoals} al ${elapsed}'${elapsed >= 40 ? ' ⏰ Fine 1T!' : ''}`,
-              stats, leagueBoost, hotMomentBoost, disadvantageBoost
-            });
-          }
-        }
-        
-        // ============================================
-        // === &#x1F3E0;✈️ SQUADRA SEGNA (con stats) ===
-        // ============================================
-        
-        if (stats.hasStats && elapsed >= 20) {
-          // &#x1F3E0; Casa domina
-          if (stats.shotsOnHome >= 3 && stats.shotsOnHome > stats.shotsOnAway * 1.5 && homeGoals === 0) {
-            let prob = 45;
-            prob += stats.shotsOnHome * 5;
-            prob += leagueBoost;
-            prob += hotMomentBoost;
-            if (elapsed >= 50) prob += 10;
-            if (elapsed >= 70) prob += 10;
-            if (stats.cornersHome >= 4) prob += 5;
-            prob = Math.min(88, prob);
-            
-            if (prob >= 58) {
-              alerts.push({
-                match, type: 'homeScores',
-                level: prob >= 75 ? 'high' : prob >= 62 ? 'medium' : 'low',
-                pick: `&#x1F3E0; ${match.home.name.substring(0,12)} Segna`,
-                prob: prob.toFixed(0),
-                quota: (100 / prob).toFixed(2),
-                reason: `Dominio: ${stats.shotsOnHome} tiri in porta vs ${stats.shotsOnAway}`,
-                stats, leagueBoost, hotMomentBoost
-              });
-            }
-          }
-          
-          // ✈️ Ospite domina
-          if (stats.shotsOnAway >= 3 && stats.shotsOnAway > stats.shotsOnHome * 1.5 && awayGoals === 0) {
-            let prob = 42;
-            prob += stats.shotsOnAway * 5;
-            prob += leagueBoost;
-            prob += hotMomentBoost;
-            if (elapsed >= 50) prob += 10;
-            if (elapsed >= 70) prob += 10;
-            if (stats.cornersAway >= 4) prob += 5;
-            prob = Math.min(85, prob);
-            
-            if (prob >= 55) {
-              alerts.push({
-                match, type: 'awayScores',
-                level: prob >= 72 ? 'high' : prob >= 60 ? 'medium' : 'low',
-                pick: `✈️ ${match.away.name.substring(0,12)} Segna`,
-                prob: prob.toFixed(0),
-                quota: (100 / prob).toFixed(2),
-                reason: `Dominio: ${stats.shotsOnAway} tiri in porta vs ${stats.shotsOnHome}`,
-                stats, leagueBoost, hotMomentBoost
-              });
-            }
-          }
-        }
+        // I top 3 con prob >= 55 diventano alerts globali
+        picks.filter(p => p.prob >= 55 && p.verdict !== 'VINTO').slice(0, 3).forEach(p => {
+          allAlerts.push({
+            match, type: p.market, level: p.prob >= 75 ? 'high' : p.prob >= 60 ? 'medium' : 'low',
+            pick: p.icon + ' ' + p.market, prob: p.prob, quota: p.quota, reason: p.reason,
+            stats: st, verdict: p.verdict
+          });
+        });
       });
       
-      // ============================================
-      // === ORDINAMENTO E FILTRO FINALE ===
-      // ============================================
-      
-      // Ordina: HIGH prima, poi per probabilità
-      alerts.sort((a, b) => {
-        const levelOrder = { high: 0, medium: 1, low: 2 };
-        if (levelOrder[a.level] !== levelOrder[b.level]) {
-          return levelOrder[a.level] - levelOrder[b.level];
-        }
-        return parseFloat(b.prob) - parseFloat(a.prob);
+      // Ordina alerts globali
+      allAlerts.sort((a, b) => {
+        const lo = { high: 0, medium: 1, low: 2 };
+        if (lo[a.level] !== lo[b.level]) return lo[a.level] - lo[b.level];
+        return b.prob - a.prob;
       });
       
-      // Max 2 alert per partita (i migliori)
-      const alertsFiltered = [];
-      const matchAlertCount = {};
-      alerts.forEach(alert => {
-        const matchId = alert.match.id;
-        matchAlertCount[matchId] = (matchAlertCount[matchId] || 0);
-        if (matchAlertCount[matchId] < 2) {
-          alertsFiltered.push(alert);
-          matchAlertCount[matchId]++;
-        }
-      });
-      
-      state.liveAlerts = alertsFiltered;
+      state.liveAlerts = allAlerts;
+      state.liveMatchPicks = matchPicks;
     }
     
     // === LIVE BACKGROUND MONITORING ===
@@ -11548,6 +11597,21 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         <!-- QUICK FIND BUTTONS -->
         ${renderQuickFind(picks)}
         
+        <!-- LIVE ALERTS SECTION -->
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleLiveMode()">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="live-dot" style="width:8px;height:8px;border-radius:50%;background:${state.liveMode ? '#ef4444' : '#64748b'};display:inline-block;${state.liveMode ? 'animation:pulse 1.5s infinite;' : ''}"></span>
+              <span>📡 Live Alerts</span>
+              ${state.liveAlerts.length > 0 ? '<span style="background:rgba(239,68,68,0.15);color:#f87171;font-size:0.65rem;padding:2px 8px;border-radius:10px;font-weight:800;">' + state.liveAlerts.length + ' alert</span>' : ''}
+            </div>
+            <button style="background:${state.liveMode ? 'rgba(239,68,68,0.15)' : 'rgba(0,212,255,0.1)'};border:1px solid ${state.liveMode ? 'rgba(239,68,68,0.3)' : 'rgba(0,212,255,0.2)'};border-radius:10px;padding:5px 14px;cursor:pointer;color:${state.liveMode ? '#f87171' : '#00d4ff'};font-size:0.72rem;font-weight:700;">
+              ${state.liveMode ? '⏹ Ferma' : '▶ Attiva Live'}
+            </button>
+          </div>
+          ${state.liveMode ? renderLiveSection() : '<div style="text-align:center;padding:14px;color:var(--text-dark);font-size:0.78rem;">Clicca <strong>▶ Attiva Live</strong> per monitorare le partite in corso e ricevere alert in tempo reale.</div>'}
+        </div>
+        
       `;
     }
     
@@ -11643,6 +11707,73 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       
       // Ogni filtro usa l'array dedicato dalle daily picks (con tutte le probabilità calcolate)
       const filters = [
+        { key: 'sicuri',  label: '🔒 SOLO SICURI', color: '#f59e0b', getData: () => {
+          // Analizza TUTTI i mercati di ogni partita e trova quelli con probabilità alta + convergenza
+          const advs = picks.matchAdvices || [];
+          const results = [];
+          advs.forEach(a => {
+            if (!a.match) return;
+            try {
+              const hXG = parseFloat(a.xgHome || 1.3);
+              const aXG = parseFloat(a.xgAway || 1.1);
+              const p1X2 = quickCalc1X2(hXG, aXG);
+              const pO15 = quickCalcOver(hXG, aXG, 1.5);
+              const pO25 = quickCalcOver(hXG, aXG, 2.5);
+              const pO35 = quickCalcOver(hXG, aXG, 3.5);
+              const pBTTS = quickCalcBTTS(hXG, aXG);
+              const pU25 = 100 - pO25;
+              const p1X = p1X2.home + p1X2.draw;
+              const pX2 = p1X2.draw + p1X2.away;
+              const base = { matchId: a.matchId, match: a.match, homeName: a.homeName, awayName: a.awayName, league: a.league, time: a.time, leagueLogo: a.leagueLogo, confidence: 'high', dataQuality: a.dataQuality };
+
+              // Ogni mercato con soglia alta + segnali multipli di conferma
+              const candidates = [];
+
+              // Over 2.5: prob alta + xG totale alto + BTTS alta
+              if (pO25 >= 62 && hXG + aXG >= 2.7 && pBTTS >= 48)
+                candidates.push({ ...base, pick: 'Over 2.5 🔒', prob: pO25, signals: 3 + (hXG+aXG >= 3.0 ? 1 : 0) + (pBTTS >= 55 ? 1 : 0) });
+
+              // Under 2.5: prob alta + xG basso + BTTS bassa
+              if (pU25 >= 58 && hXG + aXG < 2.3 && pBTTS < 50)
+                candidates.push({ ...base, pick: 'Under 2.5 🔒', prob: pU25, signals: 3 + (hXG+aXG < 2.0 ? 1 : 0) + (pBTTS < 42 ? 1 : 0) });
+
+              // Over 1.5: prob molto alta + almeno un po' di gol
+              if (pO15 >= 78 && hXG + aXG >= 2.2)
+                candidates.push({ ...base, pick: 'Over 1.5 🔒', prob: pO15, signals: 3 + (hXG+aXG >= 2.8 ? 1 : 0) });
+
+              // GG: prob alta + entrambe xG > 0.9
+              if (pBTTS >= 60 && hXG >= 0.95 && aXG >= 0.85)
+                candidates.push({ ...base, pick: 'GG 🔒', prob: pBTTS, signals: 3 + (hXG >= 1.2 && aXG >= 1.0 ? 1 : 0) + (pO25 >= 55 ? 1 : 0) });
+
+              // NG: prob alta + almeno una squadra debole
+              if ((100 - pBTTS) >= 58 && (hXG < 0.8 || aXG < 0.7))
+                candidates.push({ ...base, pick: 'NG 🔒', prob: 100 - pBTTS, signals: 3 + (hXG < 0.6 || aXG < 0.5 ? 1 : 0) });
+
+              // 1 Casa: dominio xG + prob alta
+              if (p1X2.home >= 62 && hXG > aXG * 1.3)
+                candidates.push({ ...base, pick: '1 (Casa) 🔒', prob: p1X2.home, signals: 3 + (hXG > aXG * 1.5 ? 1 : 0) });
+
+              // 2 Ospite: dominio xG + prob alta
+              if (p1X2.away >= 48 && aXG > hXG * 1.15)
+                candidates.push({ ...base, pick: '2 (Ospite) 🔒', prob: p1X2.away, signals: 3 + (aXG > hXG * 1.3 ? 1 : 0) });
+
+              // 1X: sicurezza + casa forte
+              if (p1X >= 75 && hXG >= aXG)
+                candidates.push({ ...base, pick: '1X 🔒', prob: p1X, signals: 3 + (p1X >= 82 ? 1 : 0) });
+
+              // X2: ospite tiene
+              if (pX2 >= 62 && aXG >= hXG * 0.85)
+                candidates.push({ ...base, pick: 'X2 🔒', prob: pX2, signals: 3 + (pX2 >= 70 ? 1 : 0) });
+
+              // Prendi il miglior candidato per questa partita (quello con più segnali)
+              if (candidates.length > 0) {
+                candidates.sort((a, b) => b.signals - a.signals || b.prob - a.prob);
+                results.push(candidates[0]);
+              }
+            } catch(e) {}
+          });
+          return results.sort((a,b) => b.prob - a.prob).slice(0, 15);
+        }},
         { key: 'home1',   label: '🏠 Trova 1',    color: '#00d4ff', getData: () => picks.vittorieCasa.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: '1 (Casa)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
         { key: 'away2',   label: '✈️ Trova 2',    color: '#f87171', getData: () => picks.vittorieOspite.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: '2 (Ospite)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
         { key: 'gg',      label: '⚽ Trova GG',   color: '#00e5a0', getData: () => picks.gg.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: 'GG (' + p.prob.toFixed(0) + '%)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
@@ -11716,85 +11847,143 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     
     function renderLiveSection() {
       if (state.liveLoading) {
-        return `
-          <div class="live-section">
-            <div class="live-header">
-              <div class="live-title"><span class="live-dot"></span> LIVE Alerts</div>
-            </div>
-            <div class="loading"><div class="spinner"></div><div class="loading-text">Caricamento partite live...</div></div>
-          </div>
-        `;
+        return `<div style="padding:20px;text-align:center;"><div class="spinner"></div><div style="font-size:0.78rem;color:var(--text-dark);margin-top:8px;">Caricamento partite live...</div></div>`;
       }
       
+      const matches = state.liveMatches;
+      const picks = state.liveMatchPicks || {};
       const alerts = state.liveAlerts;
       
-      return `
-        <div class="live-section">
-          <div class="live-header">
-            <div class="live-title"><span class="live-dot"></span> LIVE Alerts</div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div class="live-auto-refresh">&#x1F504; Auto-refresh <span class="live-countdown">${state.liveCountdown}s</span></div>
-              <button class="live-refresh-btn" id="refreshLive">⟳ Aggiorna</button>
-            </div>
-          </div>
+      if (matches.length === 0) {
+        return `<div style="text-align:center;padding:20px;">
+          <div style="font-size:2rem;margin-bottom:8px;">📡</div>
+          <div style="color:var(--text-gray);font-size:0.85rem;">Nessuna partita in corso al momento</div>
+          <div style="color:var(--text-dark);font-size:0.72rem;margin-top:6px;">Le partite live verranno mostrate automaticamente</div>
+        </div>`;
+      }
+      
+      // Raggruppa per campionato
+      const byLeague = {};
+      matches.forEach(m => {
+        const key = (m.league?.country || '') + ' - ' + (m.league?.name || 'Altro');
+        if (!byLeague[key]) byLeague[key] = { logo: m.league?.logo, matches: [] };
+        byLeague[key].matches.push(m);
+      });
+      
+      let html = '';
+      
+      // Header stats
+      html += '<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:12px;flex-wrap:wrap;align-items:center;">';
+      html += '<div style="font-size:0.72rem;color:var(--text-dark);">🔴 <strong style="color:white;">' + matches.length + '</strong> partite</div>';
+      html += '<div style="font-size:0.72rem;color:var(--text-dark);">🚨 <strong style="color:#ef4444;">' + alerts.filter(a => a.level === 'high').length + '</strong> alert alti</div>';
+      html += '<div style="font-size:0.72rem;color:var(--text-dark);">⚠️ <strong style="color:#fbbf24;">' + alerts.filter(a => a.level === 'medium').length + '</strong> alert medi</div>';
+      html += '<div style="margin-left:auto;display:flex;align-items:center;gap:8px;">';
+      html += '<span class="live-auto-refresh" style="font-size:0.65rem;color:var(--text-dark);">🔄 <span class="live-countdown">' + state.liveCountdown + 's</span></span>';
+      html += '<button class="live-refresh-btn" id="refreshLive" style="font-size:0.68rem;padding:4px 10px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:8px;cursor:pointer;color:#00d4ff;">⟳</button>';
+      html += '</div></div>';
+      
+      // Per ogni campionato
+      Object.entries(byLeague).forEach(([leagueName, league]) => {
+        html += '<div style="margin-bottom:14px;">';
+        html += '<div style="font-size:0.68rem;color:var(--text-dark);font-weight:700;padding:4px 0;display:flex;align-items:center;gap:6px;">';
+        if (league.logo) html += '<img src="' + league.logo + '" style="width:14px;height:14px;border-radius:2px;" onerror="this.style.display=\'none\'">';
+        html += leagueName + '</div>';
+        
+        // Per ogni partita
+        league.matches.forEach(m => {
+          const mPicks = (picks[m.id] || []).filter(p => p.verdict !== 'VINTO');
+          const topPicks = mPicks; // all picks, grouped by category below
+          const hg = m.goals?.home || 0;
+          const ag = m.goals?.away || 0;
+          const statusText = m.status === 'HT' ? 'INT' : m.status === '1H' || m.status === '2H' ? m.elapsed + '\'' : m.status;
           
-          ${alerts.length === 0 ? `
-            <div class="live-empty">
-              <div class="live-empty-icon">&#x1F4E1;</div>
-              <div>Nessun alert al momento</div>
-              <div style="font-size: 0.8rem; margin-top: 8px; color: var(--text-dark);">
-                ${state.liveMatches.length} partite live monitorate
-              </div>
-            </div>
-          ` : `
-            <div class="live-alerts-grid">
-              ${alerts.map(alert => `
-                <div class="live-alert-card ${alert.level}">
-                  <div class="live-alert-header">
-                    <div class="live-alert-level">${alert.level === 'high' ? '&#x1F6A8; ALERT ALTO' : alert.level === 'medium' ? '⚠️ ALERT MEDIO' : '&#x1F535; INFO'}</div>
-                    <div class="live-alert-time"><span class="live-dot"></span> ${alert.match.elapsed}'</div>
-                  </div>
-                  <div class="live-alert-body">
-                    <div class="live-alert-match">
-                      <div class="live-alert-teams">${esc(alert.match.home.name)} vs ${esc(alert.match.away.name)}</div>
-                      <div class="live-alert-score">${alert.match.goals.home} - ${alert.match.goals.away}</div>
-                    </div>
-                    <div class="live-alert-stats">
-                      <div class="live-stat">&#x1F3AF; Tiri in porta: <strong>${alert.stats.shotsOnHome || 0}-${alert.stats.shotsOnAway || 0}</strong></div>
-                      <div class="live-stat">⚽ Tiri totali: <strong>${alert.stats.shotsHome || 0}-${alert.stats.shotsAway || 0}</strong></div>
-                      <div class="live-stat">&#x1F6A9; Corner: <strong>${alert.stats.cornersHome || 0}-${alert.stats.cornersAway || 0}</strong></div>
-                      <div class="live-stat">&#x1F4CA; Possesso: <strong>${alert.stats.possessionHome || 50}%-${alert.stats.possessionAway || 50}%</strong></div>
-                    </div>
-                    <div class="live-alert-pick">
-                      <div class="live-pick-label">CONSIGLIO LIVE</div>
-                      <div class="live-pick-value">${alert.pick}</div>
-                      <div class="live-pick-details">
-                        <span class="live-pick-prob">&#x1F4C8; ${alert.prob}% prob</span>
-                        <span style="color: var(--accent-yellow);">&#x1F4B0; ~@${alert.quota}</span>
-                      </div>
-                      <div class="live-pick-reason">&#x1F4A1; ${alert.reason}</div>
-                      <button class="live-track-btn ${state.trackedBets.some(b => b.matchId === alert.match.id && b.isLive) ? 'tracked' : ''}"
-                              onclick="trackLiveBet(${alert.match.id}, '${esc(alert.match.home.name)} vs ${esc(alert.match.away.name)}', '${esc(alert.pick)}', ${alert.prob}, ${alert.quota}, event)"
-                              ${state.trackedBets.some(b => b.matchId === alert.match.id && b.isLive) ? 'disabled' : ''}>
-                        ${state.trackedBets.some(b => b.matchId === alert.match.id && b.isLive) ? '✅ Tracciato' : '&#x1F3AF; GIOCATO'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          `}
+          html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;">';
           
-          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
-            <div style="font-size: 0.8rem; color: var(--text-dark); margin-bottom: 8px;">&#x1F4CA; Statistiche Monitorate</div>
-            <div style="display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-gray);">
-              <span>&#x1F534; Partite LIVE: <strong style="color: var(--text-white);">${state.liveMatches.length}</strong></span>
-              <span>&#x1F6A8; Alert Alti: <strong style="color: var(--accent-red);">${alerts.filter(a => a.level === 'high').length}</strong></span>
-              <span>⚠️ Alert Medi: <strong style="color: var(--accent-yellow);">${alerts.filter(a => a.level === 'medium').length}</strong></span>
-            </div>
-          </div>
-        </div>
-      `;
+          // Riga partita: squadre + score + minuto
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;cursor:pointer;" onclick="{ const mx=state.matches.find(x=>x.id===' + m.id + '); if(mx)analyzeMatch(mx); else alert(\'Apri questa partita dalla lista campionati per analisi completa\'); }">';
+          html += '<div style="flex:1;min-width:0;">';
+          html += '<div style="font-size:0.82rem;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(m.home.name) + ' vs ' + esc(m.away.name) + '</div>';
+          html += '</div>';
+          html += '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">';
+          html += '<div style="font-size:1.4rem;font-weight:900;color:white;letter-spacing:2px;">' + hg + ' - ' + ag + '</div>';
+          html += '<div style="background:rgba(239,68,68,0.15);color:#f87171;font-size:0.65rem;font-weight:800;padding:3px 8px;border-radius:6px;animation:pulse 1.5s infinite;">' + statusText + '</div>';
+          html += '</div></div>';
+          
+          // Stats compatte (se disponibili)
+          const st = m.stats && m.stats.length >= 2;
+          if (st) {
+            const hs = m.stats[0]?.statistics || [];
+            const as = m.stats[1]?.statistics || [];
+            const g = (arr, t) => { const s = arr.find(x => x.type === t); return s ? (parseInt(s.value) || 0) : 0; };
+            const sOnH = g(hs, 'Shots on Goal'), sOnA = g(as, 'Shots on Goal');
+            const cH = g(hs, 'Corner Kicks'), cA = g(as, 'Corner Kicks');
+            const pH = g(hs, 'Ball Possession') || 50, pA = g(as, 'Ball Possession') || 50;
+            html += '<div style="display:flex;gap:10px;font-size:0.65rem;color:var(--text-dark);margin-bottom:10px;flex-wrap:wrap;">';
+            html += '<span>🎯 Tiri: <strong style="color:var(--text-gray);">' + sOnH + '-' + sOnA + '</strong></span>';
+            html += '<span>🚩 Corner: <strong style="color:var(--text-gray);">' + cH + '-' + cA + '</strong></span>';
+            html += '<span>📊 Poss: <strong style="color:var(--text-gray);">' + pH + '%-' + pA + '%</strong></span>';
+            html += '</div>';
+          }
+          
+          // Top picks per questa partita - priorità: 1T/2T over/under, poi total, poi gg, poi esito
+          if (topPicks.length > 0) {
+            // Raggruppa per categoria
+            const cats = { '1T': [], '2T': [], 'total': [], 'gg': [], 'esito': [], 'altro': [] };
+            mPicks.forEach(p => { if (cats[p.cat]) cats[p.cat].push(p); else cats.altro.push(p); });
+            
+            // Mostra sezioni con picks
+            const sections = [
+              { key: '1T', label: '1° Tempo', icon: '🕐' },
+              { key: '2T', label: '2° Tempo', icon: '🕑' },
+              { key: 'total', label: 'Over/Under', icon: '📊' },
+              { key: 'gg', label: 'GG/NG', icon: '⚡' },
+              { key: 'esito', label: 'Esito', icon: '🏆' }
+            ].filter(s => cats[s.key] && cats[s.key].length > 0);
+            
+            html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+            sections.forEach(sec => {
+              const secPicks = cats[sec.key].slice(0, 2);
+              html += '<div style="font-size:0.58rem;color:var(--text-dark);font-weight:700;padding:4px 2px 1px;margin-top:2px;">' + sec.icon + ' ' + sec.label + '</div>';
+              secPicks.forEach((p, i) => {
+              const isGioca = p.verdict === 'GIOCA';
+              const isValuta = p.verdict === 'VALUTA';
+              const bgColor = isGioca ? 'rgba(16,185,129,0.08)' : isValuta ? 'rgba(251,191,36,0.06)' : 'rgba(100,116,139,0.06)';
+              const borderColor = isGioca ? 'rgba(16,185,129,0.25)' : isValuta ? 'rgba(251,191,36,0.2)' : 'rgba(100,116,139,0.15)';
+              const verdictColor = isGioca ? '#10b981' : isValuta ? '#fbbf24' : '#64748b';
+              const verdictIcon = isGioca ? '✅' : isValuta ? '⚠️' : '⛔';
+              
+              html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;background:' + bgColor + ';border:1px solid ' + borderColor + ';">';
+              
+              // Sinistra: pick + reason
+              html += '<div style="flex:1;min-width:0;">';
+              html += '<div style="font-size:0.78rem;font-weight:700;color:white;">' + p.icon + ' ' + p.market + '</div>';
+              html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(p.reason) + '</div>';
+              html += '</div>';
+              
+              // Destra: prob + verdetto + quota
+              html += '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">';
+              html += '<div style="text-align:right;">';
+              html += '<div style="font-size:1rem;font-weight:900;color:' + (p.prob >= 72 ? '#10b981' : p.prob >= 55 ? '#00d4ff' : '#fbbf24') + ';">' + p.prob + '%</div>';
+              html += '<div style="font-size:0.55rem;color:var(--text-dark);">@' + p.quota + '</div>';
+              html += '</div>';
+              html += '<div style="background:' + verdictColor + '15;border:1px solid ' + verdictColor + '40;border-radius:6px;padding:3px 8px;font-size:0.62rem;font-weight:800;color:' + verdictColor + ';white-space:nowrap;">' + verdictIcon + ' ' + p.verdict + '</div>';
+              html += '</div>';
+              
+              html += '</div>';
+            });
+            });
+            html += '</div>';
+          } else {
+            html += '<div style="font-size:0.68rem;color:var(--text-dark);text-align:center;padding:6px;">⏳ In attesa di dati sufficienti...</div>';
+          }
+          
+          html += '</div>'; // fine card partita
+        });
+        
+        html += '</div>'; // fine gruppo campionato
+      });
+      
+      return html;
     }
 
     function renderMatches() {
@@ -12050,6 +12239,20 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         </div>
         <div class="section-accordion-body open">
           ${safeRender(() => renderTraderVerdict(ai, stat, d), '', 'TraderVerdict')}
+        </div>
+      </div>
+      
+      <!-- BETTING EXCHANGE -->
+      <div class="section-accordion">
+        <div class="section-accordion-header open" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>📊</span> Betting Exchange</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:0.6rem;background:rgba(168,85,247,0.12);color:#c084fc;padding:2px 8px;border-radius:8px;font-weight:700;">NUOVO</span>
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body open">
+          ${safeRender(() => renderBettingExchange(m, d, ai, stat), '', 'BettingExchange')}
         </div>
       </div>
       
@@ -12833,6 +13036,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     window.resetAllData = resetAllData;
     window.toggleConsigliMode = toggleConsigliMode;
     window.loadLiveMatches = loadLiveMatches;
+    window.toggleLiveMode = toggleLiveMode;
     window.triggerSuperAnalysis = triggerSuperAnalysis;
     
     // === AUTH GLOBAL FUNCTIONS ===
