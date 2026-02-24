@@ -4113,6 +4113,10 @@
       if (state.performanceHistory.length > 0) {
         await saveToFirebase('performanceHistory', state.performanceHistory);
       }
+      if (state.mlTrainingData && state.mlTrainingData.length > 0) {
+        await saveToFirebase('mlTrainingData', state.mlTrainingData);
+        await saveToFirebase('mlEngine', state.mlEngine);
+      }
       
       console.log('✅ Migrazione completata');
     }
@@ -4122,12 +4126,14 @@
       console.log('&#x1F4E5; Caricamento dati da Firebase...');
       
       try {
-        const [tracked, ml, mlStats, perf, predHist] = await Promise.all([
+        const [tracked, ml, mlStats, perf, predHist, mlEngineData, mlTrainData] = await Promise.all([
           loadFromFirebase('trackedBets'),
           loadFromFirebase('mlThresholds'),
           loadFromFirebase('mlStats'),
           loadFromFirebase('performanceHistory'),
-          loadFromFirebase('predictionHistory')
+          loadFromFirebase('predictionHistory'),
+          loadFromFirebase('mlEngine'),
+          loadFromFirebase('mlTrainingData')
         ]);
         
         if (tracked) state.trackedBets = tracked;
@@ -4139,6 +4145,9 @@
           state.predictionHistory = { ...state.predictionHistory, ...predHist };
           console.log('✅ Storico variazioni sincronizzato da Firebase:', Object.keys(predHist).length, 'partite');
         }
+        // VERO ML ENGINE
+        if (mlEngineData) { state.mlEngine = mlEngineData; localStorage.setItem('bp2_ml_engine', JSON.stringify(mlEngineData)); }
+        if (mlTrainData) { state.mlTrainingData = mlTrainData; localStorage.setItem('bp2_ml_training', JSON.stringify(mlTrainData)); }
         
         console.log('✅ Dati caricati da Firebase');
       } catch (error) {
@@ -4510,6 +4519,13 @@
       })),
       // Performance Charts Data
       performanceHistory: JSON.parse(localStorage.getItem('bp2_performance_history') || '[]'),
+      // === VERO ML ENGINE (solo GG/Over — NON tocca 1X2) ===
+      mlEngine: JSON.parse(localStorage.getItem('bp2_ml_engine') || JSON.stringify({
+        gg: { weights: null, bias: 0, samples: 0, accuracy: 0, lastTrain: null },
+        over25: { weights: null, bias: 0, samples: 0, accuracy: 0, lastTrain: null },
+        over15: { weights: null, bias: 0, samples: 0, accuracy: 0, lastTrain: null }
+      })),
+      mlTrainingData: JSON.parse(localStorage.getItem('bp2_ml_training') || '[]'),
       // NUOVO: Cache Classifica e Infortunati
       standingsCache: new Map(),
       injuriesCache: new Map(),
@@ -5134,11 +5150,27 @@
         
         // Calcola probabilità
         const p1X2 = quickCalc1X2(homeXG, awayXG);
-        const pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
-        const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
-        const pOver35 = quickCalcOver(homeXG, awayXG, 3.5);
+        
+        // Costruisci proxy dati difensivi da fsMatch (per migliorare GG/Over)
+        let proxyHome = null, proxyAway = null;
+        if (fsMatch) {
+          proxyHome = {
+            goalsFor: homeXG, goalsAgainst: fsMatch.away_xg || fsMatch.away_ppg * 0.8 || 1.2,
+            cleanSheetPct: fsMatch.home_cs_percentage || fsMatch.home_clean_sheet_pct || 25,
+            failedToScorePct: fsMatch.home_fts_percentage || 25
+          };
+          proxyAway = {
+            goalsFor: awayXG, goalsAgainst: fsMatch.home_xg || fsMatch.home_ppg * 0.8 || 1.2,
+            cleanSheetPct: fsMatch.away_cs_percentage || fsMatch.away_clean_sheet_pct || 25,
+            failedToScorePct: fsMatch.away_fts_percentage || 25
+          };
+        }
+        
+        const pOver15 = quickCalcOverEnhanced(homeXG, awayXG, 1.5, proxyHome, proxyAway);
+        const pOver25 = quickCalcOverEnhanced(homeXG, awayXG, 2.5, proxyHome, proxyAway);
+        const pOver35 = quickCalcOverEnhanced(homeXG, awayXG, 3.5, proxyHome, proxyAway);
         const pUnder25 = 100 - pOver25;
-        const pBTTS = quickCalcBTTS(homeXG, awayXG);
+        const pBTTS = quickCalcBTTS(homeXG, awayXG, proxyHome, proxyAway);
         
         const matchInfo = {
           match,
@@ -5195,11 +5227,11 @@
         const awayWeak = awayXG < 0.8;
         const awayStrong = awayXG > 1.5;
         const homeWeak = homeXG < 1.0;
-        const highScoring = totXG >= 3.0;
-        const veryHighScoring = totXG >= 3.8;
+        const veryHighScoring = totXG >= 3.2;
+        const highScoring = totXG >= 2.7;
         const lowScoring = totXG < 2.2;
         const balanced = Math.abs(homeXG - awayXG) < 0.5;
-        const ggLikely = pBTTS >= 55 && homeXG > 0.9 && awayXG > 0.9;
+        const ggLikely = pBTTS >= 52 && homeXG > 0.85 && awayXG > 0.8;
         
         // Multigoal per squadra (per calcolo X intelligente)
         const mgHome = quickCalcOver(homeXG, 0, 0.5); // Prob che casa segni almeno 1
@@ -5219,6 +5251,14 @@
         const th1X = getMLThreshold('1X');
         
         // Logica di selezione CON SOGLIE ML ADATTIVE
+        // PRIORITÀ: 1X2 SEMPRE PRIMA se prob forte (preserva il 93% sui "1")
+        // GG e Over SOLO quando non c'è un buon pick 1X2
+        
+        const has1Strong = p1X2.home >= th1 + 8;  // Casa forte (anche senza homeStrong condition)
+        const has2Strong = p1X2.away >= th2 + 5;  // Ospite forte
+        const has1XStrong = (p1X2.home + p1X2.draw) >= th1X + 10;
+        
+        // === LIVELLO 1: Vittorie nette (priorità massima) ===
         if (homeStrong && awayWeak && p1X2.home >= th1 + 13) {
           aiPick = '1 (Vittoria Casa)';
           aiProb = p1X2.home;
@@ -5229,28 +5269,57 @@
           aiProb = p1X2.away;
           confidence = getMLConfidence('2', p1X2.away);
         }
-        else if (veryHighScoring && pOver25 >= thOver25 + 17) {
-          aiPick = 'Over 2.5';
-          aiProb = pOver25;
-          confidence = getMLConfidence('Over 2.5', pOver25);
+        // === LIVELLO 2: Vittorie probabili (anche senza condizione strong/weak) ===
+        else if (p1X2.home >= th1 + 15) {
+          // Casa molto probabile indipendentemente da strong/weak
+          aiPick = '1 (Vittoria Casa)';
+          aiProb = p1X2.home;
+          confidence = getMLConfidence('1', p1X2.home);
         }
-        else if (ggLikely && pBTTS >= thGG + 8) {
-          aiPick = 'GG (Entrambe Segnano)';
-          aiProb = pBTTS;
-          confidence = getMLConfidence('GG', pBTTS);
+        else if (p1X2.away >= th2 + 12) {
+          aiPick = '2 (Vittoria Ospite)';
+          aiProb = p1X2.away;
+          confidence = getMLConfidence('2', p1X2.away);
         }
-        else if (pOver15 >= thOver15 + 17) {
-          aiPick = 'Over 1.5';
-          aiProb = pOver15;
-          confidence = getMLConfidence('Over 1.5', pOver15);
-        }
-        else if ((p1X2.home + p1X2.draw) >= th1X + 12) {
+        // === LIVELLO 3: 1X forte ===
+        else if (has1XStrong && p1X2.home >= 45) {
           aiPick = '1X (Casa o Pareggio)';
           aiProb = p1X2.home + p1X2.draw;
           confidence = getMLConfidence('1X', aiProb);
         }
-        // CALCOLO INTELLIGENTE PER X
-        // Se % X è alta, MG squadre basse, Under alto → potrebbe essere X
+        // === LIVELLO 4: GG e Over (SOLO se nessun 1X2 forte) ===
+        else if (veryHighScoring && pOver25 >= thOver25 + 10 && !has1Strong) {
+          aiPick = 'Over 2.5';
+          aiProb = pOver25;
+          confidence = getMLConfidence('Over 2.5', pOver25);
+        }
+        else if (ggLikely && pBTTS >= thGG + 5 && !has1Strong && !has2Strong) {
+          aiPick = 'GG (Entrambe Segnano)';
+          aiProb = pBTTS;
+          confidence = getMLConfidence('GG', pBTTS);
+        }
+        else if (highScoring && pOver25 >= thOver25 + 15 && !has1Strong) {
+          aiPick = 'Over 2.5';
+          aiProb = pOver25;
+          confidence = getMLConfidence('Over 2.5', pOver25);
+        }
+        else if (pOver15 >= thOver15 + 17 && !has1Strong) {
+          aiPick = 'Over 1.5';
+          aiProb = pOver15;
+          confidence = getMLConfidence('Over 1.5', pOver15);
+        }
+        // === LIVELLO 5: Fallback 1X2 meno forte ===
+        else if (has1Strong) {
+          aiPick = '1 (Vittoria Casa)';
+          aiProb = p1X2.home;
+          confidence = getMLConfidence('1', p1X2.home);
+        }
+        else if (has2Strong) {
+          aiPick = '2 (Vittoria Ospite)';
+          aiProb = p1X2.away;
+          confidence = getMLConfidence('2', p1X2.away);
+        }
+        // === LIVELLO 6: Pareggio e Over 1.5 residuale ===
         else if (balanced && p1X2.draw >= thX + 2 && mgHome < 68 && mgAway < 68 && pUnder25 >= 58) {
           aiPick = 'X (Pareggio)';
           aiProb = p1X2.draw;
@@ -5407,25 +5476,34 @@
         }
         
         // Aggiungi GG se probabilità >= 52%
-        if (pBTTS >= 52) {
+        // VERO ML: aggiusta prob GG con modello appreso (solo GG, non tocca 1X2)
+        const mlAdjGG = getMLAdjustment('GG', match.id);
+        const pBTTS_ML = clamp(15, pBTTS + mlAdjGG, 90);
+        if (pBTTS_ML >= 52) {
           picks.gg.push({
             ...matchInfo,
             match,
             bet: 'GG',
-            prob: pBTTS,
-            confidence: pBTTS >= 70 ? 'high' : (pBTTS >= 60 ? 'medium' : 'low'),
+            prob: pBTTS_ML,
+            probBase: pBTTS, // prob originale senza ML
+            mlAdj: mlAdjGG,
+            confidence: pBTTS_ML >= 70 ? 'high' : (pBTTS_ML >= 60 ? 'medium' : 'low'),
             dataQuality
           });
         }
         
         // Aggiungi Over 2.5 se probabilità >= 50%
-        if (pOver25 >= 50) {
+        const mlAdjO25 = getMLAdjustment('Over 2.5', match.id);
+        const pOver25_ML = clamp(10, pOver25 + mlAdjO25, 92);
+        if (pOver25_ML >= 50) {
           picks.over25.push({
             ...matchInfo,
             match,
             bet: 'Over 2.5',
-            prob: pOver25,
-            confidence: pOver25 >= 70 ? 'high' : (pOver25 >= 60 ? 'medium' : 'low'),
+            prob: pOver25_ML,
+            probBase: pOver25,
+            mlAdj: mlAdjO25,
+            confidence: pOver25_ML >= 70 ? 'high' : (pOver25_ML >= 60 ? 'medium' : 'low'),
             dataQuality
           });
         }
@@ -5570,13 +5648,89 @@
       return clamp(10, over, 90);
     }
     
-    function quickCalcBTTS(lH, lA) {
+    function quickCalcBTTS(lH, lA, homeData, awayData) {
       // Validazione input
       if (isNaN(lH) || isNaN(lA) || lH < 0 || lA < 0) return 50;
       
-      const btts = (1 - poisson(lH, 0)) * (1 - poisson(lA, 0)) * 100;
-      if (isNaN(btts)) return 50;
-      return clamp(15, btts, 85);
+      // Base Poisson: P(home ≥ 1) × P(away ≥ 1) — senza home advantage bias
+      // Per BTTS usiamo xG "neutri" (annulliamo il bias 1X2)
+      const neutralH = lH / 1.06 * 1.00; // rimuovi home boost
+      const neutralA = lA / 0.95 * 1.00; // rimuovi away penalty
+      const poissonBTTS = (1 - poisson(neutralH, 0)) * (1 - poisson(neutralA, 0)) * 100;
+      
+      if (isNaN(poissonBTTS)) return 50;
+      
+      // Se abbiamo dati difensivi, correggi con clean sheet e goals conceded
+      let adjustment = 0;
+      if (homeData && awayData) {
+        // Clean sheet avversario basso → più facile segnare → BTTS sale
+        const homeCSopp = awayData.cleanSheetPct || 25;
+        const awayCSopp = homeData.cleanSheetPct || 25;
+        // Clean sheet alto = difesa forte = meno BTTS
+        if (homeCSopp < 15) adjustment += 6;      // Difesa ospite colabrodo
+        else if (homeCSopp < 25) adjustment += 3;
+        else if (homeCSopp > 45) adjustment -= 6;  // Difesa ospite fortissima
+        else if (homeCSopp > 35) adjustment -= 3;
+        
+        if (awayCSopp < 15) adjustment += 6;
+        else if (awayCSopp < 25) adjustment += 3;
+        else if (awayCSopp > 45) adjustment -= 6;
+        else if (awayCSopp > 35) adjustment -= 3;
+        
+        // Failed to score alto → squadra non segna → BTTS scende
+        const homeFTS = homeData.failedToScorePct || 25;
+        const awayFTS = awayData.failedToScorePct || 25;
+        if (homeFTS > 40) adjustment -= 5;
+        else if (homeFTS < 15) adjustment += 3;
+        if (awayFTS > 40) adjustment -= 5;
+        else if (awayFTS < 15) adjustment += 3;
+        
+        // Goals Against alto (difesa prende tanti gol) → BTTS sale
+        const homeGA = homeData.goalsAgainst || 1.2;
+        const awayGA = awayData.goalsAgainst || 1.2;
+        if (homeGA >= 1.6) adjustment += 4; // Casa prende tanti gol → ospite segna
+        if (awayGA >= 1.6) adjustment += 4; // Ospite prende tanti gol → casa segna
+        if (homeGA <= 0.7) adjustment -= 3;
+        if (awayGA <= 0.7) adjustment -= 3;
+      }
+      
+      const result = poissonBTTS + adjustment;
+      return clamp(12, result, 88);
+    }
+    
+    // Over/Under migliorato con fattore contagiosità
+    function quickCalcOverEnhanced(lH, lA, line, homeData, awayData) {
+      // Base Poisson
+      const baseOver = quickCalcOver(lH, lA, line);
+      
+      let adjustment = 0;
+      if (homeData && awayData) {
+        const totXG = lH + lA;
+        
+        // Fattore contagiosità gol: partite con xG alto tendono ad avere più gol del previsto
+        // Poisson sottostima le code perché assume indipendenza
+        if (totXG >= 3.0 && line === 2.5) adjustment += 5;
+        if (totXG >= 3.5 && line === 2.5) adjustment += 4;
+        if (totXG >= 3.0 && line === 3.5) adjustment += 4;
+        
+        // Entrambe difese deboli → partita aperta → più gol
+        const homeGA = homeData.goalsAgainst || 1.2;
+        const awayGA = awayData.goalsAgainst || 1.2;
+        if (homeGA >= 1.4 && awayGA >= 1.4 && line >= 2.5) adjustment += 5;
+        if (homeGA >= 1.6 && awayGA >= 1.6 && line >= 2.5) adjustment += 4;
+        
+        // Entrambe attacchi forti → più gol
+        const homeGF = homeData.goalsFor || 1.3;
+        const awayGF = awayData.goalsFor || 1.1;
+        if (homeGF >= 1.6 && awayGF >= 1.2 && line >= 2.5) adjustment += 3;
+        
+        // Clean sheet basse da entrambe le parti → probabilmente tanti gol
+        const homeCS = homeData.cleanSheetPct || 25;
+        const awayCS = awayData.cleanSheetPct || 25;
+        if (homeCS < 20 && awayCS < 20 && line >= 2.5) adjustment += 5;
+      }
+      
+      return clamp(8, baseOver + adjustment, 92);
     }
     
     // === TRADER PICKS ===
@@ -7504,7 +7658,12 @@
       const pBTTS = (1 - poisson(lH, 0)) * (1 - poisson(lA, 0)) * 100;
       if (isNaN(pBTTS)) return 50;
       
-      return clamp(15, pBTTS, 85);
+      // Per BTTS non vogliamo il bias casa - entrambe devono poter segnare
+      // Il bias è già applicato agli xG, quindi aggiungiamo una correzione
+      // che "restituisce" un po' di probabilità all'ospite
+      const awayCorrected = pBTTS + 2; // +2% compensazione bias ospite
+      
+      return clamp(15, awayCorrected, 88);
     }
 
     function calcOU(lH, lA) {
@@ -7776,15 +7935,19 @@
       const awayWeak = awayXG < 0.8;
       const awayStrong = awayXG > 1.5;
       const homeWeak = homeXG < 1.0;
-      const highScoring = totXG >= 3.0;
-      const veryHighScoring = totXG >= 3.8;
+      const highScoring = totXG >= 2.7;
+      const veryHighScoring = totXG >= 3.2;
       const lowScoring = totXG < 2.2;
       const balanced = Math.abs(homeXG - awayXG) < 0.5;
-      const ggLikely = pBTTS >= 55 && homeXG > 0.9 && awayXG > 0.9;
+      const ggLikely = pBTTS >= 52 && homeXG > 0.85 && awayXG > 0.8;
       
-      // === LOGICA DI SELEZIONE ===
+      // Protezione 1X2: se una squadra ha prob forte, NON proporre GG/Over
+      const has1Strong = p1X2.home >= 58;
+      const has2Strong = p1X2.away >= 52;
       
-      // CASO 1: Casa dominante (xG casa alto, ospite basso) - SOGLIE PIÙ ALTE per affidabilità
+      // === LOGICA DI SELEZIONE === PRIORITÀ: 1X2 PRIMA, poi GG/Over
+      
+      // CASO 1: Casa dominante (xG casa alto, ospite basso)
       if (homeStrong && awayWeak && p1X2.home >= 68) {
         advice.pick = '1 (Vittoria Casa)';
         advice.prob = p1X2.home;
@@ -7798,7 +7961,7 @@
         }
         advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
       }
-      // CASO 2: Trasferta dominante - SOGLIE PIÙ ALTE
+      // CASO 2: Trasferta dominante
       else if (awayStrong && homeWeak && p1X2.away >= 63) {
         advice.pick = '2 (Vittoria Ospite)';
         advice.prob = p1X2.away;
@@ -7808,11 +7971,28 @@
         
         advice.alternatives.push({ pick: 'X2', prob: (p1X2.away + p1X2.draw).toFixed(0) });
       }
-      // CASO 3: Partita da GOL (xG totale alto) - PIÙ SELETTIVO
-      else if (veryHighScoring && pOU[2.5].over >= 73) {
+      // CASO 2B: Casa forte anche senza strong/weak conditions
+      else if (p1X2.home >= 65) {
+        advice.pick = '1 (Vittoria Casa)';
+        advice.prob = p1X2.home;
+        advice.confidence = p1X2.home >= 75 ? 'high' : 'medium';
+        advice.reasons.push({ text: `Probabilità vittoria casa ${p1X2.home.toFixed(0)}%`, type: 'positive' });
+        advice.reasons.push({ text: `xG: ${homeXG.toFixed(2)} vs ${awayXG.toFixed(2)}`, type: 'positive' });
+        advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
+      }
+      // CASO 2C: Ospite forte anche senza conditions
+      else if (p1X2.away >= 58) {
+        advice.pick = '2 (Vittoria Ospite)';
+        advice.prob = p1X2.away;
+        advice.confidence = p1X2.away >= 68 ? 'high' : 'medium';
+        advice.reasons.push({ text: `Probabilità vittoria ospite ${p1X2.away.toFixed(0)}%`, type: 'positive' });
+        advice.alternatives.push({ pick: 'X2', prob: (p1X2.away + p1X2.draw).toFixed(0) });
+      }
+      // CASO 3: Over 2.5 (SOLO se nessuna squadra è forte in 1X2)
+      else if (veryHighScoring && pOU[2.5].over >= 65 && !has1Strong && !has2Strong) {
         advice.pick = 'Over 2.5';
         advice.prob = pOU[2.5].over;
-        advice.confidence = pOU[2.5].over >= 82 ? 'high' : 'medium';
+        advice.confidence = pOU[2.5].over >= 75 ? 'high' : 'medium';
         advice.reasons.push({ text: `xG Totale ${totXG.toFixed(2)} molto alto`, type: 'positive' });
         advice.reasons.push({ text: `Entrambe le squadre segnano regolarmente`, type: 'positive' });
         
@@ -7820,11 +8000,11 @@
         advice.alternatives.push({ pick: 'Over 3.5', prob: pOU[3.5].over.toFixed(0) });
         if (ggLikely) advice.alternatives.push({ pick: 'GG', prob: pBTTS.toFixed(0) });
       }
-      // CASO 4: GG probabile (entrambe segnano) - SOGLIE PIÙ ALTE
-      else if (ggLikely && pBTTS >= 63) {
+      // CASO 4: GG (SOLO se nessuna squadra è forte in 1X2)
+      else if (ggLikely && pBTTS >= 58 && !has1Strong && !has2Strong) {
         advice.pick = 'GG (Entrambe Segnano)';
         advice.prob = pBTTS;
-        advice.confidence = pBTTS >= 73 ? 'high' : 'medium';
+        advice.confidence = pBTTS >= 68 ? 'high' : 'medium';
         advice.reasons.push({ text: `xG Casa ${homeXG.toFixed(2)} - segnerà`, type: 'positive' });
         advice.reasons.push({ text: `xG Ospite ${awayXG.toFixed(2)} - segnerà`, type: 'positive' });
         
@@ -9463,7 +9643,9 @@
         isLive,
         timestamp: new Date().toISOString(),
         status: 'pending', // pending, won, lost
-        result: null
+        result: null,
+        // NUOVO: Salva features per ML training
+        features: extractMLFeatures(matchId)
       };
       
       state.trackedBets.push(bet);
@@ -9967,6 +10149,9 @@
           // Aggiorna ML thresholds
           updateMLThresholds(bet.pick, isWon, bet.prob);
           
+          // NUOVO: Alimenta il vero ML Engine con questo risultato
+          mlAddTrainingSample(bet);
+          
           // Piccola pausa per evitare rate limiting
           await new Promise(resolve => setTimeout(resolve, 300));
           
@@ -10095,6 +10280,334 @@
       saveToFirebase('mlThresholds', state.mlThresholds).catch(e => 
         console.warn('Firebase save mlThresholds failed:', e)
       );
+    }
+    
+    // =====================================================================
+    // === VERO ML ENGINE — Regressione Logistica (SOLO GG / Over) ===
+    // === NON MODIFICA le probabilità 1X2 in nessun caso ===
+    // =====================================================================
+    
+    // Estrae features numeriche da una partita per il training
+    function extractMLFeatures(matchId) {
+      try {
+        const match = state.matches.find(m => m.id === matchId);
+        if (!match) return null;
+        
+        // Cerca dati FootyStats
+        const fsKey = `${match.home.name.toLowerCase()}_${match.away.name.toLowerCase()}`.replace(/\s+/g, '');
+        const fsMatch = state.fsData.get(fsKey);
+        
+        // xG base
+        let homeXG = 1.3, awayXG = 1.1;
+        if (fsMatch) {
+          if (fsMatch.home_xg > 0) homeXG = fsMatch.home_xg;
+          else if (fsMatch.homexg > 0) homeXG = fsMatch.homexg;
+          else if (fsMatch.home_ppg > 0) homeXG = fsMatch.home_ppg * 0.85;
+          if (fsMatch.away_xg > 0) awayXG = fsMatch.away_xg;
+          else if (fsMatch.awayxg > 0) awayXG = fsMatch.awayxg;
+          else if (fsMatch.away_ppg > 0) awayXG = fsMatch.away_ppg * 0.75;
+        }
+        
+        const totXG = homeXG + awayXG;
+        const xgDiff = Math.abs(homeXG - awayXG);
+        
+        // Probabilità correnti dal modello
+        const p1X2 = quickCalc1X2(homeXG, awayXG);
+        const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
+        const pBTTS_raw = (1 - poisson(homeXG, 0)) * (1 - poisson(awayXG, 0)) * 100;
+        
+        // Features difensive (se disponibili)
+        let homeCS = 25, awayCS = 25, homeFTS = 25, awayFTS = 25;
+        let homeGA = 1.2, awayGA = 1.2;
+        if (fsMatch) {
+          homeCS = fsMatch.home_cs_percentage || fsMatch.home_clean_sheet_pct || 25;
+          awayCS = fsMatch.away_cs_percentage || fsMatch.away_clean_sheet_pct || 25;
+          homeFTS = fsMatch.home_fts_percentage || 25;
+          awayFTS = fsMatch.away_fts_percentage || 25;
+        }
+        
+        // Normalizza: tutte le features tra 0 e 1
+        return {
+          homeXG: Math.min(homeXG / 3.5, 1),         // 0-1
+          awayXG: Math.min(awayXG / 3.0, 1),         // 0-1
+          totXG: Math.min(totXG / 5.0, 1),           // 0-1
+          xgDiff: Math.min(xgDiff / 2.0, 1),         // 0-1
+          xgBalance: 1 - xgDiff / (totXG + 0.01),    // 0-1 (1=equilibrato)
+          pHome: p1X2.home / 100,                     // 0-1
+          pDraw: p1X2.draw / 100,                     // 0-1
+          pAway: p1X2.away / 100,                     // 0-1
+          pOver25: pOver25 / 100,                     // 0-1
+          pBTTS: pBTTS_raw / 100,                     // 0-1
+          homeCS: homeCS / 100,                       // 0-1 (alto=difesa forte)
+          awayCS: awayCS / 100,                       // 0-1
+          homeFTS: homeFTS / 100,                     // 0-1 (alto=non segna spesso)
+          awayFTS: awayFTS / 100,                     // 0-1
+          bothCanScore: (1 - homeFTS/100) * (1 - awayFTS/100), // prob entrambe segnano (storico)
+          bothLeaky: (1 - homeCS/100) * (1 - awayCS/100),      // prob entrambe subiscono
+          // Meta-features
+          probModelConfidence: Math.max(p1X2.home, p1X2.away, p1X2.draw) / 100 // quanto è sicuro il modello
+        };
+      } catch(e) {
+        console.warn('ML: Feature extraction failed:', e);
+        return null;
+      }
+    }
+    
+    // Features come array numerico per il calcolo
+    function featuresToArray(f) {
+      if (!f) return null;
+      return [
+        f.homeXG, f.awayXG, f.totXG, f.xgDiff, f.xgBalance,
+        f.pHome, f.pDraw, f.pAway, f.pOver25, f.pBTTS,
+        f.homeCS, f.awayCS, f.homeFTS, f.awayFTS,
+        f.bothCanScore, f.bothLeaky, f.probModelConfidence
+      ];
+    }
+    
+    const ML_FEATURE_COUNT = 17;
+    
+    // Sigmoid function
+    function sigmoid(z) {
+      if (z > 20) return 1;
+      if (z < -20) return 0;
+      return 1 / (1 + Math.exp(-z));
+    }
+    
+    // Predizione: sigmoid(w · x + b)
+    function mlPredict(weights, bias, features) {
+      if (!weights || !features || weights.length !== features.length) return null;
+      let z = bias;
+      for (let i = 0; i < weights.length; i++) {
+        z += weights[i] * features[i];
+      }
+      return sigmoid(z);
+    }
+    
+    // Training: gradient descent su tutti i campioni
+    function mlTrain(market) {
+      const model = state.mlEngine[market];
+      if (!model) return;
+      
+      // Filtra training data per questo mercato
+      const data = state.mlTrainingData.filter(d => d.market === market && d.features);
+      if (data.length < 8) {
+        console.log(`🧠 ML [${market}]: Solo ${data.length} campioni, servono almeno 8`);
+        return;
+      }
+      
+      // Inizializza pesi se non esistono
+      if (!model.weights || model.weights.length !== ML_FEATURE_COUNT) {
+        model.weights = new Array(ML_FEATURE_COUNT).fill(0);
+        model.bias = 0;
+      }
+      
+      const lr = 0.05; // Learning rate
+      const epochs = 100;
+      const lambda = 0.01; // L2 regularization
+      
+      // Prepara X e y
+      const X = data.map(d => featuresToArray(d.features)).filter(f => f && f.length === ML_FEATURE_COUNT);
+      const y = data.filter(d => featuresToArray(d.features)?.length === ML_FEATURE_COUNT).map(d => d.won ? 1 : 0);
+      
+      if (X.length < 8) return;
+      
+      let w = [...model.weights];
+      let b = model.bias;
+      
+      // Mini-batch gradient descent
+      for (let ep = 0; ep < epochs; ep++) {
+        let gradW = new Array(ML_FEATURE_COUNT).fill(0);
+        let gradB = 0;
+        
+        for (let i = 0; i < X.length; i++) {
+          const pred = mlPredict(w, b, X[i]);
+          const err = pred - y[i];
+          
+          for (let j = 0; j < ML_FEATURE_COUNT; j++) {
+            gradW[j] += err * X[i][j] + lambda * w[j]; // L2 reg
+          }
+          gradB += err;
+        }
+        
+        // Aggiorna pesi
+        for (let j = 0; j < ML_FEATURE_COUNT; j++) {
+          w[j] -= lr * gradW[j] / X.length;
+          // Clamp pesi per stabilità
+          w[j] = Math.max(-5, Math.min(5, w[j]));
+        }
+        b -= lr * gradB / X.length;
+        b = Math.max(-3, Math.min(3, b));
+      }
+      
+      // Calcola accuracy sul training set
+      let correct = 0;
+      for (let i = 0; i < X.length; i++) {
+        const pred = mlPredict(w, b, X[i]) >= 0.5 ? 1 : 0;
+        if (pred === y[i]) correct++;
+      }
+      const accuracy = (correct / X.length * 100).toFixed(1);
+      
+      // Salva modello
+      model.weights = w;
+      model.bias = b;
+      model.samples = X.length;
+      model.accuracy = parseFloat(accuracy);
+      model.lastTrain = new Date().toISOString();
+      
+      const wonCount = y.filter(v => v === 1).length;
+      console.log(`🧠 ML TRAIN [${market}]: ${X.length} campioni (${wonCount}W/${X.length - wonCount}L) → Accuracy: ${accuracy}%`);
+      console.log(`🧠 ML WEIGHTS [${market}]:`, w.map((v,i) => {
+        const names = ['hXG','aXG','totXG','xgDiff','xgBal','pH','pD','pA','pO25','pBTTS','hCS','aCS','hFTS','aFTS','bothScore','bothLeak','confid'];
+        return names[i] + ':' + v.toFixed(2);
+      }).join(' | '));
+      
+      saveMLEngine();
+    }
+    
+    // Salva ML Engine
+    function saveMLEngine() {
+      localStorage.setItem('bp2_ml_engine', JSON.stringify(state.mlEngine));
+      localStorage.setItem('bp2_ml_training', JSON.stringify(state.mlTrainingData));
+      saveToFirebase('mlEngine', state.mlEngine).catch(e => console.warn('Firebase mlEngine save failed:', e));
+      saveToFirebase('mlTrainingData', state.mlTrainingData).catch(e => console.warn('Firebase mlTraining save failed:', e));
+    }
+    
+    // Aggiungi campione al training set quando un risultato viene verificato
+    function mlAddTrainingSample(bet) {
+      if (!bet.features || bet.status === 'pending') return;
+      
+      const pickLower = bet.pick.toLowerCase();
+      const isWon = bet.status === 'won';
+      
+      // Determina mercato
+      const markets = [];
+      if (pickLower.includes('gg') || pickLower.includes('entrambe') || pickLower.includes('btts')) {
+        markets.push({ market: 'gg', won: isWon });
+      }
+      if (pickLower.includes('ng') || pickLower.includes('no gol')) {
+        markets.push({ market: 'gg', won: !isWon }); // NG perso = GG vinto e viceversa
+      }
+      if (pickLower.includes('over 2.5')) {
+        markets.push({ market: 'over25', won: isWon });
+      }
+      if (pickLower.includes('under 2.5')) {
+        markets.push({ market: 'over25', won: !isWon });
+      }
+      if (pickLower.includes('over 1.5')) {
+        markets.push({ market: 'over15', won: isWon });
+      }
+      
+      // ANCHE per partite con esito 1/2/X, registra se GG e Over sono usciti
+      // Questo dà dati extra gratis!
+      if (bet.result) {
+        const parts = String(bet.result).split('-').map(Number);
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          const [hg, ag] = parts;
+          const wasGG = hg > 0 && ag > 0;
+          const wasOver25 = (hg + ag) > 2;
+          const wasOver15 = (hg + ag) > 1;
+          
+          // Aggiungi campioni impliciti (solo se non già aggiunto per quel mercato)
+          if (!markets.some(m => m.market === 'gg')) {
+            markets.push({ market: 'gg', won: wasGG });
+          }
+          if (!markets.some(m => m.market === 'over25')) {
+            markets.push({ market: 'over25', won: wasOver25 });
+          }
+          if (!markets.some(m => m.market === 'over15')) {
+            markets.push({ market: 'over15', won: wasOver15 });
+          }
+        }
+      }
+      
+      // Aggiungi al training set
+      markets.forEach(({ market, won }) => {
+        // Evita duplicati
+        const exists = state.mlTrainingData.some(d => 
+          d.betId === bet.id && d.market === market
+        );
+        if (!exists) {
+          state.mlTrainingData.push({
+            betId: bet.id,
+            market,
+            won,
+            features: bet.features,
+            timestamp: bet.timestamp
+          });
+        }
+      });
+      
+      // Limita a 500 campioni (rimuovi i più vecchi)
+      if (state.mlTrainingData.length > 500) {
+        state.mlTrainingData = state.mlTrainingData.slice(-500);
+      }
+      
+      // Re-train se abbastanza dati
+      ['gg', 'over25', 'over15'].forEach(m => {
+        const count = state.mlTrainingData.filter(d => d.market === m).length;
+        if (count >= 8 && count % 3 === 0) { // Train ogni 3 nuovi campioni
+          mlTrain(m);
+        }
+      });
+      
+      saveMLEngine();
+    }
+    
+    // Ottieni aggiustamento ML per GG o Over (ritorna valore tra -15 e +15)
+    // IMPORTANTE: questo NON sostituisce la probabilità, la AGGIUSTA
+    function getMLAdjustment(market, matchId) {
+      const modelKey = market === 'GG' ? 'gg' : market === 'Over 2.5' ? 'over25' : market === 'Over 1.5' ? 'over15' : null;
+      if (!modelKey) return 0; // NON aggiusta 1X2!
+      
+      const model = state.mlEngine[modelKey];
+      if (!model || !model.weights || model.samples < 8 || model.accuracy < 48) return 0;
+      
+      const features = extractMLFeatures(matchId);
+      if (!features) return 0;
+      
+      const featArray = featuresToArray(features);
+      if (!featArray) return 0;
+      
+      const mlProb = mlPredict(model.weights, model.bias, featArray) * 100;
+      
+      // L'aggiustamento è la differenza tra predizione ML e predizione base
+      const baseProb = market === 'GG' ? features.pBTTS * 100 : 
+                       market === 'Over 2.5' ? features.pOver25 * 100 : 
+                       quickCalcOver(features.homeXG * 3.5, features.awayXG * 3.0, 1.5);
+      
+      // Differenza limitata: max ±15 punti percentuali
+      let adj = (mlProb - baseProb) * 0.5; // 50% peso ML, molto conservativo
+      adj = Math.max(-15, Math.min(15, adj));
+      
+      // Riduce aggiustamento se pochi campioni
+      if (model.samples < 15) adj *= 0.5;
+      else if (model.samples < 25) adj *= 0.75;
+      
+      // Se accuracy del modello è bassa, fidati meno
+      if (model.accuracy < 55) adj *= 0.3;
+      else if (model.accuracy < 60) adj *= 0.6;
+      
+      return Math.round(adj * 10) / 10;
+    }
+    
+    // Funzione per ottenere info ML per UI
+    function getMLEngineInfo() {
+      const info = {};
+      ['gg', 'over25', 'over15'].forEach(market => {
+        const model = state.mlEngine[market];
+        const dataCount = state.mlTrainingData.filter(d => d.market === market).length;
+        const wonCount = state.mlTrainingData.filter(d => d.market === market && d.won).length;
+        
+        info[market] = {
+          status: !model.weights ? 'non_addestrato' : model.samples < 8 ? 'raccolta_dati' : model.accuracy >= 55 ? 'attivo' : 'apprendimento',
+          samples: dataCount,
+          wonRate: dataCount > 0 ? (wonCount / dataCount * 100).toFixed(1) : 0,
+          accuracy: model.accuracy || 0,
+          lastTrain: model.lastTrain,
+          active: model.weights && model.samples >= 8 && model.accuracy >= 48
+        };
+      });
+      return info;
     }
     
     function getMLInsights() {
@@ -11038,6 +11551,43 @@
             `).join('')}
           </div>
           ` : ''}
+          
+          <!-- VERO ML ENGINE STATUS -->
+          <div style="background:rgba(168,85,247,0.04);border:1px solid rgba(168,85,247,0.15);border-radius:12px;padding:16px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <span style="font-size:1.3rem;">🧠</span>
+              <div>
+                <div style="font-size:0.88rem;font-weight:800;color:#c084fc;">ML Engine — Regressione Logistica</div>
+                <div style="font-size:0.68rem;color:var(--text-gray);">Apprendimento reale da features partita (solo GG/Over — non tocca 1X2)</div>
+              </div>
+            </div>
+            ${(() => {
+              const mlInfo = getMLEngineInfo();
+              const labels = { gg: 'GG (Entrambe Segnano)', over25: 'Over 2.5', over15: 'Over 1.5' };
+              const icons = { gg: '⚡', over25: '🔥', over15: '⚽' };
+              return Object.entries(mlInfo).map(([key, info]) => {
+                const statusColor = info.status === 'attivo' ? '#10b981' : info.status === 'apprendimento' ? '#fbbf24' : info.status === 'raccolta_dati' ? '#00d4ff' : '#64748b';
+                const statusLabel = info.status === 'attivo' ? '✅ ATTIVO' : info.status === 'apprendimento' ? '🔄 Apprendimento' : info.status === 'raccolta_dati' ? '📊 Raccolta dati' : '⏸️ Non addestrato';
+                const barWidth = Math.min(100, info.accuracy);
+                return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:rgba(168,85,247,0.04);border-radius:8px;margin-bottom:6px;">' +
+                  '<div style="flex:1;">' +
+                    '<div style="font-size:0.78rem;font-weight:700;color:white;">' + icons[key] + ' ' + labels[key] + '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;">' +
+                      '<div style="flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;"><div style="width:' + barWidth + '%;height:100%;background:' + statusColor + ';border-radius:2px;"></div></div>' +
+                      '<span style="font-size:0.62rem;color:var(--text-dark);">' + info.samples + ' campioni</span>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div style="text-align:right;margin-left:12px;">' +
+                    '<div style="font-size:0.82rem;font-weight:900;color:' + statusColor + ';">' + (info.accuracy > 0 ? info.accuracy + '%' : '—') + '</div>' +
+                    '<div style="font-size:0.55rem;color:' + statusColor + ';font-weight:700;">' + statusLabel + '</div>' +
+                  '</div>' +
+                '</div>';
+              }).join('');
+            })()}
+            <div style="font-size:0.6rem;color:var(--text-dark);text-align:center;margin-top:8px;">
+              🔒 Le probabilità 1X2 NON sono modificate dal ML Engine — solo GG e Over vengono aggiustati
+            </div>
+          </div>
           
           <!-- GRAFICI -->
           <div class="performance-grid">
