@@ -4618,10 +4618,10 @@
     
     function savePredictionHistory() {
       try {
-        // Mantieni solo ultime 24h (1 giorno) per ridurre dimensioni
-        const oneDayAgo = new Date();
-        oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-        const cutoffDate = oneDayAgo.toISOString().split('T')[0];
+        // Mantieni solo ultime 48h (2 giorni) per ridurre dimensioni
+        const twoDaysAgo = new Date();
+        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        const cutoffDate = twoDaysAgo.toISOString().split('T')[0];
 
         Object.keys(state.predictionHistory).forEach(key => {
           if (state.predictionHistory[key].date < cutoffDate) {
@@ -4629,19 +4629,19 @@
           }
         });
 
-        // Limita a max 5 predizioni per partita (era 10)
+        // Limita a max 8 predizioni per partita
         Object.keys(state.predictionHistory).forEach(key => {
           const preds = state.predictionHistory[key].predictions;
-          if (preds && preds.length > 5) {
-            state.predictionHistory[key].predictions = preds.slice(-5);
+          if (preds && preds.length > 8) {
+            state.predictionHistory[key].predictions = preds.slice(-8);
           }
         });
 
-        // Limita a max 50 partite totali (LRU)
+        // Limita a max 200 partite totali (LRU)
         const keys = Object.keys(state.predictionHistory);
-        if (keys.length > 50) {
+        if (keys.length > 200) {
           // Rimuovi le più vecchie
-          keys.slice(0, keys.length - 50).forEach(k => delete state.predictionHistory[k]);
+          keys.slice(0, keys.length - 200).forEach(k => delete state.predictionHistory[k]);
         }
 
         // Salva su Firebase in background — sincronizza su tutti i device
@@ -4657,8 +4657,8 @@
           // localStorage pieno: taglia ulteriormente e riprova
           console.warn('localStorage quota: taglio storico...');
           const allKeys = Object.keys(state.predictionHistory);
-          // Tieni solo le ultime 20 partite
-          allKeys.slice(0, allKeys.length - 20).forEach(k => delete state.predictionHistory[k]);
+          // Tieni solo le ultime 100 partite
+          allKeys.slice(0, allKeys.length - 100).forEach(k => delete state.predictionHistory[k]);
           try {
             localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
             console.log('✅ Storico ridotto e salvato');
@@ -4692,7 +4692,7 @@
       const history = getPredictionHistory(matchId);
       const stats = getHistoryStats(matchId);
       
-      // Caso: Prima analisi
+      // Caso: Nessuna analisi ancora
       if (!history || history.length === 0) {
         return '<div class="history-section">' +
           '<div class="history-header">' +
@@ -4703,8 +4703,75 @@
             '</div>' +
           '</div>' +
           '<div class="history-empty">' +
-            '&#x1F4CA; <strong>Prima analisi registrata!</strong><br>' +
-            '<span style="font-size:0.75rem;color:var(--text-dark);">Riapri questa partita tra qualche ora per vedere eventuali variazioni del pronostico.</span>' +
+            '&#x1F4CA; <strong>In attesa della prima registrazione...</strong><br>' +
+            '<span style="font-size:0.75rem;color:var(--text-dark);">Il sistema registra automaticamente le previsioni ogni 2 ore. Torna più tardi per vedere le variazioni.</span>' +
+          '</div>' +
+        '</div>';
+      }
+      
+      // === CALCOLO INDICE DI STABILITÀ ===
+      let stabilityScore = 100; // 100 = perfettamente stabile
+      let stabilityLabel = '';
+      let stabilityColor = '';
+      let stabilityIcon = '';
+      
+      if (history.length >= 2) {
+        const first = history[0];
+        const last = history[history.length - 1];
+        const pickChanged = first.pick !== last.pick;
+        const probDiff = Math.abs(last.prob - first.prob);
+        const maxProbSwing = Math.max(...history.map((h,i) => i > 0 ? Math.abs(h.prob - history[i-1].prob) : 0));
+        const pickChanges = history.filter((h,i) => i > 0 && h.pick !== history[i-1].pick).length;
+        
+        // Penalità per instabilità
+        if (pickChanged) stabilityScore -= 30;
+        if (pickChanges >= 2) stabilityScore -= 20;
+        stabilityScore -= Math.min(30, probDiff);
+        stabilityScore -= Math.min(15, maxProbSwing * 2);
+        stabilityScore = Math.max(0, Math.round(stabilityScore));
+      }
+      
+      if (stabilityScore >= 85) {
+        stabilityLabel = 'MOLTO STABILE';
+        stabilityColor = '#10b981';
+        stabilityIcon = '🟢';
+      } else if (stabilityScore >= 65) {
+        stabilityLabel = 'STABILE';
+        stabilityColor = '#00d4ff';
+        stabilityIcon = '🔵';
+      } else if (stabilityScore >= 40) {
+        stabilityLabel = 'VARIABILE';
+        stabilityColor = '#fbbf24';
+        stabilityIcon = '🟡';
+      } else {
+        stabilityLabel = 'INSTABILE';
+        stabilityColor = '#ef4444';
+        stabilityIcon = '🔴';
+      }
+      
+      // Caso: Solo 1 registrazione
+      if (history.length === 1) {
+        const entry = history[0];
+        return '<div class="history-section">' +
+          '<div class="history-header">' +
+            '<div class="history-icon">&#x1F4DC;</div>' +
+            '<div class="history-title">' +
+              '<h3>Storico Variazioni</h3>' +
+              '<p>Traccia le variazioni dei pronostici nel tempo</p>' +
+            '</div>' +
+          '</div>' +
+          '<div style="padding:14px;background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.12);border-radius:10px;margin:10px 0;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+              '<div>' +
+                '<div style="font-size:0.72rem;color:var(--text-dark);">📌 Prima registrazione alle ' + entry.time + '</div>' +
+                '<div style="font-size:0.88rem;font-weight:700;color:white;margin-top:4px;">' + entry.pick + ' — ' + entry.prob.toFixed(0) + '%</div>' +
+              '</div>' +
+              '<div style="text-align:center;padding:6px 12px;background:rgba(0,212,255,0.08);border-radius:8px;">' +
+                '<div style="font-size:0.6rem;color:var(--text-dark);">Registrazioni</div>' +
+                '<div style="font-size:1.1rem;font-weight:900;color:#00d4ff;">1</div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="font-size:0.65rem;color:var(--text-dark);margin-top:8px;">⏳ Servono almeno 2 registrazioni per calcolare la stabilità. Il sistema registra automaticamente ogni 2 ore.</div>' +
           '</div>' +
         '</div>';
       }
@@ -4748,7 +4815,9 @@
         }
         
         compareHtml = '<div class="history-compare">' +
-          '<div class="history-compare-title">&#x1F4CA; CONFRONTO PRONOSTICI</div>' +
+          '<div class="history-compare-title" style="display:flex;justify-content:space-between;align-items:center;">&#x1F4CA; CONFRONTO PRONOSTICI' +
+            '<span style="font-size:0.65rem;font-weight:800;color:' + stabilityColor + ';background:' + stabilityColor + '15;padding:3px 8px;border-radius:6px;">' + stabilityIcon + ' ' + stabilityLabel + ' (' + stabilityScore + '/100)</span>' +
+          '</div>' +
           '<div class="history-compare-grid">' +
             '<div class="history-compare-box first">' +
               '<div class="history-compare-label">PRIMA ANALISI</div>' +
@@ -5047,6 +5116,144 @@
         return 'low';
       }
       return 'medium';
+    }
+    
+    // =====================================================================
+    // === AUTO-RECORD: Registra previsioni per TUTTE le partite ===
+    // === Così lo storico si popola senza aprire ogni partita ===
+    // =====================================================================
+    function autoRecordAllPredictions() {
+      const advices = state.dailyPicks?.matchAdvices || [];
+      if (advices.length === 0) return;
+      
+      let recorded = 0;
+      const today = getDateString(state.selectedDate);
+      
+      // Salva in BATCH — senza chiamare savePredictionHistory ogni volta
+      advices.forEach(a => {
+        if (a.pick && a.prob && a.matchId && a.matchName) {
+          const key = String(a.matchId);
+          const now = new Date();
+          const timestamp = now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+          const fullTimestamp = now.getTime();
+          
+          if (!state.predictionHistory[key]) {
+            state.predictionHistory[key] = {
+              matchName: a.matchName,
+              date: today,
+              predictions: []
+            };
+          }
+          
+          const history = state.predictionHistory[key].predictions;
+          const lastPred = history.length > 0 ? history[history.length - 1] : null;
+          
+          let changeType = 'first';
+          if (lastPred) {
+            const pickChanged = lastPred.pick !== a.pick;
+            const probDiff = Math.abs(a.prob - lastPred.prob);
+            
+            if (pickChanged) changeType = 'major';
+            else if (probDiff >= 10) changeType = 'significant';
+            else if (probDiff >= 3) changeType = 'minor';
+            else return; // Nessun cambiamento rilevante
+          }
+          
+          history.push({
+            time: timestamp,
+            fullTime: fullTimestamp,
+            pick: a.pick,
+            prob: a.prob,
+            changeType: changeType
+          });
+          
+          // Max 10 registrazioni per partita
+          if (history.length > 10) {
+            state.predictionHistory[key].predictions = history.slice(-10);
+          }
+          
+          recorded++;
+        }
+      });
+      
+      // SALVATAGGIO UNICO alla fine del batch
+      if (recorded > 0) {
+        savePredictionHistoryBatch();
+        console.log(`📜 Auto-record: ${recorded} previsioni registrate nello storico`);
+      }
+    }
+    
+    // Salvataggio batch — limiti più generosi per il daily
+    function savePredictionHistoryBatch() {
+      try {
+        // Pulizia: rimuovi partite vecchie (più di 3 giorni)
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+        const cutoffDate = threeDaysAgo.toISOString().split('T')[0];
+        
+        Object.keys(state.predictionHistory).forEach(key => {
+          if (state.predictionHistory[key].date < cutoffDate) {
+            delete state.predictionHistory[key];
+          }
+        });
+        
+        // Max 5 predizioni per partita
+        Object.keys(state.predictionHistory).forEach(key => {
+          const preds = state.predictionHistory[key].predictions;
+          if (preds && preds.length > 5) {
+            state.predictionHistory[key].predictions = preds.slice(-5);
+          }
+        });
+        
+        // Firebase: max 400 partite (3 giorni × ~130 partite/giorno)
+        const keys = Object.keys(state.predictionHistory);
+        if (keys.length > 400) {
+          keys.slice(0, keys.length - 400).forEach(k => delete state.predictionHistory[k]);
+        }
+        
+        // Salva su Firebase
+        if (typeof saveToFirebase === 'function') {
+          saveToFirebase('predictionHistory', state.predictionHistory).catch(e =>
+            console.debug('predictionHistory Firebase sync:', e.message)
+          );
+        }
+        
+        // localStorage: max 200 partite (più limitato del cloud)
+        try {
+          const localCopy = { ...state.predictionHistory };
+          const localKeys = Object.keys(localCopy);
+          if (localKeys.length > 200) {
+            localKeys.slice(0, localKeys.length - 200).forEach(k => delete localCopy[k]);
+          }
+          localStorage.setItem('bp2_prediction_history', JSON.stringify(localCopy));
+        } catch(quotaErr) {
+          console.warn('localStorage quota: taglio storico...');
+          const allKeys = Object.keys(state.predictionHistory);
+          const reduced = {};
+          allKeys.slice(-100).forEach(k => reduced[k] = state.predictionHistory[k]);
+          try {
+            localStorage.setItem('bp2_prediction_history', JSON.stringify(reduced));
+          } catch(e2) {
+            localStorage.removeItem('bp2_prediction_history');
+          }
+        }
+      } catch(e) {
+        console.warn('savePredictionHistoryBatch error:', e);
+      }
+    }
+    
+    // Timer per auto-aggiornamento storico ogni 2 ore
+    let _autoRecordTimer = null;
+    function startAutoRecordTimer() {
+      if (_autoRecordTimer) clearInterval(_autoRecordTimer);
+      // Ogni 2 ore ricalcola picks e registra variazioni
+      _autoRecordTimer = setInterval(() => {
+        console.log('🔄 Auto-record: Aggiornamento periodico storico...');
+        calculateDailyPicks();
+        calculateTraderPicks();
+        autoRecordAllPredictions();
+      }, 2 * 60 * 60 * 1000); // 2 ore
+      console.log('⏰ Auto-record timer avviato (ogni 2 ore)');
     }
     
     function calculateDailyPicks() {
@@ -6833,6 +7040,8 @@
           // Calcola i picks DOPO aver caricato FootyStats
           calculateDailyPicks();
           calculateTraderPicks();
+          autoRecordAllPredictions();
+          startAutoRecordTimer();
           render(); // Re-render per aggiornare i consigli
         }).catch(e => {
           console.warn('FootyStats load failed:', e);
@@ -6840,6 +7049,8 @@
           // Calcola picks anche senza FootyStats (con dati base)
           calculateDailyPicks();
           calculateTraderPicks();
+          autoRecordAllPredictions();
+          startAutoRecordTimer();
           render();
         });
         
@@ -14163,4 +14374,3 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
   </script>
 </body>
 </html>
-
