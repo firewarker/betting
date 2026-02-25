@@ -7119,6 +7119,17 @@
       if (cached) {
         state.analysis = cached;
         state.loading = false;
+        
+        // Salva anche da cache nello storico variazioni
+        try {
+          const ai = generateAIAdvice(match, cached);
+          const matchName = match.home.name + ' vs ' + match.away.name;
+          savePredictionToHistory(match.id, matchName, {
+            pick: ai.pick,
+            prob: ai.prob
+          });
+        } catch(e) { console.warn('History save from cache failed:', e); }
+        
         render();
         if (!state.superAnalysis) {
           try { state.superAnalysis = runSuperAlgorithm(match, cached); render(); }
