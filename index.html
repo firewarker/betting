@@ -4692,202 +4692,164 @@
     }
     
     function renderHistorySection(matchId) {
-      const allHistory = getPredictionHistory(matchId);
-      
-      // Separa per fonte
-      const fullPreds = (allHistory || []).filter(h => h.source === 'full');
-      const quickPreds = (allHistory || []).filter(h => h.source === 'quick');
-      // Vecchi record senza source li consideriamo 'unknown'
-      const oldPreds = (allHistory || []).filter(h => !h.source);
-      
-      // Per il confronto usiamo SOLO full (analisi completa)
-      // Se non ci sono full, usiamo quick come fallback
-      const mainPreds = fullPreds.length >= 2 ? fullPreds : quickPreds.length >= 2 ? quickPreds : [];
-      const mainSource = fullPreds.length >= 2 ? 'full' : quickPreds.length >= 2 ? 'quick' : null;
+      const history = getPredictionHistory(matchId);
       
       // Caso: Nessuna analisi
-      if (!allHistory || allHistory.length === 0) {
+      if (!history || history.length === 0) {
         return '<div class="history-section">' +
           '<div class="history-header">' +
-            '<div class="history-icon">&#x1F4DC;</div>' +
+            '<div class="history-icon">📜</div>' +
             '<div class="history-title">' +
               '<h3>Storico Variazioni</h3>' +
-              '<p>Traccia le variazioni dei pronostici nel tempo</p>' +
+              '<p>Monitora i cambiamenti del pronostico</p>' +
             '</div>' +
           '</div>' +
           '<div class="history-empty">' +
-            '&#x1F4CA; <strong>In attesa della prima registrazione...</strong><br>' +
-            '<span style="font-size:0.75rem;color:var(--text-dark);">Il sistema registra automaticamente le previsioni. Torna più tardi per vedere le variazioni.</span>' +
+            '📊 <strong>Nessuna registrazione ancora</strong><br>' +
+            '<span style="font-size:0.75rem;color:var(--text-dark);">Il pronostico verrà registrato automaticamente.</span>' +
           '</div>' +
         '</div>';
       }
       
-      // === CALCOLO INDICE DI STABILITÀ (solo stesso tipo) ===
-      let stabilityScore = 100;
-      let stabilityLabel = '', stabilityColor = '', stabilityIcon = '';
-      
-      if (mainPreds.length >= 2) {
-        const first = mainPreds[0];
-        const last = mainPreds[mainPreds.length - 1];
-        const pickChanged = first.pick !== last.pick;
-        const probDiff = Math.abs(last.prob - first.prob);
-        const maxProbSwing = Math.max(...mainPreds.map((h,i) => i > 0 ? Math.abs(h.prob - mainPreds[i-1].prob) : 0));
-        const pickChanges = mainPreds.filter((h,i) => i > 0 && h.pick !== mainPreds[i-1].pick).length;
-        
-        if (pickChanged) stabilityScore -= 30;
-        if (pickChanges >= 2) stabilityScore -= 20;
-        stabilityScore -= Math.min(30, probDiff);
-        stabilityScore -= Math.min(15, maxProbSwing * 2);
-        stabilityScore = Math.max(0, Math.round(stabilityScore));
-      }
-      
-      if (stabilityScore >= 85) {
-        stabilityLabel = 'MOLTO STABILE'; stabilityColor = '#10b981'; stabilityIcon = '🟢';
-      } else if (stabilityScore >= 65) {
-        stabilityLabel = 'STABILE'; stabilityColor = '#00d4ff'; stabilityIcon = '🔵';
-      } else if (stabilityScore >= 40) {
-        stabilityLabel = 'VARIABILE'; stabilityColor = '#fbbf24'; stabilityIcon = '🟡';
-      } else {
-        stabilityLabel = 'INSTABILE'; stabilityColor = '#ef4444'; stabilityIcon = '🔴';
-      }
-      
-      // Caso: Solo 1 registrazione full o nessuna full
-      if (mainPreds.length < 2) {
-        const lastAny = allHistory[allHistory.length - 1];
-        const sourceLabel = lastAny.source === 'full' ? '🔬 Analisi completa' : lastAny.source === 'quick' ? '⚡ Analisi rapida' : '📊 Analisi';
+      // Caso: Solo 1 registrazione
+      if (history.length === 1) {
+        const entry = history[0];
+        const srcIcon = entry.source === 'full' ? '🔬' : '⚡';
         return '<div class="history-section">' +
           '<div class="history-header">' +
-            '<div class="history-icon">&#x1F4DC;</div>' +
-            '<div class="history-title">' +
-              '<h3>Storico Variazioni</h3>' +
-              '<p>Traccia le variazioni dei pronostici nel tempo</p>' +
-            '</div>' +
+            '<div class="history-icon">📜</div>' +
+            '<div class="history-title"><h3>Storico Variazioni</h3><p>Monitora i cambiamenti del pronostico</p></div>' +
           '</div>' +
           '<div style="padding:14px;background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.12);border-radius:10px;margin:10px 0;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-              '<div>' +
-                '<div style="font-size:0.72rem;color:var(--text-dark);">📌 Ultima registrazione alle ' + lastAny.time + ' <span style="font-size:0.6rem;opacity:0.6;">(' + sourceLabel + ')</span></div>' +
-                '<div style="font-size:0.88rem;font-weight:700;color:white;margin-top:4px;">' + lastAny.pick + ' — ' + lastAny.prob.toFixed(0) + '%</div>' +
-              '</div>' +
-              '<div style="text-align:center;padding:6px 12px;background:rgba(0,212,255,0.08);border-radius:8px;">' +
-                '<div style="font-size:0.6rem;color:var(--text-dark);">Registrazioni</div>' +
-                '<div style="font-size:1.1rem;font-weight:900;color:#00d4ff;">' + allHistory.length + '</div>' +
-              '</div>' +
-            '</div>' +
-            '<div style="font-size:0.65rem;color:var(--text-dark);margin-top:8px;">⏳ Servono almeno 2 analisi dello stesso tipo per calcolare la stabilità.' + (fullPreds.length < 2 ? ' Riapri la partita tra qualche ora.' : '') + '</div>' +
+            '<div style="font-size:0.72rem;color:var(--text-dark);">' + srcIcon + ' Registrato alle ' + entry.time + '</div>' +
+            '<div style="font-size:0.95rem;font-weight:700;color:white;margin-top:4px;">' + entry.pick + ' — ' + entry.prob.toFixed(0) + '%</div>' +
+            '<div style="font-size:0.65rem;color:var(--text-dark);margin-top:8px;">⏳ Riapri la partita più tardi per vedere se il pronostico è rimasto stabile.</div>' +
           '</div>' +
         '</div>';
       }
       
-      // === CONFRONTO PRIMA vs ORA (solo stesso tipo) ===
-      const first = mainPreds[0];
-      const last = mainPreds[mainPreds.length - 1];
+      // === 2+ REGISTRAZIONI: CONFRONTO ===
+      const first = history[0];
+      const last = history[history.length - 1];
       const pickChanged = first.pick !== last.pick;
       const probDiff = last.prob - first.prob;
       const probDiffAbs = Math.abs(probDiff);
-      const hasChanges = mainPreds.length > 1;
       
-      let verdictClass = 'stable';
-      let verdictText = '✅ Pronostico stabile - Nessuna variazione rilevata';
-      let arrowClass = 'stable';
+      // Stabilità: basata su TUTTE le registrazioni
+      let stabilityScore = 100;
+      const pickChanges = history.filter((h,i) => i > 0 && h.pick !== history[i-1].pick).length;
+      const maxSwing = Math.max(...history.map((h,i) => i > 0 ? Math.abs(h.prob - history[i-1].prob) : 0));
       
-      if (pickChanged) {
-        arrowClass = 'changed'; verdictClass = 'changed';
-        verdictText = '⚠️ ATTENZIONE: Il pronostico è cambiato!';
-      } else if (hasChanges && probDiffAbs >= 10) {
-        arrowClass = 'changed'; verdictClass = 'changed';
-        verdictText = '⚠️ Variazione significativa della probabilità';
-      } else if (hasChanges) {
-        verdictText = '✅ Pronostico confermato con piccole variazioni';
+      if (pickChanged) stabilityScore -= 30;
+      if (pickChanges >= 2) stabilityScore -= 20;
+      stabilityScore -= Math.min(30, probDiffAbs);
+      stabilityScore -= Math.min(15, maxSwing * 2);
+      stabilityScore = Math.max(0, Math.round(stabilityScore));
+      
+      let stabilityLabel, stabilityColor, stabilityIcon, stabilityAdvice;
+      
+      // Logica intelligente: un cambio pick non è sempre negativo
+      const lastProb = last.prob;
+      const lastIsStrong = lastProb >= 65;
+      const lastIsDifferentSource = first.source !== last.source; // quick→full = raffinamento
+      const flipFlop = pickChanges >= 2; // il pick è cambiato 2+ volte = indecisione vera
+      
+      if (stabilityScore >= 85) {
+        stabilityLabel = 'MOLTO STABILE'; stabilityColor = '#10b981'; stabilityIcon = '🟢';
+        stabilityAdvice = '✅ Pronostico solido — i dati convergono, alta fiducia';
+      } else if (stabilityScore >= 65) {
+        stabilityLabel = 'STABILE'; stabilityColor = '#00d4ff'; stabilityIcon = '🔵';
+        stabilityAdvice = '✅ Pronostico confermato con piccole variazioni';
+      } else if (stabilityScore >= 40) {
+        stabilityLabel = 'VARIABILE'; stabilityColor = '#fbbf24'; stabilityIcon = '🟡';
+        if (pickChanged && lastIsStrong) {
+          stabilityAdvice = '🔄 Pick cambiato ma l\'ultimo è forte (' + lastProb.toFixed(0) + '%) — il modello ha raffinato la previsione';
+        } else {
+          stabilityAdvice = '⚠️ Pronostico oscillante — valuta con cautela';
+        }
+      } else {
+        stabilityLabel = 'INSTABILE'; stabilityColor = '#ef4444'; stabilityIcon = '🔴';
+        if (flipFlop) {
+          stabilityAdvice = '🚫 Il pronostico continua a cambiare — dati contraddittori, meglio evitare';
+        } else if (pickChanged && lastIsStrong) {
+          stabilityAdvice = '🔄 Pick cambiato ma l\'ultimo ha alta probabilità (' + lastProb.toFixed(0) + '%) — possibile raffinamento con più dati';
+          stabilityColor = '#fbbf24'; stabilityIcon = '🟡'; // Upgrade a variabile
+        } else if (pickChanged && !lastIsStrong) {
+          stabilityAdvice = '⚠️ Pick cambiato e probabilità bassa — poca fiducia in questa partita';
+        } else {
+          stabilityAdvice = '⚠️ Forte variazione di probabilità — valuta l\'ultimo valore';
+        }
       }
       
+      // Differenza testo
       let diffText = '';
-      if (hasChanges) {
-        if (probDiff > 0) diffText = '<span style="color:var(--accent-green);">+' + probDiff.toFixed(0) + '%</span>';
-        else if (probDiff < 0) diffText = '<span style="color:var(--accent-red);">' + probDiff.toFixed(0) + '%</span>';
-        else diffText = '<span style="color:var(--text-gray);">±0%</span>';
-      }
+      if (probDiff > 0) diffText = '<span style="color:var(--accent-green);">+' + probDiff.toFixed(0) + '%</span>';
+      else if (probDiff < 0) diffText = '<span style="color:var(--accent-red);">' + probDiff.toFixed(0) + '%</span>';
+      else diffText = '<span style="color:var(--text-gray);">±0%</span>';
       
-      const sourceNote = mainSource === 'quick' ? ' (analisi rapida)' : '';
-      const firstLabel = mainSource === 'full' ? '🔬 PRIMA ANALISI' : '⚡ PRIMA ANALISI';
-      const lastLabel = mainSource === 'full' ? '🔬 ORA' : '⚡ ORA';
+      const firstIcon = first.source === 'full' ? '🔬' : '⚡';
+      const lastIcon = last.source === 'full' ? '🔬' : '⚡';
       
       let compareHtml = '<div class="history-compare">' +
-        '<div class="history-compare-title" style="display:flex;justify-content:space-between;align-items:center;">&#x1F4CA; CONFRONTO PRONOSTICI' + sourceNote +
+        '<div class="history-compare-title" style="display:flex;justify-content:space-between;align-items:center;">📊 CONFRONTO' +
           '<span style="font-size:0.65rem;font-weight:800;color:' + stabilityColor + ';background:' + stabilityColor + '15;padding:3px 8px;border-radius:6px;">' + stabilityIcon + ' ' + stabilityLabel + ' (' + stabilityScore + '/100)</span>' +
         '</div>' +
         '<div class="history-compare-grid">' +
           '<div class="history-compare-box first">' +
-            '<div class="history-compare-label">' + firstLabel + '</div>' +
-            '<div class="history-compare-time">🕐 ' + first.time + '</div>' +
+            '<div class="history-compare-label">PRIMA</div>' +
+            '<div class="history-compare-time">' + firstIcon + ' ' + first.time + '</div>' +
             '<div class="history-compare-pick">' + first.pick + '</div>' +
             '<div class="history-compare-prob">' + first.prob.toFixed(0) + '%</div>' +
           '</div>' +
-          '<div class="history-compare-arrow ' + arrowClass + '">' + (hasChanges ? '→' : '•') + '</div>' +
+          '<div class="history-compare-arrow ' + (pickChanged ? 'changed' : 'stable') + '">' + (pickChanged ? '⚠️' : '→') + '</div>' +
           '<div class="history-compare-box current">' +
-            '<div class="history-compare-label">' + lastLabel + '</div>' +
-            '<div class="history-compare-time">🕐 ' + last.time + '</div>' +
+            '<div class="history-compare-label">ORA</div>' +
+            '<div class="history-compare-time">' + lastIcon + ' ' + last.time + '</div>' +
             '<div class="history-compare-pick">' + last.pick + '</div>' +
             '<div class="history-compare-prob">' + last.prob.toFixed(0) + '%</div>' +
           '</div>' +
         '</div>' +
-        '<div class="history-compare-verdict ' + verdictClass + '">' +
-          verdictText +
-          (hasChanges ? '<div class="history-compare-diff">Differenza: ' + diffText + '</div>' : '') +
+        '<div class="history-compare-verdict ' + (stabilityScore < 40 ? 'changed' : 'stable') + '">' +
+          stabilityAdvice +
+          '<div class="history-compare-diff">Differenza: ' + diffText + (pickChanged ? ' — <strong style="color:#ef4444;">Pick cambiato!</strong>' : '') + '</div>' +
         '</div>' +
       '</div>';
       
-      // === CRONOLOGIA COMPLETA (tutte le fonti, etichettate) ===
-      let historyHtml = '';
-      if (allHistory.length > 1) {
-        historyHtml = '<div style="font-size:0.75rem;color:var(--text-dark);margin-bottom:10px;font-weight:600;">📜 CRONOLOGIA COMPLETA</div>';
-        allHistory.forEach(function(item, index) {
-          const isLast = index === allHistory.length - 1;
-          const itemClass = isLast ? 'current' : (item.changeType === 'major' || item.changeType === 'significant' ? 'significant' : '');
-          
-          let changeLabel = '', changeClass = '';
-          if (item.changeType === 'first') { changeLabel = '1° REG'; changeClass = 'first'; }
-          else if (item.changeType === 'minor') { changeLabel = '↕ ±3-9%'; changeClass = 'minor'; }
-          else if (item.changeType === 'significant') { changeLabel = '⚠️ ±10%+'; changeClass = 'significant'; }
-          else if (item.changeType === 'major') { changeLabel = '🔄 CAMBIO!'; changeClass = 'major'; }
-          
-          const sourceIcon = item.source === 'full' ? '🔬' : item.source === 'quick' ? '⚡' : '📊';
-          
-          historyHtml += '<div class="history-item ' + itemClass + '">' +
-            '<span class="history-time">' + sourceIcon + ' ' + item.time + '</span>' +
-            '<div class="history-pick">' +
-              '<span class="history-pick-value">' + item.pick + '</span>' +
-              '<span class="history-pick-prob">' + item.prob.toFixed(0) + '%</span>' +
-            '</div>' +
-            '<span class="history-change ' + changeClass + '">' + changeLabel + '</span>' +
-          '</div>';
-        });
-      }
-      
-      // Statistiche (solo stesso tipo)
-      const stats = getHistoryStats(matchId);
-      let statsHtml = '';
-      if (stats && stats.totalChanges > 0) {
-        statsHtml = '<div class="history-stats">' +
-          '<div class="history-stat"><div class="history-stat-value">' + stats.totalChanges + '</div><div class="history-stat-label">Variazioni</div></div>' +
-          '<div class="history-stat"><div class="history-stat-value">' + stats.majorChanges + '</div><div class="history-stat-label">Cambi Pick</div></div>' +
-          '<div class="history-stat"><div class="history-stat-value">' + (stats.pickChanged ? '⚠️' : '✅') + '</div><div class="history-stat-label">' + (stats.pickChanged ? 'Cambiato' : 'Stabile') + '</div></div>' +
+      // === CRONOLOGIA ===
+      let historyHtml = '<div style="font-size:0.75rem;color:var(--text-dark);margin-bottom:10px;font-weight:600;">📜 CRONOLOGIA</div>';
+      history.forEach(function(item, index) {
+        const isLast = index === history.length - 1;
+        const itemClass = isLast ? 'current' : (item.changeType === 'major' ? 'significant' : '');
+        const srcIcon = item.source === 'full' ? '🔬' : item.source === 'quick' ? '⚡' : '📊';
+        
+        let changeLabel = '', changeClass = '';
+        if (item.changeType === 'first') { changeLabel = '1°'; changeClass = 'first'; }
+        else if (item.changeType === 'minor') { changeLabel = '↕'; changeClass = 'minor'; }
+        else if (item.changeType === 'significant') { changeLabel = '⚠️'; changeClass = 'significant'; }
+        else if (item.changeType === 'major') { changeLabel = '🔄'; changeClass = 'major'; }
+        
+        historyHtml += '<div class="history-item ' + itemClass + '">' +
+          '<span class="history-time">' + srcIcon + ' ' + item.time + '</span>' +
+          '<div class="history-pick">' +
+            '<span class="history-pick-value">' + item.pick + '</span>' +
+            '<span class="history-pick-prob">' + item.prob.toFixed(0) + '%</span>' +
+          '</div>' +
+          '<span class="history-change ' + changeClass + '">' + changeLabel + '</span>' +
         '</div>';
-      }
+      });
       
-      // Legenda fonti
-      const legendHtml = '<div style="font-size:0.58rem;color:var(--text-dark);margin-top:10px;padding:6px 10px;background:rgba(255,255,255,0.02);border-radius:6px;text-align:center;">' +
-        '🔬 = Analisi completa (H2H, quote, infortunati) &nbsp;|&nbsp; ⚡ = Analisi rapida (solo xG base)' +
+      // Legenda compatta
+      const legendHtml = '<div style="font-size:0.55rem;color:var(--text-dark);margin-top:8px;text-align:center;opacity:0.6;">' +
+        '🔬 Analisi completa &nbsp; ⚡ Analisi rapida' +
       '</div>';
       
       return '<div class="history-section">' +
         '<div class="history-header">' +
-          '<div class="history-icon">&#x1F4DC;</div>' +
+          '<div class="history-icon">📜</div>' +
           '<div class="history-title"><h3>Storico Variazioni</h3><p>Monitora i cambiamenti del pronostico</p></div>' +
         '</div>' +
         compareHtml +
-        (allHistory.length > 1 ? '<div class="history-timeline">' + historyHtml + '</div>' : '') +
-        statsHtml +
+        '<div class="history-timeline">' + historyHtml + '</div>' +
         legendHtml +
       '</div>';
     }
