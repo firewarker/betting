@@ -514,14 +514,14 @@
     /* MULTIGOAL GRID */
     .multigoal-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 8px;
     }
     .multigoal-box {
       background: var(--bg-input);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 12px 8px;
+      padding: 10px 6px;
       text-align: center;
       transition: all 0.2s;
       cursor: pointer;
@@ -537,21 +537,106 @@
       box-shadow: 0 2px 8px rgba(16,185,129,0.2);
     }
     .multigoal-range {
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 700;
       color: var(--text);
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     .multigoal-prob {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       color: var(--accent-cyan);
       font-weight: 700;
     }
     .multigoal-quota {
-      font-size: 0.75rem;
+      font-size: 0.68rem;
       color: var(--accent-emerald);
       margin-top: 2px;
       font-weight: 600;
+    }
+    /* SMART PICK HERO */
+    .mg-smart-pick {
+      background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(34,211,238,0.08));
+      border: 2px solid rgba(16,185,129,0.4);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .mg-smart-pick::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #10b981, #00d4ff, #a78bfa);
+    }
+    .mg-smart-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #10b981;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .mg-smart-range {
+      font-size: 1.8rem;
+      font-weight: 900;
+      color: white;
+      line-height: 1;
+    }
+    .mg-smart-prob {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #00e5a0;
+      margin-top: 4px;
+    }
+    .mg-smart-quota {
+      font-size: 0.78rem;
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+    .mg-smart-confidence {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.62rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .mg-smart-confidence.alta { background: rgba(16,185,129,0.15); color: #10b981; }
+    .mg-smart-confidence.media { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .mg-smart-confidence.bassa { background: rgba(248,113,113,0.15); color: #f87171; }
+    /* GOAL DISTRIBUTION BAR */
+    .mg-dist-bar {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 60px;
+      padding: 0 4px;
+    }
+    .mg-dist-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .mg-dist-fill {
+      width: 100%;
+      border-radius: 4px 4px 0 0;
+      min-height: 3px;
+      transition: all 0.3s;
+    }
+    .mg-dist-label {
+      font-size: 0.58rem;
+      color: var(--text-dark);
+      font-weight: 600;
+    }
+    .mg-dist-pct {
+      font-size: 0.55rem;
+      color: var(--text-gray);
+      font-weight: 700;
     }
     
     /* TEMPO GOL */
@@ -7786,16 +7871,24 @@
       
       // Multigoal squadra
       const multigoalHome = [
+        { range: '0', prob: calcTeamMultigol(homeXG, 0, 0) },
         { range: '1+', prob: calcTeamMultigol(homeXG, 1, 6) },
         { range: '2+', prob: calcTeamMultigol(homeXG, 2, 6) },
+        { range: '3+', prob: calcTeamMultigol(homeXG, 3, 6) },
+        { range: '0-1', prob: calcTeamMultigol(homeXG, 0, 1) },
         { range: '1-2', prob: calcTeamMultigol(homeXG, 1, 2) },
-        { range: '1-3', prob: calcTeamMultigol(homeXG, 1, 3) }
+        { range: '1-3', prob: calcTeamMultigol(homeXG, 1, 3) },
+        { range: '2-3', prob: calcTeamMultigol(homeXG, 2, 3) }
       ];
       const multigoalAway = [
+        { range: '0', prob: calcTeamMultigol(awayXG, 0, 0) },
         { range: '1+', prob: calcTeamMultigol(awayXG, 1, 6) },
         { range: '2+', prob: calcTeamMultigol(awayXG, 2, 6) },
+        { range: '3+', prob: calcTeamMultigol(awayXG, 3, 6) },
+        { range: '0-1', prob: calcTeamMultigol(awayXG, 0, 1) },
         { range: '1-2', prob: calcTeamMultigol(awayXG, 1, 2) },
-        { range: '1-3', prob: calcTeamMultigol(awayXG, 1, 3) }
+        { range: '1-3', prob: calcTeamMultigol(awayXG, 1, 3) },
+        { range: '2-3', prob: calcTeamMultigol(awayXG, 2, 3) }
       ];
       
       return {
@@ -8100,21 +8193,74 @@
     // Calcola TUTTI i range multigoal
     function calcAllMultigol(homeXG, awayXG) {
       const ranges = [
+        { name: '0-1', min: 0, max: 1 },
         { name: '0-2', min: 0, max: 2 },
         { name: '0-3', min: 0, max: 3 },
+        { name: '1-2', min: 1, max: 2 },
         { name: '1-3', min: 1, max: 3 },
         { name: '1-4', min: 1, max: 4 },
+        { name: '2-3', min: 2, max: 3 },
         { name: '2-4', min: 2, max: 4 },
         { name: '2-5', min: 2, max: 5 },
         { name: '3-5', min: 3, max: 5 },
         { name: '3-6', min: 3, max: 6 }
       ];
       
-      return ranges.map(r => ({
-        range: r.name,
-        prob: calcMultigol(homeXG, awayXG, r.min, r.max),
-        quota: (100 / calcMultigol(homeXG, awayXG, r.min, r.max)).toFixed(2)
-      })).sort((a, b) => b.prob - a.prob);
+      return ranges.map(r => {
+        const prob = calcMultigol(homeXG, awayXG, r.min, r.max);
+        return {
+          range: r.name,
+          min: r.min,
+          max: r.max,
+          prob: prob,
+          quota: prob > 0 ? (100 / prob).toFixed(2) : '99.00'
+        };
+      }).sort((a, b) => b.prob - a.prob);
+    }
+    
+    // Calcola distribuzione gol esatti con Poisson (per visualizzazione)
+    function calcGoalDistribution(homeXG, awayXG) {
+      const dist = [];
+      const total = homeXG + awayXG;
+      for (let g = 0; g <= 6; g++) {
+        const prob = (Math.pow(total, g) * Math.exp(-total)) / factorial(g);
+        dist.push({ goals: g, prob: prob * 100 });
+      }
+      return dist;
+    }
+    
+    // Smart Multigol Pick — trova il range ottimale
+    function getSmartMultigolPick(homeXG, awayXG) {
+      const allMG = calcAllMultigol(homeXG, awayXG);
+      const totXG = homeXG + awayXG;
+      
+      // Il range ideale: probabilità >= 55%, range stretto (2 gol differenza), che copra gli xG
+      const candidates = allMG.filter(mg => {
+        const rangeWidth = mg.max - mg.min;
+        return mg.prob >= 40 && rangeWidth <= 3;
+      });
+      
+      // Score: prob alta + range stretto (2 range > 3 range) + copre xG totale
+      const scored = candidates.map(mg => {
+        const rangeWidth = mg.max - mg.min;
+        const coversXG = totXG >= mg.min && totXG <= mg.max;
+        const probScore = mg.prob * 1.0;
+        const widthBonus = rangeWidth === 1 ? 15 : rangeWidth === 2 ? 10 : 0; // Range stretto = quota alta
+        const coverBonus = coversXG ? 10 : 0;
+        return { ...mg, score: probScore + widthBonus + coverBonus };
+      });
+      
+      scored.sort((a, b) => b.score - a.score);
+      
+      if (scored.length === 0) return allMG[0]; // fallback al migliore per prob
+      
+      const best = scored[0];
+      // Livello confidenza
+      if (best.prob >= 65) best.confidence = 'alta';
+      else if (best.prob >= 50) best.confidence = 'media';
+      else best.confidence = 'bassa';
+      
+      return best;
     }
     
     // Calcola distribuzione gol per tempo
@@ -8209,14 +8355,16 @@
       const mgA = calcTeamMultigol(awayXG, 1, 3);
       preds.push({ market: 'MG Ospite', value: '1-3', prob: mgA });
       
-      // Corner
-      const cProb = corners.probs[9.5];
-      preds.push({ market: 'Corner', value: cProb.over >= 50 ? 'Over 9.5' : 'Under 9.5', prob: Math.max(cProb.over, cProb.under) });
-      
-      // Cartellini
-      const cardLine = cards.total > 4 ? 4.5 : 3.5;
-      const cardProb = cards.probs[cardLine];
-      preds.push({ market: 'Cartellini', value: cardProb.over >= 50 ? `Over ${cardLine}` : `Under ${cardLine}`, prob: Math.max(cardProb.over, cardProb.under) });
+      // Miglior Multigol (sostitutivo di Corner e Cartellini)
+      const mgRanges = calcAllMultigol(homeXG, awayXG);
+      if (mgRanges.length > 0) {
+        const bestMG = mgRanges[0]; // range con prob più alta
+        preds.push({ market: 'Multigol', value: bestMG.range, prob: bestMG.prob });
+        // Secondo miglior multigol come alternativa
+        if (mgRanges.length > 1) {
+          preds.push({ market: 'Multigol Alt', value: mgRanges[1].range, prob: mgRanges[1].prob });
+        }
+      }
       
       // Risultato Esatto
       preds.push({ market: 'Ris. Esatto', value: `${exactScores[0].h}-${exactScores[0].a}`, prob: exactScores[0].p });
@@ -11624,10 +11772,10 @@
           icon: '🎯'
         },
         {
-          label: 'Corner',
-          home: norm(hd.corners || 5, 2, 9),
-          away: norm(ad.corners || 5, 2, 9),
-          icon: '🚩'
+          label: 'Gol/G',
+          home: norm(hd.scoredAvg || 1.2, 0.3, 3.0),
+          away: norm(ad.scoredAvg || 1.2, 0.3, 3.0),
+          icon: '⚽'
         },
         {
           label: 'Win Rate',
@@ -13263,153 +13411,184 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           </div> <!-- fine accordion-body A -->
         </div> <!-- fine accordion A -->
 
-        <!-- SEZIONE B: Statistiche Avanzate -->
-        <div class="section-accordion">
-          <div class="section-accordion-header" onclick="toggleAccordion(this)">
-            <div class="section-accordion-title">
-              <span>📐</span> Statistiche Avanzate
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span class="section-accordion-meta">Corner · Cartellini</span>
-              <span class="section-accordion-arrow">▼</span>
-            </div>
-          </div>
-          <div class="section-accordion-body">
-            <div class="analysis-grid">
-              <div class="analysis-card">
-                <div class="card-title"><div class="card-title-icon">&#x1F6A9;</div><span>Corner</span></div>
-            <div class="stat-grid">
-              <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.corners.home.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
-              <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.corners.total.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
-              <div class="stat-box"><div class="stat-box-label">Ospite</div><div class="stat-box-value">${d.corners.away.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
-            </div>
-            <div class="ou-lines" style="margin-top: 12px;">
-              ${d.corners.probs ? Object.entries(d.corners.probs).map(([line, p]) => `
-                <div class="ou-line-row">
-                  <span class="ou-line-label">Corner ${line}</span>
-                  <span class="ou-line-over ${p.over >= 55 ? 'highlight' : ''}">O ${p.over.toFixed(0)}%</span>
-                  <span class="ou-line-under ${p.under >= 55 ? 'highlight' : ''}">U ${p.under.toFixed(0)}%</span>
-                </div>
-              `).join('') : ''}
-            </div>
-          </div>
-          
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">&#x1F7E8;</div><span>Cartellini</span></div>
-            <div class="stat-grid">
-              <div class="stat-box"><div class="stat-box-label">Casa</div><div class="stat-box-value">${d.cards.home.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
-              <div class="stat-box"><div class="stat-box-label">Tot</div><div class="stat-box-value">${d.cards.total.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
-              <div class="stat-box"><div class="stat-box-label">Ospite</div><div class="stat-box-value">${d.cards.away.toFixed(1)}</div><div class="stat-box-sub">media</div></div>
-            </div>
-            <div class="ou-lines" style="margin-top: 12px;">
-              ${d.cards.probs ? Object.entries(d.cards.probs).map(([line, p]) => `
-                <div class="ou-line-row">
-                  <span class="ou-line-label">Carte ${line}</span>
-                  <span class="ou-line-over ${p.over >= 55 ? 'highlight' : ''}">O ${p.over.toFixed(0)}%</span>
-                  <span class="ou-line-under ${p.under >= 55 ? 'highlight' : ''}">U ${p.under.toFixed(0)}%</span>
-                </div>
-              `).join('') : ''}
-            </div>
-          </div>
-          
-            </div> <!-- fine analysis-grid sezione B -->
-          </div> <!-- fine accordion-body B -->
-        </div> <!-- fine accordion B -->
-
         <!-- SEZIONE C: Gol & Score -->
         <div class="section-accordion">
           <div class="section-accordion-header" onclick="toggleAccordion(this)">
             <div class="section-accordion-title">
-              <span>⚽</span> Gol, Score & Multigoal
+              <span>🎯</span> Multigol & Gol Analysis
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
-              <span class="section-accordion-meta">MG · Gol per Tempo · Risultati Esatti</span>
+              <span class="section-accordion-meta">${(() => {
+                const sp = getSmartMultigolPick(d.xG.home, d.xG.away);
+                return 'MG ' + sp.range + ' ' + sp.prob.toFixed(0) + '%';
+              })()}</span>
               <span class="section-accordion-arrow">▼</span>
             </div>
           </div>
           <div class="section-accordion-body">
-            <div class="analysis-grid">
-              <div class="analysis-card wide">
-                <div class="card-title"><div class="card-title-icon">&#x1F3B0;</div><span>Multigoal Range</span></div>
-            <div class="multigoal-grid">
-              ${d.multigoal ? d.multigoal.slice(0, 6).map((mg, i) => `
-                <div class="multigoal-box ${i === 0 ? 'best' : ''}">
-                  <div class="multigoal-range">${mg.range}</div>
-                  <div class="multigoal-prob">${mg.prob.toFixed(0)}%</div>
-                  <div class="multigoal-quota">@${mg.quota}</div>
+
+            <!-- SMART PICK HERO -->
+            ${(() => {
+              const sp = getSmartMultigolPick(d.xG.home, d.xG.away);
+              const totXG = (d.xG.home + d.xG.away).toFixed(2);
+              const confClass = sp.confidence || 'media';
+              const confLabel = confClass === 'alta' ? '🎯 ALTA FIDUCIA' : confClass === 'media' ? '⚡ FIDUCIA MEDIA' : '⚠️ BASSA FIDUCIA';
+              return `
+              <div class="mg-smart-pick">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+                  <div>
+                    <div class="mg-smart-label">🏆 Miglior Multigol</div>
+                    <div class="mg-smart-range">MG ${sp.range}</div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
+                      <span class="mg-smart-prob">${sp.prob.toFixed(0)}%</span>
+                      <span class="mg-smart-quota">Quota fair @${sp.quota}</span>
+                      <span class="mg-smart-confidence ${confClass}">${confLabel}</span>
+                    </div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:0.62rem;color:var(--text-dark);">xG Totale</div>
+                    <div style="font-size:1.4rem;font-weight:900;color:var(--accent-cyan);">${totXG}</div>
+                    <div style="font-size:0.58rem;color:var(--text-dark);margin-top:2px;">Poisson Distribution</div>
+                  </div>
                 </div>
-              `).join('') : '<div>N/A</div>'}
-            </div>
-          </div>
-          
-          <div class="analysis-card">
-            <div class="card-title"><div class="card-title-icon">⏱️</div><span>Gol per Tempo</span></div>
-            ${d.temporalDistribution ? `
-              <div class="prob-row">
-                <span class="prob-label">Over 0.5 1°T</span>
-                <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${d.temporalDistribution.primoTempo.over05}%"></div></div>
-                <span class="prob-value">${d.temporalDistribution.primoTempo.over05.toFixed(0)}%</span>
+                <!-- DISTRIBUZIONE GOL VISUALE -->
+                <div style="margin-top:14px;">
+                  <div style="font-size:0.6rem;color:var(--text-dark);margin-bottom:6px;font-weight:600;">📊 Probabilità gol totali nella partita</div>
+                  <div class="mg-dist-bar">
+                    ${calcGoalDistribution(d.xG.home, d.xG.away).map((g, i) => {
+                      const maxH = 50;
+                      const h = Math.max(3, g.prob * (maxH / 30));
+                      const isInRange = i >= sp.min && i <= sp.max;
+                      const color = isInRange ? '#10b981' : 'rgba(100,116,139,0.3)';
+                      return '<div class="mg-dist-col">' +
+                        '<div class="mg-dist-pct">' + g.prob.toFixed(0) + '%</div>' +
+                        '<div class="mg-dist-fill" style="height:' + h + 'px;background:' + color + ';"></div>' +
+                        '<div class="mg-dist-label">' + g.goals + '</div>' +
+                      '</div>';
+                    }).join('')}
+                  </div>
+                  <div style="font-size:0.55rem;color:var(--text-dark);text-align:center;margin-top:4px;">Le barre verdi = gol nel range MG ${sp.range}</div>
+                </div>
+              </div>`;
+            })()}
+
+            <div class="analysis-grid">
+              <!-- TUTTI I RANGE MULTIGOL -->
+              <div class="analysis-card wide">
+                <div class="card-title"><div class="card-title-icon">🎰</div><span>Tutti i Range Multigol</span></div>
+                <div class="multigoal-grid">
+                  ${d.multigoal ? d.multigoal.slice(0, 8).map((mg, i) => {
+                    const isBest = i === 0;
+                    const probColor = mg.prob >= 65 ? '#00e5a0' : mg.prob >= 50 ? '#fbbf24' : 'var(--accent-cyan)';
+                    return '<div class="multigoal-box ' + (isBest ? 'best' : '') + '">' +
+                      '<div class="multigoal-range">' + mg.range + '</div>' +
+                      '<div class="multigoal-prob" style="color:' + probColor + ';">' + mg.prob.toFixed(0) + '%</div>' +
+                      '<div class="multigoal-quota">@' + mg.quota + '</div>' +
+                    '</div>';
+                  }).join('') : '<div>N/A</div>'}
+                </div>
               </div>
-              <div class="prob-row">
-                <span class="prob-label">Over 0.5 2°T</span>
-                <div class="prob-bar-track"><div class="prob-bar-fill green" style="width:${d.temporalDistribution.secondoTempo.over05}%"></div></div>
-                <span class="prob-value">${d.temporalDistribution.secondoTempo.over05.toFixed(0)}%</span>
+
+              <!-- GOL PER TEMPO -->
+              <div class="analysis-card">
+                <div class="card-title"><div class="card-title-icon">⏱️</div><span>Gol per Tempo</span></div>
+                ${d.temporalDistribution ? `
+                  <div class="prob-row">
+                    <span class="prob-label">Over 0.5 1°T</span>
+                    <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${d.temporalDistribution.primoTempo.over05}%"></div></div>
+                    <span class="prob-value">${d.temporalDistribution.primoTempo.over05.toFixed(0)}%</span>
+                  </div>
+                  <div class="prob-row">
+                    <span class="prob-label">Over 0.5 2°T</span>
+                    <div class="prob-bar-track"><div class="prob-bar-fill green" style="width:${d.temporalDistribution.secondoTempo.over05}%"></div></div>
+                    <span class="prob-value">${d.temporalDistribution.secondoTempo.over05.toFixed(0)}%</span>
+                  </div>
+                  <div class="prob-row">
+                    <span class="prob-label">Over 1.5 1°T</span>
+                    <div class="prob-bar-track"><div class="prob-bar-fill yellow" style="width:${d.temporalDistribution.primoTempo.over15}%"></div></div>
+                    <span class="prob-value">${d.temporalDistribution.primoTempo.over15.toFixed(0)}%</span>
+                  </div>
+                  <div class="tempo-highlight">
+                    <span>⚡ Tempo con più gol:</span>
+                    <strong>${d.temporalDistribution.tempoConPiuGol}</strong>
+                    <span class="tempo-prob">(${d.temporalDistribution.probTempoConPiuGol.toFixed(0)}%)</span>
+                  </div>
+                ` : '<div>N/A</div>'}
               </div>
-              <div class="prob-row">
-                <span class="prob-label">Over 1.5 1°T</span>
-                <div class="prob-bar-track"><div class="prob-bar-fill yellow" style="width:${d.temporalDistribution.primoTempo.over15}%"></div></div>
-                <span class="prob-value">${d.temporalDistribution.primoTempo.over15.toFixed(0)}%</span>
-              </div>
-              <div class="tempo-highlight">
-                <span>⚡ Tempo con più gol:</span>
-                <strong>${d.temporalDistribution.tempoConPiuGol}</strong>
-                <span class="tempo-prob">(${d.temporalDistribution.probTempoConPiuGol.toFixed(0)}%)</span>
-              </div>
-            ` : '<div>N/A</div>'}
-          </div>
-          
-              <!-- CARD: MG SQUADRE con barre percentuali -->
+
+              <!-- MULTIGOL PER SQUADRA -->
               <div class="analysis-card wide">
                 <div class="card-title">
                   <div class="card-title-icon">⚽</div>
-                  <span>Gol per Squadra</span>
-                  <span class="card-title-badge">Range probabilità</span>
+                  <span>Multigol per Squadra</span>
+                  <span class="card-title-badge">Gol individuali</span>
                 </div>
+                
+                <!-- SMART PICKS SQUADRE — riepilogo in alto -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                  ${(() => {
+                    const bestH = (d.multigoalHome || []).filter(mg => mg.range.includes('-') && mg.prob >= 30).sort((a,b) => {
+                      const wA = (a.range.split('-')[1] - a.range.split('-')[0]) <= 2 ? 10 : 0;
+                      const wB = (b.range.split('-')[1] - b.range.split('-')[0]) <= 2 ? 10 : 0;
+                      return (b.prob + wB) - (a.prob + wA);
+                    })[0];
+                    const bestA = (d.multigoalAway || []).filter(mg => mg.range.includes('-') && mg.prob >= 30).sort((a,b) => {
+                      const wA = (a.range.split('-')[1] - a.range.split('-')[0]) <= 2 ? 10 : 0;
+                      const wB = (b.range.split('-')[1] - b.range.split('-')[0]) <= 2 ? 10 : 0;
+                      return (b.prob + wB) - (a.prob + wA);
+                    })[0];
+                    const hColor = bestH && bestH.prob >= 60 ? '#10b981' : bestH && bestH.prob >= 45 ? '#fbbf24' : '#f87171';
+                    const aColor = bestA && bestA.prob >= 60 ? '#10b981' : bestA && bestA.prob >= 45 ? '#fbbf24' : '#f87171';
+                    return `
+                    <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:10px;text-align:center;">
+                      <div style="font-size:0.58rem;color:var(--text-dark);font-weight:600;">🏠 ${esc(m.home.name.split(' ')[0])}</div>
+                      <div style="font-size:1.2rem;font-weight:900;color:white;margin:4px 0;">MG ${bestH ? bestH.range : '-'}</div>
+                      <div style="font-size:0.82rem;font-weight:800;color:${hColor};">${bestH ? bestH.prob.toFixed(0) + '%' : '-'}</div>
+                      <div style="font-size:0.58rem;color:var(--accent-cyan);">@${bestH && bestH.prob > 0 ? (100/bestH.prob).toFixed(2) : '-'}</div>
+                    </div>
+                    <div style="background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.2);border-radius:10px;padding:10px;text-align:center;">
+                      <div style="font-size:0.58rem;color:var(--text-dark);font-weight:600;">✈️ ${esc(m.away.name.split(' ')[0])}</div>
+                      <div style="font-size:1.2rem;font-weight:900;color:white;margin:4px 0;">MG ${bestA ? bestA.range : '-'}</div>
+                      <div style="font-size:0.82rem;font-weight:800;color:${aColor};">${bestA ? bestA.prob.toFixed(0) + '%' : '-'}</div>
+                      <div style="font-size:0.58rem;color:var(--accent-red);">@${bestA && bestA.prob > 0 ? (100/bestA.prob).toFixed(2) : '-'}</div>
+                    </div>`;
+                  })()}
+                </div>
+                
+                <!-- DETTAGLIO BARRE -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
                   <!-- CASA -->
                   <div>
-                    <div style="font-size:0.72rem;font-weight:800;color:var(--accent-cyan);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
-                      🏠 ${esc(m.home.name.split(' ')[0])}
-                      <span style="font-size:0.62rem;color:var(--text-dark);font-weight:400;">xG ${d.xG.home.toFixed(2)}</span>
+                    <div style="font-size:0.68rem;font-weight:700;color:var(--accent-cyan);margin-bottom:8px;">
+                      xG ${d.xG.home.toFixed(2)}
                     </div>
                     ${d.multigoalHome ? d.multigoalHome.map(mg => `
-                      <div class="prob-row" style="margin-bottom:8px;">
-                        <span class="prob-label" style="min-width:36px;font-weight:700;">${mg.range}</span>
+                      <div class="prob-row" style="margin-bottom:6px;">
+                        <span class="prob-label" style="min-width:32px;font-weight:700;font-size:0.68rem;">${mg.range}</span>
                         <div class="prob-bar-track">
                           <div class="prob-bar-fill cyan" style="width:${Math.min(100,mg.prob)}%"></div>
                         </div>
-                        <span class="prob-value" style="color:${mg.prob>=65?'#00e5a0':mg.prob>=50?'#fbbf24':'var(--text-gray)'};">${mg.prob.toFixed(0)}%</span>
+                        <span class="prob-value" style="font-size:0.7rem;color:${mg.prob>=65?'#00e5a0':mg.prob>=50?'#fbbf24':'var(--text-gray)'};">${mg.prob.toFixed(0)}%</span>
                       </div>
                     `).join('') : '<div style="color:var(--text-dark)">N/A</div>'}
                   </div>
                   <!-- OSPITE -->
                   <div>
-                    <div style="font-size:0.72rem;font-weight:800;color:var(--accent-red);margin-bottom:10px;display:flex;align-items:center;gap:6px;">
-                      ✈️ ${esc(m.away.name.split(' ')[0])}
-                      <span style="font-size:0.62rem;color:var(--text-dark);font-weight:400;">xG ${d.xG.away.toFixed(2)}</span>
+                    <div style="font-size:0.68rem;font-weight:700;color:var(--accent-red);margin-bottom:8px;">
+                      xG ${d.xG.away.toFixed(2)}
                     </div>
                     ${d.multigoalAway ? d.multigoalAway.map(mg => `
-                      <div class="prob-row" style="margin-bottom:8px;">
-                        <span class="prob-label" style="min-width:36px;font-weight:700;">${mg.range}</span>
+                      <div class="prob-row" style="margin-bottom:6px;">
+                        <span class="prob-label" style="min-width:32px;font-weight:700;font-size:0.68rem;">${mg.range}</span>
                         <div class="prob-bar-track">
                           <div class="prob-bar-fill" style="width:${Math.min(100,mg.prob)}%;background:linear-gradient(90deg,#f87171,#fca5a5);"></div>
                         </div>
-                        <span class="prob-value" style="color:${mg.prob>=65?'#00e5a0':mg.prob>=50?'#fbbf24':'var(--text-gray)'};">${mg.prob.toFixed(0)}%</span>
+                        <span class="prob-value" style="font-size:0.7rem;color:${mg.prob>=65?'#00e5a0':mg.prob>=50?'#fbbf24':'var(--text-gray)'};">${mg.prob.toFixed(0)}%</span>
                       </div>
                     `).join('') : '<div style="color:var(--text-dark)">N/A</div>'}
                   </div>
                 </div>
-                <!-- Nota GG compatta -->
+                <!-- GG/NG compatta -->
                 <div style="margin-top:12px;padding:8px 12px;background:var(--bg-card-light);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                   <span style="font-size:0.72rem;color:var(--text-gray);">GG (entrambe segnano)</span>
                   <span style="font-size:0.9rem;font-weight:800;color:${d.pBTTS>=65?'#00e5a0':d.pBTTS>=50?'#fbbf24':'#f87171'};">${d.pBTTS.toFixed(0)}%</span>
@@ -14519,3 +14698,4 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
   </script>
 </body>
 </html>
+
