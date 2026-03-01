@@ -12749,16 +12749,16 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
               ${filtered.map(l => {
                 const isFav = state.favoriteLeagues.includes(l.id);
                 return `
-                <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isFav ? 'rgba(251,191,36,0.06)' : 'var(--bg-card)'};border:1px solid ${isFav ? 'rgba(251,191,36,0.2)' : 'var(--border)'};border-radius:10px;cursor:pointer;transition:all 0.15s;" onclick="selectLeague(${l.id})">
-                  <button onclick="event.stopPropagation();toggleFavoriteLeague(${l.id})" style="background:none;border:none;cursor:pointer;font-size:1rem;padding:2px;flex-shrink:0;opacity:${isFav ? '1' : '0.3'};" title="${isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}">
+                <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:${isFav ? 'rgba(251,191,36,0.06)' : 'var(--bg-card)'};border:1px solid ${isFav ? 'rgba(251,191,36,0.2)' : 'var(--border)'};border-radius:10px;cursor:pointer;transition:all 0.15s;" onclick="selectLeague(${l.id})">
+                  <button onclick="event.stopPropagation();toggleFavoriteLeague(${l.id})" style="background:none;border:none;cursor:pointer;font-size:1.2rem;padding:4px;flex-shrink:0;opacity:${isFav ? '1' : '0.35'};" title="${isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}">
                     ${isFav ? '⭐' : '☆'}
                   </button>
-                  ${l.logo ? '<img src="' + l.logo + '" style="width:22px;height:22px;border-radius:4px;flex-shrink:0;" onerror="this.style.display=\'none\'">' : ''}
+                  ${l.logo ? '<img src="' + l.logo + '" style="width:28px;height:28px;border-radius:4px;flex-shrink:0;" onerror="this.style.display=\'none\'">' : ''}
                   <div style="flex:1;min-width:0;">
-                    <div style="font-size:0.78rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(l.name)}</div>
-                    <div style="font-size:0.62rem;color:var(--text-dark);">${esc(l.country)}</div>
+                    <div style="font-size:0.95rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(l.name)}</div>
+                    <div style="font-size:0.75rem;color:var(--text-dark);">${esc(l.country)}</div>
                   </div>
-                  <div style="font-size:0.72rem;font-weight:800;color:var(--accent-cyan);flex-shrink:0;">${l.matchCount}</div>
+                  <div style="font-size:0.85rem;font-weight:800;color:var(--accent-cyan);flex-shrink:0;">${l.matchCount}</div>
                   <span style="font-size:0.7rem;color:var(--text-dark);flex-shrink:0;">▶</span>
                 </div>`;
               }).join('')}
