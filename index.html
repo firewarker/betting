@@ -4738,6 +4738,8 @@
       // Picks del giorno
       dailyPicks: { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], matchAdvices: [] },
       quickFind: null, // 'home1'|'away2'|'gg'|'over25'|'over15'|'under25'
+      leagueFilter: 'all', // 'all'|'favorites'|'top5'|'italia'|'inghilterra'|'spagna'|'germania'|'francia'
+      favoriteLeagues: JSON.parse(localStorage.getItem('bp2_fav_leagues') || '[]'),
       schedinaModal: false,
       // Money Management - Sistema Obiettivo
       money: {
@@ -12613,8 +12615,103 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       render();
     }
     
+    // === LEAGUE FAVORITES & FILTERS ===
+    const LEAGUE_GROUPS = {
+      top5: {
+        label: '🇪🇺 Top 5',
+        countries: ['England', 'Italy', 'Spain', 'Germany', 'France'],
+        leagueNames: ['Premier League', 'Serie A', 'La Liga', 'Bundesliga', 'Ligue 1']
+      },
+      italia: {
+        label: '🇮🇹 Italia',
+        countries: ['Italy']
+      },
+      inghilterra: {
+        label: '🏴 Inghilterra',
+        countries: ['England']
+      },
+      spagna: {
+        label: '🇪🇸 Spagna',
+        countries: ['Spain']
+      },
+      germania: {
+        label: '🇩🇪 Germania',
+        countries: ['Germany']
+      },
+      francia: {
+        label: '🇫🇷 Francia',
+        countries: ['France']
+      }
+    };
+    
+    function toggleFavoriteLeague(leagueId) {
+      const idx = state.favoriteLeagues.indexOf(leagueId);
+      if (idx >= 0) {
+        state.favoriteLeagues.splice(idx, 1);
+      } else {
+        state.favoriteLeagues.push(leagueId);
+      }
+      localStorage.setItem('bp2_fav_leagues', JSON.stringify(state.favoriteLeagues));
+      if (typeof saveToFirebase === 'function') {
+        saveToFirebase('favoriteLeagues', state.favoriteLeagues).catch(e => console.debug('fav sync:', e.message));
+      }
+      render();
+    }
+    
+    function setLeagueFilter(filter) {
+      state.leagueFilter = filter;
+      render();
+    }
+    
+    function selectLeague(leagueId) {
+      state.selectedLeague = state.leagues.find(l => l.id === leagueId);
+      if (state.selectedLeague) {
+        state.view = 'matches';
+        render();
+      }
+    }
+    
+    function getFilteredLeagues() {
+      const filter = state.leagueFilter;
+      let filtered = state.leagues;
+      
+      if (filter === 'favorites') {
+        filtered = filtered.filter(l => state.favoriteLeagues.includes(l.id));
+      } else if (LEAGUE_GROUPS[filter]) {
+        const group = LEAGUE_GROUPS[filter];
+        filtered = filtered.filter(l => {
+          if (group.countries && group.countries.includes(l.country)) return true;
+          if (group.leagueNames && group.leagueNames.some(n => l.name.includes(n))) return true;
+          return false;
+        });
+      }
+      // else 'all' → nessun filtro
+      
+      // Ordina: preferiti in cima, poi alfabetico
+      return filtered.sort((a, b) => {
+        const aFav = state.favoriteLeagues.includes(a.id) ? 0 : 1;
+        const bFav = state.favoriteLeagues.includes(b.id) ? 0 : 1;
+        if (aFav !== bFav) return aFav - bFav;
+        return `${a.country} ${a.name}`.localeCompare(`${b.country} ${b.name}`);
+      });
+    }
+    
     function renderLeagues() {
       const picks = state.dailyPicks;
+      const filtered = getFilteredLeagues();
+      const hasFavs = state.favoriteLeagues.length > 0;
+      
+      // Build league buttons
+      const filterBtns = [
+        { key: 'all', label: '🌍 Tutti', count: state.leagues.length },
+        ...(hasFavs ? [{ key: 'favorites', label: '⭐ Preferiti', count: state.leagues.filter(l => state.favoriteLeagues.includes(l.id)).length }] : []),
+        { key: 'top5', label: '🇪🇺 Top 5', count: null },
+        { key: 'italia', label: '🇮🇹', count: null },
+        { key: 'inghilterra', label: '🏴', count: null },
+        { key: 'spagna', label: '🇪🇸', count: null },
+        { key: 'germania', label: '🇩🇪', count: null },
+        { key: 'francia', label: '🇫🇷', count: null }
+      ];
       
       return `
         <div class="date-tabs">
@@ -12625,14 +12722,47 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           `).join('')}
         </div>
         
-        <!-- SELEZIONA CAMPIONATO -->
+        <!-- CAMPIONATI CON FILTRI -->
         <div class="panel" style="margin-bottom: 16px;">
-          <div class="panel-title">&#x1F4CB; Seleziona Campionato (${state.matches.length} partite)</div>
-          ${state.leagues.length === 0 ? `<div class="empty"><div class="empty-icon">&#x1F4ED;</div>Nessuna partita</div>` : `
-            <select class="select-field" id="leagueSelect">
-              <option value="">-- Scegli un campionato --</option>
-              ${state.leagues.map(l => `<option value="${l.id}">${esc(l.country)} - ${esc(l.name)} (${l.matchCount})</option>`).join('')}
-            </select>
+          <div class="panel-title">📋 Campionati (${state.matches.length} partite)</div>
+          
+          <!-- FILTRI RAPIDI -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+            ${filterBtns.map(f => `
+              <button onclick="setLeagueFilter('${f.key}')" style="
+                padding:6px 12px;border-radius:20px;font-size:0.72rem;font-weight:700;cursor:pointer;
+                border:1.5px solid ${state.leagueFilter === f.key ? 'var(--accent-cyan)' : 'var(--border)'};
+                background:${state.leagueFilter === f.key ? 'rgba(0,212,255,0.12)' : 'var(--bg-input)'};
+                color:${state.leagueFilter === f.key ? 'var(--accent-cyan)' : 'var(--text-gray)'};
+                white-space:nowrap;transition:all 0.2s;
+              ">${f.label}${f.count !== null ? ' (' + f.count + ')' : ''}</button>
+            `).join('')}
+          </div>
+          
+          ${filtered.length === 0 ? `
+            <div style="text-align:center;padding:20px;color:var(--text-dark);">
+              ${state.leagueFilter === 'favorites' ? '⭐ Nessun preferito. Tap sulla ⭐ accanto al campionato per aggiungerlo.' : 'Nessun campionato trovato per questo filtro.'}
+            </div>
+          ` : `
+            <!-- LISTA CAMPIONATI -->
+            <div style="display:flex;flex-direction:column;gap:4px;max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+              ${filtered.map(l => {
+                const isFav = state.favoriteLeagues.includes(l.id);
+                return `
+                <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isFav ? 'rgba(251,191,36,0.06)' : 'var(--bg-card)'};border:1px solid ${isFav ? 'rgba(251,191,36,0.2)' : 'var(--border)'};border-radius:10px;cursor:pointer;transition:all 0.15s;" onclick="selectLeague(${l.id})">
+                  <button onclick="event.stopPropagation();toggleFavoriteLeague(${l.id})" style="background:none;border:none;cursor:pointer;font-size:1rem;padding:2px;flex-shrink:0;opacity:${isFav ? '1' : '0.3'};" title="${isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}">
+                    ${isFav ? '⭐' : '☆'}
+                  </button>
+                  ${l.logo ? '<img src="' + l.logo + '" style="width:22px;height:22px;border-radius:4px;flex-shrink:0;" onerror="this.style.display=\'none\'">' : ''}
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:0.78rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(l.name)}</div>
+                    <div style="font-size:0.62rem;color:var(--text-dark);">${esc(l.country)}</div>
+                  </div>
+                  <div style="font-size:0.72rem;font-weight:800;color:var(--accent-cyan);flex-shrink:0;">${l.matchCount}</div>
+                  <span style="font-size:0.7rem;color:var(--text-dark);flex-shrink:0;">▶</span>
+                </div>`;
+              }).join('')}
+            </div>
           `}
         </div>
         
