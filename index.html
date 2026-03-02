@@ -4938,7 +4938,10 @@
     }
     
     function getPredictionHistory(matchId) {
-      return state.predictionHistory[String(matchId)]?.predictions || [];
+      if (!state.predictionHistory) state.predictionHistory = {};
+      const entry = state.predictionHistory[String(matchId)];
+      if (!entry || !entry.predictions || !Array.isArray(entry.predictions)) return [];
+      return entry.predictions;
     }
     
     function getHistoryStats(matchId) {
@@ -4957,7 +4960,7 @@
       const history = getPredictionHistory(matchId);
       
       // Caso: Nessuna analisi
-      if (!history || history.length === 0) {
+      if (!history || !Array.isArray(history) || history.length === 0) {
         return '<div class="history-section">' +
           '<div class="history-header">' +
             '<div class="history-icon">📜</div>' +
@@ -4973,8 +4976,13 @@
         '</div>';
       }
       
-      // Sanitize: assicura che prob sia un numero
-      history.forEach(function(h) { if (typeof h.prob !== 'number' || isNaN(h.prob)) h.prob = 0; });
+      // Sanitize: assicura che prob sia un numero e pick sia una stringa
+      history.forEach(function(h) { 
+        if (typeof h.prob !== 'number' || isNaN(h.prob)) h.prob = 0; 
+        if (!h.pick) h.pick = 'N/D';
+        if (!h.time) h.time = '--:--';
+        if (!h.source) h.source = 'full';
+      });
       
       // Caso: Solo 1 registrazione
       if (history.length === 1) {
@@ -7698,12 +7706,17 @@
       
       // SALVA NELLO STORICO VARIAZIONI
       if (state.analysis) {
-        const ai = generateAIAdvice(match, state.analysis);
-        const matchName = match.home.name + ' vs ' + match.away.name;
-        savePredictionToHistory(match.id, matchName, {
-          pick: ai.pick,
-          prob: ai.prob
-        });
+        try {
+          const ai = generateAIAdvice(match, state.analysis);
+          const matchName = match.home.name + ' vs ' + match.away.name;
+          savePredictionToHistory(match.id, matchName, {
+            pick: ai.pick,
+            prob: ai.prob
+          });
+          console.log('📜 Storico salvato:', matchName, ai.pick, ai.prob.toFixed(0) + '%', '| Tot entries:', getPredictionHistory(match.id).length);
+        } catch(e) { 
+          console.warn('⚠️ Errore salvataggio storico:', e); 
+        }
       }
       
       state.loading = false;
@@ -14270,17 +14283,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       };
       
       // === CHANGE EVENTS (devono essere attaccati singolarmente) ===
-      const leagueSelect = document.getElementById('leagueSelect');
-      if (leagueSelect) {
-        leagueSelect.onchange = function(e) {
-          const id = parseInt(e.target.value);
-          if (id) {
-            state.selectedLeague = state.leagues.find(l => l.id === id);
-            state.view = 'matches';
-            render();
-          }
-        };
-      }
+      // League selection now handled by selectLeague() via onclick
       
       const bankrollInput = document.getElementById('bankrollInput');
       if (bankrollInput) {
@@ -14349,6 +14352,10 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
     window.loadLiveMatches = loadLiveMatches;
     window.toggleLiveMode = toggleLiveMode;
     window.triggerSuperAnalysis = triggerSuperAnalysis;
+    // === LEAGUE FILTER GLOBAL FUNCTIONS ===
+    window.selectLeague = selectLeague;
+    window.toggleFavoriteLeague = toggleFavoriteLeague;
+    window.setLeagueFilter = setLeagueFilter;
     
     // === AUTH GLOBAL FUNCTIONS ===
     window.firebaseLogin = firebaseLogin;
