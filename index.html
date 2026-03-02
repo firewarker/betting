@@ -4883,52 +4883,68 @@
     
     function savePredictionHistory() {
       try {
-        // Mantieni solo ultime 48h (2 giorni) per ridurre dimensioni
+        // 1. Mantieni solo ultime 48h (2 giorni)
         const twoDaysAgo = new Date();
         twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
         const cutoffDate = twoDaysAgo.toISOString().split('T')[0];
+        const today = getDateString(0);
 
         Object.keys(state.predictionHistory).forEach(key => {
-          if (state.predictionHistory[key].date < cutoffDate) {
+          const entry = state.predictionHistory[key];
+          if (entry && entry.date && entry.date < cutoffDate) {
             delete state.predictionHistory[key];
           }
         });
 
-        // Limita a max 8 predizioni per partita
+        // 2. Limita a max 8 predizioni per partita
         Object.keys(state.predictionHistory).forEach(key => {
-          const preds = state.predictionHistory[key].predictions;
+          const preds = state.predictionHistory[key]?.predictions;
           if (preds && preds.length > 8) {
             state.predictionHistory[key].predictions = preds.slice(-8);
           }
         });
 
-        // Limita a max 200 partite totali (LRU)
-        const keys = Object.keys(state.predictionHistory);
-        if (keys.length > 200) {
-          // Rimuovi le più vecchie
-          keys.slice(0, keys.length - 200).forEach(k => delete state.predictionHistory[k]);
+        // 3. Limita a max 300 partite — rimuovi le PIÙ VECCHIE per data (non per key order!)
+        const allEntries = Object.keys(state.predictionHistory).map(key => ({
+          key,
+          date: state.predictionHistory[key]?.date || '2000-01-01',
+          lastUpdate: (state.predictionHistory[key]?.predictions || []).reduce((max, p) => Math.max(max, p.fullTime || 0), 0)
+        }));
+        
+        if (allEntries.length > 300) {
+          // Ordina: più vecchie prima (per data, poi per ultimo aggiornamento)
+          allEntries.sort((a, b) => {
+            if (a.date !== b.date) return a.date.localeCompare(b.date);
+            return a.lastUpdate - b.lastUpdate;
+          });
+          // Rimuovi le più vecchie, tieni le 300 più recenti
+          const toRemove = allEntries.slice(0, allEntries.length - 300);
+          toRemove.forEach(e => delete state.predictionHistory[e.key]);
+          console.log('🗑️ Storico: rimossi', toRemove.length, 'entries vecchie, restano', Object.keys(state.predictionHistory).length);
         }
 
-        // Salva su Firebase in background — sincronizza su tutti i device
+        // 4. Salva su Firebase in background
         if (typeof saveToFirebase === 'function') {
           saveToFirebase('predictionHistory', state.predictionHistory).catch(e =>
             console.debug('predictionHistory Firebase sync:', e.message)
           );
         }
 
-                try {
+        // 5. Salva su localStorage
+        try {
           localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
         } catch(quotaErr) {
-          // localStorage pieno: taglia ulteriormente e riprova
           console.warn('localStorage quota: taglio storico...');
-          const allKeys = Object.keys(state.predictionHistory);
-          // Tieni solo le ultime 100 partite
-          allKeys.slice(0, allKeys.length - 100).forEach(k => delete state.predictionHistory[k]);
+          // Tieni solo oggi e ieri
+          const yesterday = getDateString(-1);
+          Object.keys(state.predictionHistory).forEach(key => {
+            const d = state.predictionHistory[key]?.date;
+            if (d && d !== today && d !== yesterday) delete state.predictionHistory[key];
+          });
           try {
             localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
             console.log('✅ Storico ridotto e salvato');
           } catch(e2) {
-            // Caso estremo: svuota tutto
             state.predictionHistory = {};
             localStorage.removeItem('bp2_prediction_history');
             console.warn('⚠️ Storico azzerato per quota localStorage');
@@ -5429,60 +5445,72 @@
     // Salvataggio batch — limiti più generosi per il daily
     function savePredictionHistoryBatch() {
       try {
-        // Pulizia: rimuovi partite vecchie (più di 3 giorni)
+        // 1. Pulizia: rimuovi partite vecchie (più di 3 giorni)
         const threeDaysAgo = new Date();
         threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
         const cutoffDate = threeDaysAgo.toISOString().split('T')[0];
         
         Object.keys(state.predictionHistory).forEach(key => {
-          if (state.predictionHistory[key].date < cutoffDate) {
+          const entry = state.predictionHistory[key];
+          if (entry && entry.date && entry.date < cutoffDate) {
             delete state.predictionHistory[key];
           }
         });
         
-        // Max 5 predizioni per partita
+        // 2. Max 5 predizioni per partita
         Object.keys(state.predictionHistory).forEach(key => {
-          const preds = state.predictionHistory[key].predictions;
+          const preds = state.predictionHistory[key]?.predictions;
           if (preds && preds.length > 5) {
             state.predictionHistory[key].predictions = preds.slice(-5);
           }
         });
         
-        // Firebase: max 400 partite (3 giorni × ~130 partite/giorno)
-        const keys = Object.keys(state.predictionHistory);
-        if (keys.length > 400) {
-          keys.slice(0, keys.length - 400).forEach(k => delete state.predictionHistory[k]);
+        // 3. Firebase: max 400 partite — ordina per DATA (non per key!)
+        const allEntries = Object.keys(state.predictionHistory).map(key => ({
+          key,
+          date: state.predictionHistory[key]?.date || '2000-01-01'
+        }));
+        if (allEntries.length > 400) {
+          allEntries.sort((a, b) => a.date.localeCompare(b.date));
+          allEntries.slice(0, allEntries.length - 400).forEach(e => delete state.predictionHistory[e.key]);
         }
         
-        // Salva su Firebase
+        // 4. Salva su Firebase
         if (typeof saveToFirebase === 'function') {
           saveToFirebase('predictionHistory', state.predictionHistory).catch(e =>
             console.debug('predictionHistory Firebase sync:', e.message)
           );
         }
         
-        // localStorage: max 200 partite (più limitato del cloud)
+        // 5. localStorage: max 250 partite — ordina per DATA
         try {
           const localCopy = { ...state.predictionHistory };
-          const localKeys = Object.keys(localCopy);
-          if (localKeys.length > 200) {
-            localKeys.slice(0, localKeys.length - 200).forEach(k => delete localCopy[k]);
+          const localEntries = Object.keys(localCopy).map(key => ({
+            key,
+            date: localCopy[key]?.date || '2000-01-01'
+          }));
+          if (localEntries.length > 250) {
+            localEntries.sort((a, b) => a.date.localeCompare(b.date));
+            localEntries.slice(0, localEntries.length - 250).forEach(e => delete localCopy[e.key]);
           }
           localStorage.setItem('bp2_prediction_history', JSON.stringify(localCopy));
         } catch(quotaErr) {
           console.warn('localStorage quota: taglio storico...');
-          const allKeys = Object.keys(state.predictionHistory);
+          // Tieni solo oggi e ieri
+          const today = getDateString(0);
+          const yesterday = getDateString(-1);
           const reduced = {};
-          allKeys.slice(-100).forEach(k => reduced[k] = state.predictionHistory[k]);
+          Object.keys(state.predictionHistory).forEach(k => {
+            const d = state.predictionHistory[k]?.date;
+            if (d === today || d === yesterday) reduced[k] = state.predictionHistory[k];
+          });
           try {
             localStorage.setItem('bp2_prediction_history', JSON.stringify(reduced));
           } catch(e2) {
             localStorage.removeItem('bp2_prediction_history');
           }
         }
-      } catch(e) {
-        console.warn('savePredictionHistoryBatch error:', e);
-      }
+      } catch(e) { console.warn('Errore savePredictionHistoryBatch:', e); }
     }
     
     // Timer per auto-aggiornamento storico ogni 2 ore
@@ -13554,11 +13582,17 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         <div class="section-accordion-header" onclick="toggleAccordion(this)">
           <div class="section-accordion-title"><span>📈</span> Storico Variazioni</div>
           <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              try {
+                const hLen = getPredictionHistory(m.id).length;
+                return hLen > 0 ? '<span style="font-size:0.6rem;background:rgba(0,212,255,0.12);color:#00d4ff;padding:2px 8px;border-radius:8px;font-weight:700;">' + hLen + ' reg.</span>' : '';
+              } catch(e) { return ''; }
+            })()}
             <span class="section-accordion-arrow">▼</span>
           </div>
         </div>
         <div class="section-accordion-body">
-          ${safeRender(() => renderHistorySection(m.id), '<div style="padding:12px;color:var(--text-dark);font-size:0.78rem;">📊 Storico non disponibile. Riapri la partita.</div>', 'HistorySection')}
+          ${safeRender(() => renderHistorySection(m.id), '<div style="padding:12px;color:var(--text-dark);font-size:0.78rem;">📊 Storico non disponibile.</div>', 'HistorySection')}
         </div>
       </div>
       
