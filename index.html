@@ -4973,6 +4973,9 @@
         '</div>';
       }
       
+      // Sanitize: assicura che prob sia un numero
+      history.forEach(function(h) { if (typeof h.prob !== 'number' || isNaN(h.prob)) h.prob = 0; });
+      
       // Caso: Solo 1 registrazione
       if (history.length === 1) {
         const entry = history[0];
@@ -9410,91 +9413,173 @@
       `;
     }
 
-    function renderTraderVerdict(ai, stat, d) {
-      const bestProb = Math.max(ai.prob, stat.prob);
-      const bestPick = ai.prob >= stat.prob ? ai.pick : stat.pick;
-      const bestMarket = ai.prob >= stat.prob ? 'AI' : 'Statistico';
+    // === BETTINGPRO BASE — Algoritmo originale semplificato ===
+    // Logica identica alla prima versione: 8 casi chiari basati su xG
+    function generateBaseAIAdvice(match, analysis) {
+      const { xG, p1X2, pOU, pBTTS, exactScores } = analysis;
+      const homeXG = xG.home, awayXG = xG.away, totXG = xG.total;
       
-      const HISTORICAL = {
-        'Under': { rate: 100, note: 'Storico perfetto!' },
-        'GG': { rate: 100, note: 'Mai sbagliato!' },
-        '1': { rate: 91.7, note: 'Ottimo storico' },
-        '1 Casa': { rate: 91.7, note: 'Ottimo storico' },
-        '2': { rate: 88.9, note: 'Buon storico' },
-        '2 Ospite': { rate: 88.9, note: 'Buon storico' },
-        '1X': { rate: 88.9, note: 'Buon storico' },
-        'X2': { rate: 88.9, note: 'Buon storico' },
-        'X': { rate: 88.9, note: 'Equilibrato' },
-        'Over 1.5': { rate: 80, note: 'Discreto' },
-        'Over 2.5': { rate: 69, note: '⚠️ Attenzione!' },
-        'Over 3.5': { rate: 65, note: '⚠️ Rischioso' }
-      };
+      const advice = { pick: '', prob: 0, confidence: 'medium', reasons: [], alternatives: [] };
       
-      let histMatch = null;
-      for (const [key, val] of Object.entries(HISTORICAL)) {
-        if (bestPick.includes(key) || bestPick === key) {
-          histMatch = { market: key, ...val };
-          break;
-        }
+      const homeStrong = homeXG > 1.8;
+      const awayWeak = awayXG < 0.8;
+      const awayStrong = awayXG > 1.5;
+      const homeWeak = homeXG < 1.0;
+      const highScoring = totXG >= 3.0;
+      const veryHighScoring = totXG >= 3.8;
+      const lowScoring = totXG < 2.2;
+      const balanced = Math.abs(homeXG - awayXG) < 0.5;
+      const ggLikely = pBTTS >= 55 && homeXG > 0.9 && awayXG > 0.9;
+      
+      // CASO 1: Casa dominante
+      if (homeStrong && awayWeak && p1X2.home >= 65) {
+        advice.pick = '1 Casa'; advice.prob = p1X2.home;
+        advice.confidence = p1X2.home >= 75 ? 'high' : 'medium';
+        advice.reasons.push('xG Casa ' + homeXG.toFixed(2) + ' >> Ospite ' + awayXG.toFixed(2));
+        if (highScoring) advice.alternatives.push({ pick: '1 + Over 1.5', prob: ((p1X2.home * pOU[1.5].over) / 100).toFixed(0) });
+        advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
       }
-      if (!histMatch) histMatch = { market: bestPick, rate: 75, note: 'Dati limitati' };
+      // CASO 2: Trasferta dominante
+      else if (awayStrong && homeWeak && p1X2.away >= 60) {
+        advice.pick = '2 Ospite'; advice.prob = p1X2.away;
+        advice.confidence = p1X2.away >= 70 ? 'high' : 'medium';
+        advice.reasons.push('xG Ospite ' + awayXG.toFixed(2) + ' superiore a Casa ' + homeXG.toFixed(2));
+        advice.alternatives.push({ pick: 'X2', prob: (p1X2.away + p1X2.draw).toFixed(0) });
+      }
+      // CASO 3: Partita da GOL
+      else if (veryHighScoring && pOU[2.5].over >= 70) {
+        advice.pick = 'Over 2.5'; advice.prob = pOU[2.5].over;
+        advice.confidence = pOU[2.5].over >= 80 ? 'high' : 'medium';
+        advice.reasons.push('xG Totale ' + totXG.toFixed(2) + ' molto alto');
+        advice.alternatives.push({ pick: 'Over 3.5', prob: pOU[3.5].over.toFixed(0) });
+        if (ggLikely) advice.alternatives.push({ pick: 'GG', prob: pBTTS.toFixed(0) });
+      }
+      // CASO 4: GG probabile
+      else if (ggLikely && pBTTS >= 60) {
+        advice.pick = 'GG'; advice.prob = pBTTS;
+        advice.confidence = pBTTS >= 70 ? 'high' : 'medium';
+        advice.reasons.push('Entrambe segnano: xG ' + homeXG.toFixed(2) + ' / ' + awayXG.toFixed(2));
+        if (highScoring) advice.alternatives.push({ pick: 'GG + Over 2.5', prob: ((pBTTS * pOU[2.5].over) / 100).toFixed(0) });
+        advice.alternatives.push({ pick: 'Over 2.5', prob: pOU[2.5].over.toFixed(0) });
+      }
+      // CASO 5: Over 1.5 sicuro
+      else if (pOU[1.5].over >= 80) {
+        advice.pick = 'Over 1.5'; advice.prob = pOU[1.5].over;
+        advice.confidence = 'high';
+        advice.reasons.push('Prob Over 1.5: ' + pOU[1.5].over.toFixed(0) + '% — xG ' + totXG.toFixed(2));
+        advice.alternatives.push({ pick: '1X + Over 1.5', prob: (((p1X2.home + p1X2.draw) * pOU[1.5].over) / 100).toFixed(0) });
+      }
+      // CASO 6: 1X sicuro
+      else if ((p1X2.home + p1X2.draw) >= 80) {
+        advice.pick = '1X'; advice.prob = p1X2.home + p1X2.draw;
+        advice.confidence = 'high';
+        advice.reasons.push('Casa forte (xG ' + homeXG.toFixed(2) + '), vittoria ospite improbabile (' + p1X2.away.toFixed(0) + '%)');
+        advice.alternatives.push({ pick: '1', prob: p1X2.home.toFixed(0) });
+      }
+      // CASO 7: Partita equilibrata
+      else if (balanced && p1X2.draw >= 28) {
+        advice.pick = 'Under 3.5'; advice.prob = pOU[3.5].under;
+        advice.confidence = lowScoring ? 'medium' : 'low';
+        advice.reasons.push('Partita equilibrata — xG simili (' + homeXG.toFixed(2) + ' / ' + awayXG.toFixed(2) + ')');
+        advice.alternatives.push({ pick: 'X', prob: p1X2.draw.toFixed(0) });
+        advice.alternatives.push({ pick: 'Under 2.5', prob: pOU[2.5].under.toFixed(0) });
+      }
+      // CASO 8: Default
+      else {
+        advice.pick = 'Over 1.5'; advice.prob = pOU[1.5].over;
+        advice.confidence = pOU[1.5].over >= 70 ? 'medium' : 'low';
+        advice.reasons.push('Pronostico più sicuro — xG Totale ' + totXG.toFixed(2));
+        if (p1X2.home >= 55) advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
+      }
       
-      let verdict, verdictClass, verdictIcon;
-      if (bestProb >= 80 && histMatch.rate >= 85) {
-        verdict = '✅ GIOCABILE';
-        verdictClass = 'play';
-        verdictIcon = '&#x1F3AF;';
-      } else if (bestProb >= 70 && histMatch.rate >= 70) {
-        verdict = '⚠️ CAUTELA';
-        verdictClass = 'caution';
-        verdictIcon = '⚡';
+      return advice;
+    }
+    
+    // Pronostico Statistico Base — prende la predizione con probabilità più alta
+    function generateBaseStatAdvice(analysis) {
+      const { predictions } = analysis;
+      if (!predictions || predictions.length === 0) return { pick: 'N/D', market: '-', prob: 0, confidence: 'low', alternatives: [] };
+      
+      const best = predictions.reduce((b, c) => c.prob > b.prob ? c : b, predictions[0]);
+      const confidence = best.prob >= 70 ? 'high' : best.prob >= 55 ? 'medium' : 'low';
+      const alternatives = predictions
+        .filter(p => p.market !== best.market)
+        .sort((a, b) => b.prob - a.prob)
+        .slice(0, 3)
+        .map(p => ({ pick: p.value, prob: p.prob.toFixed(0) }));
+      
+      return { pick: best.value, market: best.market, prob: best.prob, confidence, alternatives };
+    }
+    
+    function renderBettingProBase(match, d) {
+      const baseAI = generateBaseAIAdvice(match, d);
+      const baseStat = generateBaseStatAdvice(d);
+      
+      const confIcon = c => c === 'high' ? '🎯' : c === 'medium' ? '✓' : '⚠️';
+      const confLabel = c => c === 'high' ? 'Alta' : c === 'medium' ? 'Media' : 'Bassa';
+      const confColor = c => c === 'high' ? '#10b981' : c === 'medium' ? '#fbbf24' : '#ef4444';
+      
+      // Confronto: i due pick concordano?
+      const agree = baseAI.pick === baseStat.pick || baseAI.pick.includes(baseStat.pick) || baseStat.pick.includes(baseAI.pick);
+      
+      let html = '<div style="display:flex;flex-direction:column;gap:14px;">';
+      
+      // CONCORDANZA
+      if (agree) {
+        html += '<div style="background:rgba(16,185,129,0.08);border:1.5px solid rgba(16,185,129,0.3);border-radius:12px;padding:10px 14px;text-align:center;">';
+        html += '<span style="font-size:0.72rem;font-weight:800;color:#10b981;">✅ CONCORDANZA — AI e Statistico concordano su ' + esc(baseAI.pick) + '</span>';
+        html += '</div>';
       } else {
-        verdict = '❌ EVITARE';
-        verdictClass = 'avoid';
-        verdictIcon = '&#x1F6D1;';
+        html += '<div style="background:rgba(251,191,36,0.08);border:1.5px solid rgba(251,191,36,0.2);border-radius:12px;padding:10px 14px;text-align:center;">';
+        html += '<span style="font-size:0.72rem;font-weight:800;color:#fbbf24;">⚡ DIVERGENZA — I due metodi suggeriscono pick diversi</span>';
+        html += '</div>';
       }
       
-      let suggestion = '';
-      if (bestProb >= 82) {
-        suggestion = 'Ideale per <strong>RADDOPPIO</strong> con altra partita ≥82%';
-      } else if (bestProb >= 70) {
-        suggestion = 'Consigliata come <strong>SINGOLA</strong> (max 5% bankroll)';
-      } else {
-        suggestion = 'Non consigliata per betting. Solo per studio.';
+      // DUE COLONNE: AI e Statistico
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+      
+      // === AI BASE ===
+      html += '<div style="background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.2);border-radius:12px;padding:14px;">';
+      html += '<div style="font-size:0.65rem;font-weight:700;color:#c084fc;margin-bottom:8px;">🤖 Consiglio AI Base</div>';
+      html += '<div style="font-size:1.1rem;font-weight:900;color:white;margin-bottom:4px;">' + esc(baseAI.pick) + '</div>';
+      html += '<div style="font-size:0.9rem;font-weight:800;color:' + confColor(baseAI.confidence) + ';">' + baseAI.prob.toFixed(0) + '% <span style="font-size:0.6rem;opacity:0.7;">' + confIcon(baseAI.confidence) + ' ' + confLabel(baseAI.confidence) + '</span></div>';
+      html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-top:6px;line-height:1.5;">';
+      baseAI.reasons.forEach(function(r) { html += '• ' + r + '<br>'; });
+      html += '</div>';
+      if (baseAI.alternatives.length > 0) {
+        html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">';
+        baseAI.alternatives.forEach(function(a) {
+          html += '<span style="padding:3px 8px;background:rgba(168,85,247,0.1);border-radius:6px;font-size:0.6rem;color:#c084fc;font-weight:600;">' + a.pick + ' ' + a.prob + '%</span>';
+        });
+        html += '</div>';
       }
+      html += '</div>';
       
-      const stars = Math.min(5, Math.floor(bestProb / 18));
-      
-      let warningHtml = '';
-      if (histMatch.rate < 75) {
-        warningHtml = '<div class="verdict-warning"><span class="verdict-warning-icon">⚠️</span><span class="verdict-warning-text"><strong>Attenzione:</strong> Questo mercato ha uno storico sotto il 75%. Evita di usarlo nei raddoppi.</span></div>';
+      // === STATISTICO BASE ===
+      html += '<div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:12px;padding:14px;">';
+      html += '<div style="font-size:0.65rem;font-weight:700;color:#00d4ff;margin-bottom:8px;">📊 Pronostico Statistico</div>';
+      html += '<div style="font-size:1.1rem;font-weight:900;color:white;margin-bottom:4px;">' + esc(baseStat.pick) + '</div>';
+      html += '<div style="font-size:0.9rem;font-weight:800;color:' + confColor(baseStat.confidence) + ';">' + baseStat.prob.toFixed(0) + '% <span style="font-size:0.6rem;opacity:0.7;">' + confIcon(baseStat.confidence) + ' ' + confLabel(baseStat.confidence) + '</span></div>';
+      html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-top:6px;">Mercato: <strong>' + esc(baseStat.market) + '</strong></div>';
+      html += '<div style="font-size:0.58rem;color:var(--text-dark);margin-top:2px;">Basato sulla probabilità Poisson più alta</div>';
+      if (baseStat.alternatives.length > 0) {
+        html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">';
+        baseStat.alternatives.forEach(function(a) {
+          html += '<span style="padding:3px 8px;background:rgba(0,212,255,0.1);border-radius:6px;font-size:0.6rem;color:#00d4ff;font-weight:600;">' + a.pick + ' ' + a.prob + '%</span>';
+        });
+        html += '</div>';
       }
+      html += '</div>';
       
-      return '<div class="trader-verdict">' +
-        '<div class="verdict-header">' +
-          '<div class="verdict-icon">' + verdictIcon + '</div>' +
-          '<div class="verdict-title"><h3>Consiglio del Trader</h3><p>Analisi strategica basata su probabilità e storico</p></div>' +
-          '<div class="verdict-badge ' + verdictClass + '">' + verdict + '</div>' +
-        '</div>' +
-        '<div class="verdict-content">' +
-          '<div class="verdict-box">' +
-            '<div class="verdict-box-title">&#x1F3AF; Pick Consigliato</div>' +
-            '<div class="verdict-main-pick">' +
-              '<div class="verdict-main-pick-label">Pronostico ' + bestMarket + '</div>' +
-              '<div class="verdict-main-pick-value">' + bestPick + '</div>' +
-              '<div class="verdict-main-pick-prob">' + bestProb.toFixed(0) + '%</div>' +
-              '<div class="verdict-stars">' + '★'.repeat(stars) + '☆'.repeat(5-stars) + '</div>' +
-            '</div>' +
-            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">&#x1F4A1;</span><span class="verdict-suggestion-text">' + suggestion + '</span></div>' +
-          '</div>' +
-          '<div class="verdict-box">' +
-            '<div class="verdict-box-title">&#x1F4CA; Win Rate Storico</div>' +
-            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">&#x1F4C8;</span><span class="verdict-suggestion-text">Mercato <strong>' + histMatch.market + '</strong>: <strong>' + histMatch.rate + '%</strong> win rate</span></div>' +
-            '<div class="verdict-suggestion"><span class="verdict-suggestion-icon">&#x1F4DD;</span><span class="verdict-suggestion-text">' + histMatch.note + '</span></div>' +
-            warningHtml +
-          '</div>' +
-        '</div>' +
-      '</div>';
+      html += '</div>'; // fine grid
+      
+      // NOTA
+      html += '<div style="font-size:0.55rem;color:var(--text-dark);text-align:center;opacity:0.5;">';
+      html += '📌 BettingPro Base usa l\'algoritmo originale semplificato (8 casi xG). Confronta con il Super Oracle per decidere.';
+      html += '</div>';
+      
+      html += '</div>';
+      return html;
     }
 
     function renderBettingExchange(match, d, ai, stat) {
@@ -13424,16 +13509,17 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           </div>
         </div>
       
-      <!-- TRADER VERDICT -->
+      <!-- BETTINGPRO BASE -->
       <div class="section-accordion">
         <div class="section-accordion-header open" onclick="toggleAccordion(this)">
-          <div class="section-accordion-title"><span>💰</span> Trader Verdict</div>
+          <div class="section-accordion-title"><span>🤖</span> BettingPro Base</div>
           <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:0.6rem;background:rgba(168,85,247,0.12);color:#c084fc;padding:2px 8px;border-radius:8px;font-weight:700;">vs Oracle</span>
             <span class="section-accordion-arrow">▼</span>
           </div>
         </div>
         <div class="section-accordion-body open">
-          ${safeRender(() => renderTraderVerdict(ai, stat, d), '', 'TraderVerdict')}
+          ${safeRender(() => renderBettingProBase(m, d), '', 'BettingProBase')}
         </div>
       </div>
       
@@ -13442,7 +13528,6 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         <div class="section-accordion-header open" onclick="toggleAccordion(this)">
           <div class="section-accordion-title"><span>📊</span> Betting Exchange</div>
           <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:0.6rem;background:rgba(168,85,247,0.12);color:#c084fc;padding:2px 8px;border-radius:8px;font-weight:700;">NUOVO</span>
             <span class="section-accordion-arrow">▼</span>
           </div>
         </div>
@@ -13460,7 +13545,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           </div>
         </div>
         <div class="section-accordion-body">
-          ${renderHistorySection(m.id)}
+          ${safeRender(() => renderHistorySection(m.id), '<div style="padding:12px;color:var(--text-dark);font-size:0.78rem;">📊 Storico non disponibile. Riapri la partita.</div>', 'HistorySection')}
         </div>
       </div>
       
