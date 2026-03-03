@@ -9623,6 +9623,261 @@
       return html;
     }
 
+    // === TRAP DETECTOR — Indice di rischio trappola ===
+    // Analizza 8 fattori di rischio che storicamente causano upset
+    // Legge SOLO dati già calcolati — ZERO impatto sull'algoritmo
+    function calculateTrapScore(match, d, ai) {
+      const traps = [];
+      let totalScore = 0;
+      
+      const hD = d.homeData || {};
+      const aD = d.awayData || {};
+      const p = d.p1X2 || { home: 33, draw: 33, away: 33 };
+      const xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      const bk = d.bookmakerOdds || {};
+      
+      // Chi è il favorito?
+      const favIs = p.home > p.away ? 'home' : 'away';
+      const favProb = favIs === 'home' ? p.home : p.away;
+      const undProb = favIs === 'home' ? p.away : p.home;
+      const favName = favIs === 'home' ? match.home.name : match.away.name;
+      const undName = favIs === 'home' ? match.away.name : match.home.name;
+      const favData = favIs === 'home' ? hD : aD;
+      const undData = favIs === 'home' ? aD : hD;
+      const favXG = favIs === 'home' ? xG.home : xG.away;
+      const undXG = favIs === 'home' ? xG.away : xG.home;
+      const favForm = favIs === 'home' ? (d.homeForm || '') : (d.awayForm || '');
+      const undForm = favIs === 'home' ? (d.awayForm || '') : (d.homeForm || '');
+      const favFatigue = favIs === 'home' ? (d.homeFatigue || 1.0) : (d.awayFatigue || 1.0);
+      const favInjuries = favIs === 'home' ? (d.homeInjuries || []) : (d.awayInjuries || []);
+      const undInjuries = favIs === 'home' ? (d.awayInjuries || []) : (d.homeInjuries || []);
+      const favPos = favIs === 'home' ? d.homePosition : d.awayPosition;
+      const undPos = favIs === 'home' ? d.awayPosition : d.homePosition;
+      
+      // Se non c'è un favorito chiaro, nessuna trappola possibile
+      if (favProb < 45) {
+        return { score: 0, level: 'none', label: 'Equilibrata', color: '#64748b', traps: [{ factor: 'Partita equilibrata', detail: 'Nessun favorito chiaro (' + p.home.toFixed(0) + '% / ' + p.away.toFixed(0) + '%). Il concetto di trappola non si applica.', weight: 0, icon: 'ℹ️' }] };
+      }
+      
+      // === FATTORE 1: Forma gonfiata (vittorie risicate) ===
+      if (favForm && favForm.length >= 3) {
+        const recent = favForm.slice(0, 5).split('');
+        const wins = recent.filter(r => r === 'W').length;
+        const losses = recent.filter(r => r === 'L').length;
+        if (wins >= 3 && favData.goalsFor && favData.goalsFor < 1.5) {
+          const w = 15;
+          totalScore += w;
+          traps.push({ factor: 'Forma gonfiata', detail: favName + ' ha ' + wins + 'V nelle ultime 5 ma segna solo ' + favData.goalsFor.toFixed(1) + ' gol/g — vittorie risicate, fragilità nascosta.', weight: w, icon: '🎭' });
+        }
+        if (losses >= 2) {
+          const w = 12;
+          totalScore += w;
+          traps.push({ factor: 'Forma in calo', detail: favName + ' ha ' + losses + ' sconfitte nelle ultime 5 partite. Tendenza negativa.', weight: w, icon: '📉' });
+        }
+      }
+      
+      // === FATTORE 2: H2H scomodo ===
+      const h2h = d.h2hInfo || {};
+      if (h2h.awayMultiplier && h2h.awayMultiplier > 1.05 && favIs === 'home') {
+        const w = 14;
+        totalScore += w;
+        traps.push({ factor: 'H2H sfavorevole', detail: undName + ' ha un buon rendimento storico contro ' + favName + ' (moltiplicatore ' + h2h.awayMultiplier.toFixed(2) + '). Possibile "bestia nera".', weight: w, icon: '👻' });
+      } else if (h2h.homeMultiplier && h2h.homeMultiplier > 1.05 && favIs === 'away') {
+        const w = 14;
+        totalScore += w;
+        traps.push({ factor: 'H2H sfavorevole', detail: undName + ' ha un buon rendimento storico contro ' + favName + ' (moltiplicatore ' + h2h.homeMultiplier.toFixed(2) + '). Possibile "bestia nera".', weight: w, icon: '👻' });
+      }
+      
+      // === FATTORE 3: Motivazione asimmetrica ===
+      if (favPos && undPos) {
+        // Favorito in alto classifica e già "tranquillo", underdog in zona retrocessione
+        if (favPos <= 4 && undPos >= 15) {
+          const w = 12;
+          totalScore += w;
+          traps.push({ factor: 'Motivazione asimmetrica', detail: favName + ' (' + favPos + '°) già in zona alta. ' + undName + ' (' + undPos + '°) lotta per la salvezza — motivazione altissima.', weight: w, icon: '🔥' });
+        }
+        // Favorito in metà classifica senza obiettivi
+        if (favPos >= 8 && favPos <= 14 && (undPos <= 5 || undPos >= 17)) {
+          const w = 8;
+          totalScore += w;
+          traps.push({ factor: 'Favorito senza obiettivo', detail: favName + ' (' + favPos + '°) in zona neutra — niente da conquistare né da perdere. Rischio rilassamento.', weight: w, icon: '😴' });
+        }
+      }
+      
+      // === FATTORE 4: Fatica / Calendario fitto ===
+      if (favFatigue < 0.95) {
+        const w = Math.min(18, Math.round((1 - favFatigue) * 120));
+        totalScore += w;
+        traps.push({ factor: 'Stanchezza favorito', detail: favName + ' ha giocato molte partite ravvicinate. Fattore fatica: ' + (favFatigue * 100).toFixed(0) + '% (sotto 95% = rischio).', weight: w, icon: '🥵' });
+      }
+      
+      // === FATTORE 5: Clean sheet bassa del favorito ===
+      if (favData.cleanSheetPct != null && favData.cleanSheetPct < 25) {
+        const w = favData.cleanSheetPct < 15 ? 14 : 10;
+        totalScore += w;
+        traps.push({ factor: 'Difesa permeabile', detail: favName + ' tiene la porta inviolata solo nel ' + favData.cleanSheetPct.toFixed(0) + '% delle partite. ' + undName + ' troverà il gol facilmente.', weight: w, icon: '🚪' });
+      }
+      
+      // === FATTORE 6: Infortuni chiave del favorito ===
+      if (favInjuries.length >= 3) {
+        const w = Math.min(16, favInjuries.length * 4);
+        totalScore += w;
+        traps.push({ factor: 'Assenze pesanti', detail: favName + ' ha ' + favInjuries.length + ' giocatori indisponibili. Perdita di qualità significativa.', weight: w, icon: '🏥' });
+      } else if (favInjuries.length >= 1 && undInjuries.length === 0) {
+        const w = 6;
+        totalScore += w;
+        traps.push({ factor: 'Squilibrio assenze', detail: favName + ' ha ' + favInjuries.length + ' assenti, ' + undName + ' è al completo. Vantaggio nascosto.', weight: w, icon: '🏥' });
+      }
+      
+      // === FATTORE 7: Quote troppo basse (over-confidence) ===
+      const bkHome = bk.home ? parseFloat(bk.home) : 0;
+      const bkAway = bk.away ? parseFloat(bk.away) : 0;
+      const favOdds = favIs === 'home' ? bkHome : bkAway;
+      if (favOdds > 0 && favOdds <= 1.30) {
+        const w = 16;
+        totalScore += w;
+        traps.push({ factor: 'Quota troppo bassa', detail: 'Quota @' + favOdds.toFixed(2) + ' per ' + favName + ' — il mercato è troppo sicuro. Quando tutti puntano uguale, il valore scommessa è negativo. Classica trappola da bookmaker.', weight: w, icon: '💰' });
+      } else if (favOdds > 0 && favOdds <= 1.45) {
+        const w = 8;
+        totalScore += w;
+        traps.push({ factor: 'Quota compressa', detail: 'Quota @' + favOdds.toFixed(2) + ' bassa per ' + favName + ' — margine di profitto minimo anche in caso di vittoria.', weight: w, icon: '💰' });
+      }
+      
+      // === FATTORE 8: Gap xG stretto mascherato ===
+      const xgGap = Math.abs(favXG - undXG);
+      if (favProb >= 60 && xgGap < 0.5) {
+        const w = 14;
+        totalScore += w;
+        traps.push({ factor: 'xG ingannatore', detail: 'La probabilità dice ' + favProb.toFixed(0) + '% ma gli xG sono vicini (' + favXG.toFixed(2) + ' vs ' + undXG.toFixed(2) + '). Partita più equilibrata di quanto sembra.', weight: w, icon: '📊' });
+      } else if (favProb >= 55 && xgGap < 0.35) {
+        const w = 10;
+        totalScore += w;
+        traps.push({ factor: 'xG equilibrato', detail: 'Gap xG molto stretto: ' + favXG.toFixed(2) + ' vs ' + undXG.toFixed(2) + '. Il favorito non domina statisticamente.', weight: w, icon: '📊' });
+      }
+      
+      // === BONUS: Failed to Score alto dell'underdog (riduce rischio) ===
+      if (undData.failedToScorePct > 40) {
+        const reduction = -8;
+        totalScore += reduction;
+        traps.push({ factor: 'Underdog sterile', detail: undName + ' non segna nel ' + undData.failedToScorePct.toFixed(0) + '% delle partite. Meno pericoloso del previsto.', weight: reduction, icon: '🛡️' });
+      }
+      
+      // === BONUS: Forma eccellente del favorito (riduce rischio) ===
+      if (favForm && favForm.length >= 5) {
+        const recent = favForm.slice(0, 5).split('');
+        const wins = recent.filter(r => r === 'W').length;
+        if (wins >= 4 && favData.goalsFor >= 2.0) {
+          const reduction = -10;
+          totalScore += reduction;
+          traps.push({ factor: 'Favorito in forma', detail: favName + ' ha ' + wins + 'V nelle ultime 5 e segna ' + favData.goalsFor.toFixed(1) + ' gol/g — forma autentica, non gonfiata.', weight: reduction, icon: '🛡️' });
+        }
+      }
+      
+      // Normalizza 0-100
+      totalScore = Math.max(0, Math.min(100, totalScore));
+      
+      // Ordina fattori per peso (rischio decrescente)
+      traps.sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
+      
+      let level, label, color;
+      if (totalScore <= 20) { level = 'safe'; label = 'SICURA'; color = '#10b981'; }
+      else if (totalScore <= 40) { level = 'caution'; label = 'ATTENZIONE'; color = '#fbbf24'; }
+      else if (totalScore <= 60) { level = 'risk'; label = 'RISCHIO'; color = '#f97316'; }
+      else { level = 'trap'; label = 'TRAPPOLA'; color = '#ef4444'; }
+      
+      return { score: totalScore, level, label, color, traps, favName, undName, favProb, favOdds };
+    }
+    
+    function renderTrapDetector(match, d, ai) {
+      const trap = calculateTrapScore(match, d, ai);
+      
+      // Barra circolare progress
+      const radius = 40;
+      const circumference = 2 * Math.PI * radius;
+      const dashoffset = circumference - (trap.score / 100) * circumference;
+      
+      let html = '<div style="display:flex;flex-direction:column;gap:14px;">';
+      
+      // === HERO: Punteggio circolare ===
+      html += '<div style="display:flex;align-items:center;gap:20px;padding:16px;background:rgba(' + (trap.level === 'trap' ? '239,68,68' : trap.level === 'risk' ? '249,115,22' : trap.level === 'caution' ? '251,191,36' : '16,185,129') + ',0.06);border:1.5px solid ' + trap.color + '30;border-radius:14px;">';
+      
+      // Cerchio SVG
+      html += '<div style="flex-shrink:0;position:relative;width:96px;height:96px;">';
+      html += '<svg width="96" height="96" viewBox="0 0 96 96" style="transform:rotate(-90deg);">';
+      html += '<circle cx="48" cy="48" r="' + radius + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6"/>';
+      html += '<circle cx="48" cy="48" r="' + radius + '" fill="none" stroke="' + trap.color + '" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + dashoffset.toFixed(1) + '" style="transition:stroke-dashoffset 0.8s ease;"/>';
+      html += '</svg>';
+      html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">';
+      html += '<div style="font-size:1.6rem;font-weight:900;color:' + trap.color + ';">' + trap.score + '</div>';
+      html += '<div style="font-size:0.5rem;color:var(--text-dark);font-weight:600;">/100</div>';
+      html += '</div></div>';
+      
+      // Info
+      html += '<div style="flex:1;min-width:0;">';
+      html += '<div style="font-size:0.65rem;color:var(--text-dark);margin-bottom:4px;">Indice Rischio Trappola</div>';
+      html += '<div style="font-size:1.1rem;font-weight:900;color:' + trap.color + ';margin-bottom:2px;">';
+      html += (trap.level === 'trap' ? '🔴' : trap.level === 'risk' ? '🟠' : trap.level === 'caution' ? '🟡' : trap.level === 'safe' ? '🟢' : 'ℹ️') + ' ' + trap.label;
+      html += '</div>';
+      
+      if (trap.level === 'trap') {
+        html += '<div style="font-size:0.72rem;color:#ef4444;font-weight:600;">⚠️ Partita ad alto rischio upset! Evita nelle multiple.</div>';
+      } else if (trap.level === 'risk') {
+        html += '<div style="font-size:0.72rem;color:#f97316;font-weight:600;">⚡ Diversi segnali di rischio. Valuta come singola.</div>';
+      } else if (trap.level === 'caution') {
+        html += '<div style="font-size:0.72rem;color:#fbbf24;font-weight:600;">✓ Qualche segnale da monitorare, ma gestibile.</div>';
+      } else if (trap.level === 'safe') {
+        html += '<div style="font-size:0.72rem;color:#10b981;font-weight:600;">✅ Nessun segnale di trappola rilevante.</div>';
+      } else {
+        html += '<div style="font-size:0.72rem;color:var(--text-dark);">Nessun favorito netto — analisi trappola non applicabile.</div>';
+      }
+      
+      if (trap.favName) {
+        html += '<div style="font-size:0.6rem;color:var(--text-dark);margin-top:4px;">Favorito: <strong>' + esc(trap.favName) + '</strong> (' + (trap.favProb || 0).toFixed(0) + '%)';
+        if (trap.favOdds > 0) html += ' @' + trap.favOdds.toFixed(2);
+        html += '</div>';
+      }
+      html += '</div></div>';
+      
+      // === FATTORI DI RISCHIO ===
+      if (trap.traps.length > 0) {
+        html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+        trap.traps.forEach(function(t) {
+          const isPositive = t.weight < 0;
+          const barColor = isPositive ? '#10b981' : (Math.abs(t.weight) >= 14 ? '#ef4444' : Math.abs(t.weight) >= 10 ? '#f97316' : '#fbbf24');
+          const barWidth = Math.min(100, Math.abs(t.weight) * 6);
+          
+          html += '<div style="padding:10px 12px;background:' + (isPositive ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.04)') + ';border:1px solid ' + (isPositive ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.1)') + ';border-radius:10px;">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+          html += '<span style="font-size:0.75rem;font-weight:700;color:white;">' + t.icon + ' ' + t.factor + '</span>';
+          html += '<span style="font-size:0.65rem;font-weight:800;color:' + barColor + ';">' + (isPositive ? '' : '+') + t.weight + '</span>';
+          html += '</div>';
+          html += '<div style="font-size:0.65rem;color:var(--text-gray);line-height:1.4;margin-bottom:6px;">' + t.detail + '</div>';
+          html += '<div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">';
+          html += '<div style="height:100%;width:' + barWidth + '%;background:' + barColor + ';border-radius:2px;"></div>';
+          html += '</div></div>';
+        });
+        html += '</div>';
+      }
+      
+      // === CONSIGLIO FINALE ===
+      html += '<div style="padding:10px 14px;background:rgba(' + (trap.score >= 50 ? '239,68,68' : '16,185,129') + ',0.06);border:1px solid rgba(' + (trap.score >= 50 ? '239,68,68' : '16,185,129') + ',0.15);border-radius:10px;text-align:center;">';
+      if (trap.score >= 60) {
+        html += '<div style="font-size:0.72rem;font-weight:700;color:#ef4444;">🚫 NON inserire questa partita nei raddoppi o multiple</div>';
+        html += '<div style="font-size:0.6rem;color:var(--text-dark);margin-top:4px;">Se vuoi giocarla, solo come singola con stake ridotto (max 2% bankroll)</div>';
+      } else if (trap.score >= 40) {
+        html += '<div style="font-size:0.72rem;font-weight:700;color:#f97316;">⚡ Giocabile come singola, evita nelle multiple</div>';
+        html += '<div style="font-size:0.6rem;color:var(--text-dark);margin-top:4px;">Stake massimo consigliato: 3% bankroll</div>';
+      } else if (trap.score >= 20) {
+        html += '<div style="font-size:0.72rem;font-weight:700;color:#fbbf24;">✓ OK per multiple — monitora i fattori segnalati</div>';
+      } else {
+        html += '<div style="font-size:0.72rem;font-weight:700;color:#10b981;">✅ Via libera — nessun segnale di trappola</div>';
+      }
+      html += '</div>';
+      
+      html += '</div>';
+      return html;
+    }
+
     function renderBettingExchange(match, d, ai, stat) {
       const { xG, p1X2, pOU, pBTTS, exactScores } = d;
       const homeXG = xG.home, awayXG = xG.away, totXG = xG.total;
@@ -13561,6 +13816,27 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         </div>
         <div class="section-accordion-body open">
           ${safeRender(() => renderBettingProBase(m, d), '', 'BettingProBase')}
+        </div>
+      </div>
+      
+      <!-- TRAP DETECTOR -->
+      <div class="section-accordion">
+        <div class="section-accordion-header open" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>🚨</span> Trap Detector</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              try {
+                const t = calculateTrapScore(m, d, ai);
+                const bg = t.level === 'trap' ? 'rgba(239,68,68,0.12)' : t.level === 'risk' ? 'rgba(249,115,22,0.12)' : t.level === 'caution' ? 'rgba(251,191,36,0.12)' : 'rgba(16,185,129,0.12)';
+                const cl = t.color;
+                return '<span style="font-size:0.6rem;background:' + bg + ';color:' + cl + ';padding:2px 8px;border-radius:8px;font-weight:800;">' + t.score + '/100 ' + t.label + '</span>';
+              } catch(e) { return ''; }
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body open">
+          ${safeRender(() => renderTrapDetector(m, d, ai), '', 'TrapDetector')}
         </div>
       </div>
       
