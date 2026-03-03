@@ -9624,7 +9624,7 @@
     }
 
     // === TRAP DETECTOR — Indice di rischio trappola ===
-    // Analizza 8 fattori di rischio che storicamente causano upset
+    // Analizza 8+ fattori di rischio + Super AI/Oracle per generare il "Prono del Trap"
     // Legge SOLO dati già calcolati — ZERO impatto sull'algoritmo
     function calculateTrapScore(match, d, ai) {
       const traps = [];
@@ -9634,6 +9634,8 @@
       const aD = d.awayData || {};
       const p = d.p1X2 || { home: 33, draw: 33, away: 33 };
       const xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      const pOU = d.pOU || {};
+      const pBTTS = d.pBTTS || 50;
       const bk = d.bookmakerOdds || {};
       
       // Chi è il favorito?
@@ -9656,7 +9658,7 @@
       
       // Se non c'è un favorito chiaro, nessuna trappola possibile
       if (favProb < 45) {
-        return { score: 0, level: 'none', label: 'Equilibrata', color: '#64748b', traps: [{ factor: 'Partita equilibrata', detail: 'Nessun favorito chiaro (' + p.home.toFixed(0) + '% / ' + p.away.toFixed(0) + '%). Il concetto di trappola non si applica.', weight: 0, icon: 'ℹ️' }] };
+        return { score: 0, level: 'none', label: 'Equilibrata', color: '#64748b', traps: [{ factor: 'Partita equilibrata', detail: 'Nessun favorito chiaro (' + p.home.toFixed(0) + '% / ' + p.away.toFixed(0) + '%). Il concetto di trappola non si applica.', weight: 0, icon: 'ℹ️' }], trapPick: null };
       }
       
       // === FATTORE 1: Forma gonfiata (vittorie risicate) ===
@@ -9690,13 +9692,11 @@
       
       // === FATTORE 3: Motivazione asimmetrica ===
       if (favPos && undPos) {
-        // Favorito in alto classifica e già "tranquillo", underdog in zona retrocessione
         if (favPos <= 4 && undPos >= 15) {
           const w = 12;
           totalScore += w;
           traps.push({ factor: 'Motivazione asimmetrica', detail: favName + ' (' + favPos + '°) già in zona alta. ' + undName + ' (' + undPos + '°) lotta per la salvezza — motivazione altissima.', weight: w, icon: '🔥' });
         }
-        // Favorito in metà classifica senza obiettivi
         if (favPos >= 8 && favPos <= 14 && (undPos <= 5 || undPos >= 17)) {
           const w = 8;
           totalScore += w;
@@ -9755,14 +9755,48 @@
         traps.push({ factor: 'xG equilibrato', detail: 'Gap xG molto stretto: ' + favXG.toFixed(2) + ' vs ' + undXG.toFixed(2) + '. Il favorito non domina statisticamente.', weight: w, icon: '📊' });
       }
       
-      // === BONUS: Failed to Score alto dell'underdog (riduce rischio) ===
+      // === FATTORE 9: SUPER AI WARNING FLAGS ===
+      const superAI = state.superAIAnalysis;
+      if (superAI && !superAI.error) {
+        // Warning flags dall'AI
+        const warnings = (superAI.warningFlags || []).filter(w => w && w.length > 2);
+        if (warnings.length > 0) {
+          const w = Math.min(15, warnings.length * 6);
+          totalScore += w;
+          traps.push({ factor: 'Alert Oracle AI', detail: warnings.join(' | '), weight: w, icon: '🧠' });
+        }
+        // Se Oracle dice SKIP
+        if (superAI.recommendation === 'SKIP') {
+          const w = 12;
+          totalScore += w;
+          traps.push({ factor: 'Oracle consiglia SKIP', detail: 'L\'analisi AI con news suggerisce di evitare questa partita. Rischio: ' + (superAI.riskLevel || '?') + '.', weight: w, icon: '🛑' });
+        }
+        // Se rischio alto dall'AI
+        if (superAI.riskLevel === 'alto') {
+          const w = 10;
+          totalScore += w;
+          traps.push({ factor: 'Rischio AI alto', detail: 'Oracle AI classifica il rischio come ALTO sulla base delle news e del contesto.', weight: w, icon: '⚡' });
+        }
+      }
+      
+      // === FATTORE 10: SUPER ALGORITHM — bassa convergenza ===
+      const superAlgo = state.superAnalysis;
+      if (superAlgo && superAlgo.picks && superAlgo.picks.length > 0) {
+        if (superAlgo.avgConvergence < 0.45) {
+          const w = 10;
+          totalScore += w;
+          traps.push({ factor: 'Bassa convergenza segnali', detail: 'Il Super Algoritmo ha convergenza media del ' + (superAlgo.avgConvergence * 100).toFixed(0) + '% — i segnali non concordano, previsione instabile.', weight: w, icon: '🔀' });
+        }
+      }
+      
+      // === BONUS: Underdog sterile (riduce rischio) ===
       if (undData.failedToScorePct > 40) {
         const reduction = -8;
         totalScore += reduction;
         traps.push({ factor: 'Underdog sterile', detail: undName + ' non segna nel ' + undData.failedToScorePct.toFixed(0) + '% delle partite. Meno pericoloso del previsto.', weight: reduction, icon: '🛡️' });
       }
       
-      // === BONUS: Forma eccellente del favorito (riduce rischio) ===
+      // === BONUS: Forma eccellente e concreta del favorito ===
       if (favForm && favForm.length >= 5) {
         const recent = favForm.slice(0, 5).split('');
         const wins = recent.filter(r => r === 'W').length;
@@ -9773,11 +9807,18 @@
         }
       }
       
+      // === BONUS: Oracle AI conferma con alta fiducia ===
+      if (superAI && !superAI.error && superAI.confidence >= 75 && superAI.algoConfirmed) {
+        const reduction = -8;
+        totalScore += reduction;
+        traps.push({ factor: 'Oracle AI conferma', detail: 'L\'AI con news conferma l\'algoritmo con ' + superAI.confidence + '% di confidenza. Segnale positivo.', weight: reduction, icon: '🛡️' });
+      }
+      
       // Normalizza 0-100
       totalScore = Math.max(0, Math.min(100, totalScore));
       
-      // Ordina fattori per peso (rischio decrescente)
-      traps.sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
+      // Ordina fattori per peso (rischio decrescente, poi bonus)
+      traps.sort((a, b) => b.weight - a.weight);
       
       let level, label, color;
       if (totalScore <= 20) { level = 'safe'; label = 'SICURA'; color = '#10b981'; }
@@ -9785,7 +9826,135 @@
       else if (totalScore <= 60) { level = 'risk'; label = 'RISCHIO'; color = '#f97316'; }
       else { level = 'trap'; label = 'TRAPPOLA'; color = '#ef4444'; }
       
-      return { score: totalScore, level, label, color, traps, favName, undName, favProb, favOdds };
+      // === PRONO DEL TRAP ===
+      // Genera un pronostico che tiene conto dei fattori di rischio
+      const trapPick = generateTrapPick(totalScore, level, match, d, ai, favIs, favName, undName, favXG, undXG, favProb, pOU, pBTTS, superAI, superAlgo);
+      
+      return { score: totalScore, level, label, color, traps, trapPick, favName, undName, favProb, favOdds };
+    }
+    
+    // === PRONO DEL TRAP — Pronostico intelligente anti-trappola ===
+    function generateTrapPick(trapScore, trapLevel, match, d, ai, favIs, favName, undName, favXG, undXG, favProb, pOU, pBTTS, superAI, superAlgo) {
+      const p = d.p1X2 || { home: 33, draw: 33, away: 33 };
+      const totXG = (d.xG || {}).total || 2.2;
+      const result = { pick: '', prob: 0, reasoning: '', strategy: '', confidence: 'medium', alternatives: [] };
+      
+      // Raccogli i pick da tutte le fonti
+      const aiPick = ai ? ai.pick : '';
+      const oraclePick = (superAlgo && superAlgo.topPick) ? superAlgo.topPick.value : '';
+      const aiNewsPick = (superAI && !superAI.error) ? (superAI.bestPick || '') : '';
+      
+      // Se trap è bassa: conferma il pick principale con extra fiducia
+      if (trapLevel === 'safe') {
+        result.pick = aiPick || oraclePick || 'Over 1.5';
+        result.prob = ai ? ai.prob : 65;
+        result.reasoning = 'Nessun segnale di trappola. Il pronostico principale è affidabile.';
+        result.strategy = 'Via libera per singole e multiple.';
+        result.confidence = 'high';
+        // Aggiungi conferma fonti
+        if (oraclePick && aiNewsPick) {
+          const allAgree = aiPick.toLowerCase().includes(oraclePick.toLowerCase().split(' ')[0]) || oraclePick.toLowerCase().includes(aiPick.toLowerCase().split(' ')[0]);
+          if (allAgree) result.reasoning = 'Tutte le fonti concordano e nessun segnale di trappola. Massima fiducia.';
+        }
+        return result;
+      }
+      
+      // Se trap è TRAPPOLA o RISCHIO: suggerisci mercato sicuro
+      if (trapLevel === 'trap' || trapLevel === 'risk') {
+        // Strategia: evita esiti secchi (1, X, 2), preferisci mercati "proteggibili"
+        const candidates = [];
+        
+        // Under 3.5 quasi sempre sicuro in partite trappola (poca qualità, tensione)
+        if (pOU && pOU[3.5]) {
+          candidates.push({ pick: 'Under 3.5', prob: pOU[3.5].under, reason: 'Le partite trappola tendono ad essere bloccate — tensione alta, pochi gol.' });
+        }
+        
+        // Double chance del favorito (copertura pareggio)
+        const dcPick = favIs === 'home' ? '1X' : 'X2';
+        const dcProb = favIs === 'home' ? p.home + p.draw : p.away + p.draw;
+        candidates.push({ pick: dcPick, prob: dcProb, reason: 'Double chance copre il pareggio — il favorito potrebbe non vincere ma difficilmente crolla del tutto.' });
+        
+        // Over 1.5 (quasi sempre passa)
+        if (pOU && pOU[1.5] && pOU[1.5].over >= 70) {
+          candidates.push({ pick: 'Over 1.5', prob: pOU[1.5].over, reason: 'Almeno 2 gol sono probabili anche nelle trappole. Mercato sicuro.' });
+        }
+        
+        // GG se entrambe segnano spesso
+        if (pBTTS >= 55 && favXG > 0.9 && undXG > 0.9) {
+          candidates.push({ pick: 'GG', prob: pBTTS, reason: 'Entrambe segnano — l\'underdog motivato trova il gol, il favorito reagisce.' });
+        }
+        
+        // Under 2.5 se partita è davvero bloccata
+        if (totXG < 2.3 && pOU && pOU[2.5]) {
+          candidates.push({ pick: 'Under 2.5', prob: pOU[2.5].under, reason: 'xG totale basso (' + totXG.toFixed(2) + ') + tensione da trappola = pochi gol.' });
+        }
+        
+        // Ordina per probabilità
+        candidates.sort((a, b) => b.prob - a.prob);
+        
+        if (candidates.length > 0) {
+          const best = candidates[0];
+          result.pick = best.pick;
+          result.prob = best.prob;
+          result.reasoning = best.reason;
+          result.confidence = trapLevel === 'trap' ? 'high' : 'medium';
+          result.strategy = trapLevel === 'trap' 
+            ? '🚫 NON giocare il favorito secco. Usa questo pick sicuro o evita la partita.'
+            : '⚡ Il favorito secco è rischioso. Questo pick gestisce il rischio.';
+          result.alternatives = candidates.slice(1, 3).map(c => ({ pick: c.pick, prob: c.prob.toFixed(0) }));
+        }
+        return result;
+      }
+      
+      // Se trap è ATTENZIONE: pick "ammorbidito"
+      // Mantieni l'area del pick principale ma proteggi
+      const candidates = [];
+      
+      // Se il pick AI è un esito secco (1, 2), suggerisci double chance
+      if (aiPick && (aiPick.includes('Casa') || aiPick.includes('Ospite') || aiPick === '1' || aiPick === '2')) {
+        const dcPick = (aiPick.includes('Casa') || aiPick === '1') ? '1X' : 'X2';
+        const dcProb = (aiPick.includes('Casa') || aiPick === '1') ? p.home + p.draw : p.away + p.draw;
+        candidates.push({ pick: dcPick, prob: dcProb, reason: 'Il favorito è dato vincente ma i segnali di attenzione suggeriscono di coprire il pareggio.' });
+      }
+      
+      // Over 1.5 + Under 3.5 combo sicura
+      if (pOU && pOU[1.5] && pOU[3.5]) {
+        const o15 = pOU[1.5].over;
+        const u35 = pOU[3.5].under;
+        if (o15 >= 72 && u35 >= 60) {
+          candidates.push({ pick: 'Over 1.5', prob: o15, reason: 'Mercato gol sicuro — almeno 2 gol sono molto probabili.' });
+        }
+      }
+      
+      // GG come alternativa
+      if (pBTTS >= 55) {
+        candidates.push({ pick: 'GG', prob: pBTTS, reason: 'Entrambe segnano — copre sia vittoria che pareggio con gol.' });
+      }
+      
+      // Conferma AI se disponibile
+      if (aiNewsPick && candidates.length === 0) {
+        candidates.push({ pick: aiNewsPick, prob: (superAI || {}).bestPickProb || 60, reason: 'Oracle AI suggerisce questo pick basandosi anche sulle news.' });
+      }
+      
+      candidates.sort((a, b) => b.prob - a.prob);
+      
+      if (candidates.length > 0) {
+        const best = candidates[0];
+        result.pick = best.pick;
+        result.prob = best.prob;
+        result.reasoning = best.reason;
+        result.confidence = 'medium';
+        result.strategy = '⚠️ Giocabile con cautela. Evita nelle multiple da 3+.';
+        result.alternatives = candidates.slice(1, 3).map(c => ({ pick: c.pick, prob: c.prob.toFixed(0) }));
+      } else {
+        result.pick = aiPick || 'Over 1.5';
+        result.prob = ai ? ai.prob : 65;
+        result.reasoning = 'Segnali di attenzione limitati. Il pick principale resta valido.';
+        result.confidence = 'medium';
+        result.strategy = '✓ Giocabile come singola.';
+      }
+      
+      return result;
     }
     
     function renderTrapDetector(match, d, ai) {
@@ -9859,20 +10028,58 @@
         html += '</div>';
       }
       
-      // === CONSIGLIO FINALE ===
-      html += '<div style="padding:10px 14px;background:rgba(' + (trap.score >= 50 ? '239,68,68' : '16,185,129') + ',0.06);border:1px solid rgba(' + (trap.score >= 50 ? '239,68,68' : '16,185,129') + ',0.15);border-radius:10px;text-align:center;">';
-      if (trap.score >= 60) {
-        html += '<div style="font-size:0.72rem;font-weight:700;color:#ef4444;">🚫 NON inserire questa partita nei raddoppi o multiple</div>';
-        html += '<div style="font-size:0.6rem;color:var(--text-dark);margin-top:4px;">Se vuoi giocarla, solo come singola con stake ridotto (max 2% bankroll)</div>';
-      } else if (trap.score >= 40) {
-        html += '<div style="font-size:0.72rem;font-weight:700;color:#f97316;">⚡ Giocabile come singola, evita nelle multiple</div>';
-        html += '<div style="font-size:0.6rem;color:var(--text-dark);margin-top:4px;">Stake massimo consigliato: 3% bankroll</div>';
-      } else if (trap.score >= 20) {
-        html += '<div style="font-size:0.72rem;font-weight:700;color:#fbbf24;">✓ OK per multiple — monitora i fattori segnalati</div>';
+      // === CONSIGLIO FINALE + PRONO DEL TRAP ===
+      if (trap.trapPick && trap.trapPick.pick) {
+        const tp = trap.trapPick;
+        const tpColor = tp.confidence === 'high' ? '#10b981' : tp.confidence === 'medium' ? '#fbbf24' : '#ef4444';
+        const tpBg = tp.confidence === 'high' ? 'rgba(16,185,129,0.08)' : tp.confidence === 'medium' ? 'rgba(251,191,36,0.06)' : 'rgba(239,68,68,0.06)';
+        const tpBorder = tp.confidence === 'high' ? 'rgba(16,185,129,0.25)' : tp.confidence === 'medium' ? 'rgba(251,191,36,0.2)' : 'rgba(239,68,68,0.2)';
+        
+        html += '<div style="background:' + tpBg + ';border:1.5px solid ' + tpBorder + ';border-radius:14px;padding:16px;position:relative;overflow:hidden;">';
+        
+        // Badge
+        html += '<div style="position:absolute;top:0;right:0;background:linear-gradient(135deg,' + tpColor + ',' + tpColor + '99);color:white;font-size:0.55rem;font-weight:800;padding:4px 12px;border-radius:0 0 0 10px;letter-spacing:0.5px;">PRONO DEL TRAP</div>';
+        
+        // Pick principale
+        html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">';
+        html += '<div style="width:52px;height:52px;border-radius:12px;background:' + tpColor + '15;border:2px solid ' + tpColor + '40;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🚨</div>';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-size:0.6rem;color:var(--text-dark);margin-bottom:2px;">Pronostico Anti-Trappola</div>';
+        html += '<div style="font-size:1.2rem;font-weight:900;color:white;">' + esc(tp.pick) + '</div>';
+        html += '<div style="font-size:0.85rem;font-weight:800;color:' + tpColor + ';">' + tp.prob.toFixed(0) + '% <span style="font-size:0.6rem;opacity:0.7;">confidenza ' + (tp.confidence === 'high' ? '🎯 Alta' : tp.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa') + '</span></div>';
+        html += '</div></div>';
+        
+        // Reasoning
+        html += '<div style="font-size:0.7rem;color:var(--text-gray);line-height:1.5;margin-bottom:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;">💡 ' + tp.reasoning + '</div>';
+        
+        // Strategy
+        html += '<div style="font-size:0.68rem;font-weight:700;color:' + tpColor + ';margin-bottom:8px;">' + tp.strategy + '</div>';
+        
+        // Alternative
+        if (tp.alternatives && tp.alternatives.length > 0) {
+          html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+          html += '<span style="font-size:0.6rem;color:var(--text-dark);align-self:center;">Alternative:</span>';
+          tp.alternatives.forEach(function(alt) {
+            html += '<span style="padding:3px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;font-size:0.62rem;color:white;font-weight:600;">' + alt.pick + ' <span style="color:' + tpColor + ';">' + alt.prob + '%</span></span>';
+          });
+          html += '</div>';
+        }
+        
+        html += '</div>';
       } else {
-        html += '<div style="font-size:0.72rem;font-weight:700;color:#10b981;">✅ Via libera — nessun segnale di trappola</div>';
+        // Fallback: consiglio senza prono
+        html += '<div style="padding:10px 14px;background:rgba(' + (trap.score >= 50 ? '239,68,68' : '16,185,129') + ',0.06);border:1px solid rgba(' + (trap.score >= 50 ? '239,68,68' : '16,185,129') + ',0.15);border-radius:10px;text-align:center;">';
+        if (trap.score >= 60) {
+          html += '<div style="font-size:0.72rem;font-weight:700;color:#ef4444;">🚫 NON inserire questa partita nei raddoppi o multiple</div>';
+        } else if (trap.score >= 40) {
+          html += '<div style="font-size:0.72rem;font-weight:700;color:#f97316;">⚡ Giocabile come singola, evita nelle multiple</div>';
+        } else if (trap.score >= 20) {
+          html += '<div style="font-size:0.72rem;font-weight:700;color:#fbbf24;">✓ OK per multiple — monitora i fattori segnalati</div>';
+        } else {
+          html += '<div style="font-size:0.72rem;font-weight:700;color:#10b981;">✅ Via libera — nessun segnale di trappola</div>';
+        }
+        html += '</div>';
       }
-      html += '</div>';
       
       html += '</div>';
       return html;
