@@ -13646,15 +13646,33 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           <div class="panel-title">📋 Campionati (${state.matches.length} partite)</div>
           
           <!-- FILTRI RAPIDI -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
-            ${filterBtns.map(f => `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            ${filterBtns.filter(f => !f.key.startsWith('country:')).map(f => `
               <button onclick="setLeagueFilter('${f.key.replace(/'/g, "\\'")}')" title="${f.title || f.label}" style="
-                padding:6px ${f.count !== null || f.key === 'top5' || f.key === 'all' || f.key === 'favorites' ? '12px' : '8px'};border-radius:20px;font-size:${f.key.startsWith('country:') ? '0.85rem' : '0.72rem'};font-weight:700;cursor:pointer;
+                padding:6px 12px;border-radius:20px;font-size:0.72rem;font-weight:700;cursor:pointer;
                 border:1.5px solid ${state.leagueFilter === f.key ? 'var(--accent-cyan)' : 'var(--border)'};
                 background:${state.leagueFilter === f.key ? 'rgba(0,212,255,0.12)' : 'var(--bg-input)'};
                 color:${state.leagueFilter === f.key ? 'var(--accent-cyan)' : 'var(--text-gray)'};
-                white-space:nowrap;transition:all 0.2s;min-width:${f.key.startsWith('country:') ? '34px' : 'auto'};text-align:center;
+                white-space:nowrap;transition:all 0.2s;
               ">${f.label}${f.count !== null ? ' (' + f.count + ')' : ''}</button>
+            `).join('')}
+            <button onclick="(function(){ var el=document.getElementById('countryFlagsPanel'); if(el){el.style.display=el.style.display==='none'?'flex':'none';} })()" style="
+              padding:6px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;cursor:pointer;
+              border:1.5px solid ${state.leagueFilter.startsWith('country:') ? 'var(--accent-cyan)' : 'var(--border)'};
+              background:${state.leagueFilter.startsWith('country:') ? 'rgba(0,212,255,0.12)' : 'var(--bg-input)'};
+              color:${state.leagueFilter.startsWith('country:') ? 'var(--accent-cyan)' : 'var(--text-gray)'};
+              white-space:nowrap;transition:all 0.2s;
+            ">${state.leagueFilter.startsWith('country:') ? (COUNTRY_FLAGS[state.leagueFilter.substring(8)] || '🏳️') + ' ' + state.leagueFilter.substring(8) : '🏳️ Nazioni ▾'}</button>
+          </div>
+          <!-- BANDIERE NAZIONI (collassabile) -->
+          <div id="countryFlagsPanel" style="display:${state.leagueFilter.startsWith('country:') ? 'flex' : 'none'};gap:5px;flex-wrap:wrap;margin-bottom:10px;padding:8px;background:rgba(0,0,0,0.15);border-radius:10px;border:1px solid var(--border);">
+            ${filterBtns.filter(f => f.key.startsWith('country:')).map(f => `
+              <button onclick="setLeagueFilter('${f.key.replace(/'/g, "\\'")}')" title="${f.title || ''}" style="
+                width:32px;height:32px;border-radius:50%;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+                border:1.5px solid ${state.leagueFilter === f.key ? 'var(--accent-cyan)' : 'transparent'};
+                background:${state.leagueFilter === f.key ? 'rgba(0,212,255,0.15)' : 'rgba(255,255,255,0.04)'};
+                transition:all 0.15s;
+              ">${f.label}</button>
             `).join('')}
           </div>
           
