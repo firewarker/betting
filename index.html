@@ -10157,194 +10157,424 @@
       return html;
     }
 
-    function renderBettingExchange(match, d, ai, stat) {
-      const { xG, p1X2, pOU, pBTTS, exactScores } = d;
-      const homeXG = xG.home, awayXG = xG.away, totXG = xG.total;
-      const bk = d.bookmakerOdds || {};
+    // === NG INSIGHT — Indicatore intelligente No Goal ===
+    // Legge SOLO dati esistenti — ZERO impatto sull'algoritmo
+    function renderNGInsight(match, d) {
+      const pBTTS = d.pBTTS || 50;
+      const ngProb = 100 - pBTTS;
+      const hD = d.homeData || {};
+      const aD = d.awayData || {};
+      const xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      const hCS = hD.cleanSheetPct || 25;
+      const aCS = aD.cleanSheetPct || 25;
+      const hFTS = hD.failedToScorePct || 25;
+      const aFTS = aD.failedToScorePct || 25;
       
-      // === CALCOLO QUOTE EXCHANGE STIMATE ===
-      // Quota = 100 / probabilità (con margine exchange ~2%)
-      const calcQuota = (prob) => prob > 0 ? (100 / (prob * 0.98)).toFixed(2) : '—';
-      const calcLay = (prob) => prob > 0 ? (100 / ((100 - prob) * 0.98)).toFixed(2) : '—';
+      // Calcola segnali NG
+      const signals = [];
+      let ngScore = 0;
       
-      // Trova il favorito chiaro
-      const homeProb = p1X2.home, drawProb = p1X2.draw, awayProb = p1X2.away;
-      const favoriteIs = homeProb > awayProb ? 'home' : 'away';
-      const favProb = favoriteIs === 'home' ? homeProb : awayProb;
-      const favName = favoriteIs === 'home' ? match.home.name : match.away.name;
-      const underdogName = favoriteIs === 'home' ? match.away.name : match.home.name;
-      const underdogProb = favoriteIs === 'home' ? awayProb : homeProb;
+      // 1. Probabilità diretta NG
+      if (ngProb >= 55) { ngScore += 20; signals.push({ text: 'NG al ' + ngProb.toFixed(0) + '% (Poisson+DC)', icon: '📊', positive: true }); }
+      else if (ngProb >= 48) { ngScore += 10; signals.push({ text: 'NG al ' + ngProb.toFixed(0) + '% — zona neutrale', icon: '📊', positive: false }); }
+      else { ngScore -= 10; signals.push({ text: 'GG favorito al ' + pBTTS.toFixed(0) + '% — NG sfavorevole', icon: '📊', positive: false }); }
       
-      // Top exact scores
-      const topExact = (exactScores || []).slice(0, 5);
-      const topExactHome = topExact.filter(s => s.h > s.a);
-      const topExactAway = topExact.filter(s => s.a > s.h);
-      const topExactDraw = topExact.filter(s => s.h === s.a);
-      
-      let html = '<div style="display:flex;flex-direction:column;gap:14px;">';
-      
-      // === SEZIONE 1: STRATEGIE BACK ===
-      html += '<div style="background:rgba(16,185,129,0.04);border:1px solid rgba(16,185,129,0.15);border-radius:12px;padding:14px;">';
-      html += '<div style="font-size:0.82rem;font-weight:800;color:#10b981;margin-bottom:10px;">📗 STRATEGIE BACK (Punta a favore)</div>';
-      
-      // Back Favorito
-      if (favProb >= 50) {
-        const quotaBack = calcQuota(favProb);
-        const rating = favProb >= 70 ? '🟢 FORTE' : favProb >= 55 ? '🟡 MODERATO' : '🔴 RISCHIOSO';
-        html += '<div style="padding:10px;background:rgba(16,185,129,0.06);border-radius:8px;margin-bottom:8px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-        html += '<div><div style="font-size:0.78rem;font-weight:700;color:white;">🏆 Back ' + esc(favName.substring(0,18)) + '</div>';
-        html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-top:2px;">Prob: ' + favProb.toFixed(0) + '% | xG: ' + (favoriteIs==='home'?homeXG:awayXG).toFixed(2) + '</div></div>';
-        html += '<div style="text-align:right;"><div style="font-size:1.1rem;font-weight:900;color:#00d4ff;">@' + quotaBack + '</div>';
-        html += '<div style="font-size:0.58rem;color:var(--text-dark);">' + rating + '</div></div></div>';
-        
-        // Strategia di uscita
-        html += '<div style="font-size:0.65rem;color:var(--text-gray);margin-top:8px;padding-top:8px;border-top:1px solid rgba(16,185,129,0.1);">';
-        html += '💡 <strong>Strategia:</strong> Back pre-match @' + quotaBack + '. ';
-        if (favProb >= 65) {
-          html += 'Se segna entro il 30\', la quota scenderà a ~@' + (parseFloat(quotaBack) * 0.55).toFixed(2) + '. Fai LAY per green-up.';
-        } else {
-          html += 'Rischioso — considera solo se trovi quota ≥' + (parseFloat(quotaBack) * 1.15).toFixed(2) + ' per valore.';
-        }
-        html += '</div></div>';
+      // 2. Clean sheet alta di almeno una squadra
+      if (hCS >= 40 || aCS >= 40) {
+        const bestCS = Math.max(hCS, aCS);
+        const team = hCS >= aCS ? match.home.name : match.away.name;
+        ngScore += 18;
+        signals.push({ text: team + ': clean sheet ' + bestCS.toFixed(0) + '% — difesa dominante', icon: '🧱', positive: true });
+      } else if (hCS >= 30 || aCS >= 30) {
+        const bestCS = Math.max(hCS, aCS);
+        const team = hCS >= aCS ? match.home.name : match.away.name;
+        ngScore += 8;
+        signals.push({ text: team + ': clean sheet ' + bestCS.toFixed(0) + '% — difesa solida', icon: '🧱', positive: true });
       }
       
-      // Back Risultati Esatti (quote alte, piccola puntata)
-      if (topExact.length > 0) {
-        html += '<div style="padding:10px;background:rgba(168,85,247,0.06);border-radius:8px;margin-bottom:8px;">';
-        html += '<div style="font-size:0.78rem;font-weight:700;color:#c084fc;margin-bottom:8px;">🎯 Back Risultati Esatti (quote alte)</div>';
-        html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
-        topExact.slice(0,4).forEach(es => {
-          const esQuota = calcQuota(es.p || es.prob);
-          const isWin = es.h !== es.a;
-          html += '<div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:8px 12px;text-align:center;flex:1;min-width:60px;">';
-          html += '<div style="font-size:1rem;font-weight:900;color:white;">' + es.h + '-' + es.a + '</div>';
-          html += '<div style="font-size:0.82rem;font-weight:800;color:#c084fc;">@' + esQuota + '</div>';
-          html += '<div style="font-size:0.55rem;color:var(--text-dark);">' + (es.p || es.prob).toFixed(1) + '%</div>';
-          html += '</div>';
-        });
-        html += '</div>';
-        html += '<div style="font-size:0.62rem;color:var(--text-gray);margin-top:8px;">💡 <strong>Strategia:</strong> Puntata piccola (1-2% bankroll) su 2-3 esatti più probabili. Se il primo gol va nella direzione giusta, LAY per garantire profitto.</div>';
-        html += '</div>';
+      // 3. Failed to score di almeno una squadra
+      if (hFTS >= 35 || aFTS >= 35) {
+        const worstFTS = Math.max(hFTS, aFTS);
+        const team = hFTS >= aFTS ? match.home.name : match.away.name;
+        ngScore += 18;
+        signals.push({ text: team + ': non segna nel ' + worstFTS.toFixed(0) + '% — attacco sterile', icon: '🚫', positive: true });
+      } else if (hFTS >= 25 || aFTS >= 25) {
+        const worstFTS = Math.max(hFTS, aFTS);
+        const team = hFTS >= aFTS ? match.home.name : match.away.name;
+        ngScore += 5;
+        signals.push({ text: team + ': non segna nel ' + worstFTS.toFixed(0) + '%', icon: '🚫', positive: false });
       }
       
-      // Back Over 2.5 se probabile
-      if (pOU[2.5].over >= 55) {
-        const oQuota = calcQuota(pOU[2.5].over);
-        html += '<div style="padding:10px;background:rgba(251,191,36,0.06);border-radius:8px;margin-bottom:8px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-        html += '<div><div style="font-size:0.78rem;font-weight:700;color:white;">🔥 Back Over 2.5</div>';
-        html += '<div style="font-size:0.62rem;color:var(--text-dark);">xG totale: ' + totXG.toFixed(2) + ' | BTTS: ' + pBTTS.toFixed(0) + '%</div></div>';
-        html += '<div style="font-size:1.1rem;font-weight:900;color:#fbbf24;">@' + oQuota + '</div></div>';
-        html += '<div style="font-size:0.62rem;color:var(--text-gray);margin-top:6px;">💡 Ogni gol segnato abbassa la quota. Con 1 gol al 25\' → LAY @' + (parseFloat(oQuota) * 0.6).toFixed(2) + ' circa.</div>';
-        html += '</div>';
+      // 4. xG basso di una squadra
+      const lowXG = Math.min(xG.home, xG.away);
+      const lowXGTeam = xG.home < xG.away ? match.home.name : match.away.name;
+      if (lowXG < 0.8) {
+        ngScore += 16;
+        signals.push({ text: lowXGTeam + ': xG solo ' + lowXG.toFixed(2) + ' — improbabile che segni', icon: '📉', positive: true });
+      } else if (lowXG < 1.0) {
+        ngScore += 8;
+        signals.push({ text: lowXGTeam + ': xG ' + lowXG.toFixed(2) + ' — attacco limitato', icon: '📉', positive: true });
       }
       
-      html += '</div>'; // fine strategie back
-      
-      // === SEZIONE 2: STRATEGIE LAY ===
-      html += '<div style="background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.15);border-radius:12px;padding:14px;">';
-      html += '<div style="font-size:0.82rem;font-weight:800;color:#ef4444;margin-bottom:10px;">📕 STRATEGIE LAY (Punta contro)</div>';
-      
-      // Lay the Draw
-      if (drawProb <= 30 && favProb >= 55) {
-        const drawQuota = calcQuota(drawProb);
-        const layDrawLiability = (parseFloat(drawQuota) - 1).toFixed(2);
-        html += '<div style="padding:10px;background:rgba(239,68,68,0.06);border-radius:8px;margin-bottom:8px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-        html += '<div><div style="font-size:0.78rem;font-weight:700;color:white;">🤝❌ Lay the Draw</div>';
-        html += '<div style="font-size:0.62rem;color:var(--text-dark);">Prob pareggio: ' + drawProb.toFixed(0) + '% | Responsabilità: €' + layDrawLiability + ' per €1</div></div>';
-        html += '<div style="font-size:1.1rem;font-weight:900;color:#ef4444;">@' + drawQuota + '</div></div>';
-        html += '<div style="font-size:0.62rem;color:var(--text-gray);margin-top:6px;">💡 <strong>Strategia classica:</strong> LAY pareggio pre-match @' + drawQuota + '. Quando una squadra segna, la quota pareggio sale a @5-8+. Fai BACK pareggio per chiudere in green. ';
-        if (favProb >= 65) html += '<span style="color:#10b981;font-weight:700;">⭐ ALTA probabilità di gol → ottima entry!</span>';
-        html += '</div></div>';
+      // 5. xG totale basso
+      if (xG.total < 2.0) {
+        ngScore += 12;
+        signals.push({ text: 'xG totale ' + xG.total.toFixed(2) + ' — partita da pochi gol', icon: '🔒', positive: true });
       }
       
-      // Lay Underdog
-      if (underdogProb <= 25) {
-        const underdogQuota = calcQuota(underdogProb);
-        html += '<div style="padding:10px;background:rgba(239,68,68,0.06);border-radius:8px;margin-bottom:8px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-        html += '<div><div style="font-size:0.78rem;font-weight:700;color:white;">📉 Lay ' + esc(underdogName.substring(0,18)) + '</div>';
-        html += '<div style="font-size:0.62rem;color:var(--text-dark);">Prob vittoria: solo ' + underdogProb.toFixed(0) + '%</div></div>';
-        html += '<div style="font-size:1.1rem;font-weight:900;color:#ef4444;">@' + underdogQuota + '</div></div>';
-        html += '<div style="font-size:0.62rem;color:var(--text-gray);margin-top:6px;">💡 Lay underdog = guadagni se non vince (pareggio o sconfitta). Responsabilità: €' + (parseFloat(underdogQuota) - 1).toFixed(2) + ' per €1 di profitto.</div>';
-        html += '</div>';
+      // 6. Entrambe le difese sono deboli = penalità NG
+      if (hCS < 20 && aCS < 20) {
+        ngScore -= 15;
+        signals.push({ text: 'Entrambe con clean sheet sotto 20% — difese fragili', icon: '⚠️', positive: false });
       }
       
-      // Lay Under 2.5 se partita gol-friendly
-      if (pOU[2.5].over >= 60 && totXG >= 2.8) {
-        const u25Quota = calcQuota(pOU[2.5].under);
-        html += '<div style="padding:10px;background:rgba(239,68,68,0.06);border-radius:8px;margin-bottom:8px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-        html += '<div><div style="font-size:0.78rem;font-weight:700;color:white;">📉 Lay Under 2.5</div>';
-        html += '<div style="font-size:0.62rem;color:var(--text-dark);">xG ' + totXG.toFixed(2) + ' → partita da gol</div></div>';
-        html += '<div style="font-size:1.1rem;font-weight:900;color:#ef4444;">@' + u25Quota + '</div></div>';
-        html += '<div style="font-size:0.62rem;color:var(--text-gray);margin-top:6px;">💡 Lay Under 2.5 = guadagni se escono 3+ gol. Con xG alto e BTTS ' + pBTTS.toFixed(0) + '%, alta probabilità.</div>';
-        html += '</div>';
+      // 7. Entrambe segnano spesso = penalità NG
+      if (hD.goalsFor >= 1.8 && aD.goalsFor >= 1.8) {
+        ngScore -= 12;
+        signals.push({ text: 'Entrambe segnano 1.8+ gol/g — attacchi prolifici', icon: '⚠️', positive: false });
       }
       
-      html += '</div>'; // fine strategie lay
+      // Normalizza 0-100
+      ngScore = Math.max(0, Math.min(100, ngScore));
       
-      // === SEZIONE 3: TRADING PLAN ===
-      html += '<div style="background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.15);border-radius:12px;padding:14px;">';
-      html += '<div style="font-size:0.82rem;font-weight:800;color:#00d4ff;margin-bottom:10px;">📋 TRADING PLAN</div>';
+      var level, label, color;
+      if (ngScore >= 60) { level = 'strong'; label = 'NG FORTE'; color = '#10b981'; }
+      else if (ngScore >= 40) { level = 'moderate'; label = 'NG POSSIBILE'; color = '#fbbf24'; }
+      else if (ngScore >= 20) { level = 'weak'; label = 'NG DEBOLE'; color = '#f97316'; }
+      else { level = 'avoid'; label = 'EVITA NG'; color = '#ef4444'; }
       
-      // Piano step by step
-      const bestPick = ai.prob >= stat.prob ? ai : stat;
-      const isOverMarket = bestPick.pick.toLowerCase().includes('over');
-      const isGoalMarket = isOverMarket || bestPick.pick.toLowerCase().includes('gg');
+      // === RENDERING ===
+      var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
       
-      html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+      // Hero bar
+      var radius = 36;
+      var circumference = 2 * Math.PI * radius;
+      var dashoffset = circumference - (ngScore / 100) * circumference;
       
-      // Step 1
-      html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;background:rgba(0,212,255,0.04);border-radius:8px;">';
-      html += '<div style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;color:#00d4ff;flex-shrink:0;">1</div>';
-      html += '<div style="font-size:0.72rem;color:var(--text-gray);"><strong style="color:white;">PRE-MATCH:</strong> ';
-      if (favProb >= 60 && drawProb <= 28) {
-        html += 'BACK <strong>' + esc(favName.substring(0,15)) + '</strong> @' + calcQuota(favProb) + ' + LAY Pareggio @' + calcQuota(drawProb);
-      } else if (isGoalMarket && pOU[2.5].over >= 58) {
-        html += 'BACK Over 2.5 @' + calcQuota(pOU[2.5].over) + ' (xG ' + totXG.toFixed(2) + ')';
+      html += '<div style="display:flex;align-items:center;gap:16px;padding:14px;background:rgba(' + (level === 'strong' ? '16,185,129' : level === 'moderate' ? '251,191,36' : level === 'weak' ? '249,115,22' : '239,68,68') + ',0.06);border:1.5px solid ' + color + '30;border-radius:14px;">';
+      
+      // Cerchio
+      html += '<div style="flex-shrink:0;position:relative;width:80px;height:80px;">';
+      html += '<svg width="80" height="80" viewBox="0 0 80 80" style="transform:rotate(-90deg);">';
+      html += '<circle cx="40" cy="40" r="' + radius + '" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>';
+      html += '<circle cx="40" cy="40" r="' + radius + '" fill="none" stroke="' + color + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + dashoffset.toFixed(1) + '"/>';
+      html += '</svg>';
+      html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">';
+      html += '<div style="font-size:1.3rem;font-weight:900;color:' + color + ';">' + ngScore + '</div>';
+      html += '<div style="font-size:0.45rem;color:var(--text-dark);font-weight:600;">NG SCORE</div>';
+      html += '</div></div>';
+      
+      // Info
+      html += '<div style="flex:1;">';
+      html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-bottom:3px;">Indicatore No Goal</div>';
+      html += '<div style="font-size:1.05rem;font-weight:900;color:' + color + ';margin-bottom:2px;">' + label + '</div>';
+      html += '<div style="font-size:0.78rem;font-weight:700;color:white;">NG: ' + ngProb.toFixed(0) + '% <span style="font-size:0.65rem;color:var(--text-dark)">| GG: ' + pBTTS.toFixed(0) + '%</span></div>';
+      
+      if (level === 'strong') {
+        html += '<div style="font-size:0.62rem;color:#10b981;margin-top:3px;">✅ Condizioni ottimali per NG — giocabile in singola e multipla</div>';
+      } else if (level === 'moderate') {
+        html += '<div style="font-size:0.62rem;color:#fbbf24;margin-top:3px;">⚡ NG possibile — valuta come singola, rischio in multipla</div>';
+      } else if (level === 'weak') {
+        html += '<div style="font-size:0.62rem;color:#f97316;margin-top:3px;">⚠️ NG debole — sconsigliato, meglio GG o mercati gol</div>';
       } else {
-        html += 'BACK ' + esc(bestPick.pick) + ' @' + calcQuota(bestPick.prob);
+        html += '<div style="font-size:0.62rem;color:#ef4444;margin-top:3px;">🚫 GG molto più probabile — evita NG</div>';
       }
       html += '</div></div>';
       
-      // Step 2
-      html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;background:rgba(0,212,255,0.04);border-radius:8px;">';
-      html += '<div style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;color:#00d4ff;flex-shrink:0;">2</div>';
-      html += '<div style="font-size:0.72rem;color:var(--text-gray);"><strong style="color:white;">DURANTE (gol favorevole):</strong> ';
-      html += 'La quota scende → fai LAY per chiudere in <strong style="color:#10b981;">GREEN-UP</strong>. Profitto garantito qualsiasi risultato finale.';
-      html += '</div></div>';
-      
-      // Step 3
-      html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;background:rgba(0,212,255,0.04);border-radius:8px;">';
-      html += '<div style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;color:#00d4ff;flex-shrink:0;">3</div>';
-      html += '<div style="font-size:0.72rem;color:var(--text-gray);"><strong style="color:white;">DURANTE (gol sfavorevole):</strong> ';
-      html += 'La quota sale → hai due opzioni: <strong style="color:#ef4444;">RED-OUT</strong> (chiudi in perdita ridotta) oppure <strong style="color:#fbbf24;">ATTENDI</strong> se credi nella rimonta.';
-      html += '</div></div>';
-      
-      // Step 4
-      html += '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;background:rgba(0,212,255,0.04);border-radius:8px;">';
-      html += '<div style="width:22px;height:22px;border-radius:50%;background:rgba(0,212,255,0.15);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;color:#00d4ff;flex-shrink:0;">4</div>';
-      html += '<div style="font-size:0.72rem;color:var(--text-gray);"><strong style="color:white;">STOP LOSS:</strong> ';
-      html += 'Se la quota supera @' + (parseFloat(calcQuota(favProb)) * 2.5).toFixed(2) + ' → chiudi. Non inseguire.';
-      html += '</div></div>';
-      
+      // Segnali
+      html += '<div style="display:flex;flex-direction:column;gap:5px;">';
+      signals.forEach(function(s) {
+        var bg = s.positive ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.04)';
+        var border = s.positive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.08)';
+        var textCol = s.positive ? 'var(--text-gray)' : 'var(--text-dark)';
+        html += '<div style="padding:7px 10px;background:' + bg + ';border:1px solid ' + border + ';border-radius:8px;font-size:0.65rem;color:' + textCol + ';">' + s.icon + ' ' + s.text + '</div>';
+      });
       html += '</div>';
       
-      // Riepilogo rischio
-      const riskScore = favProb >= 70 ? 'BASSO' : favProb >= 55 ? 'MEDIO' : 'ALTO';
-      const riskColor = favProb >= 70 ? '#10b981' : favProb >= 55 ? '#fbbf24' : '#ef4444';
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:10px;background:rgba(0,212,255,0.06);border-radius:8px;">';
-      html += '<div style="font-size:0.72rem;color:var(--text-gray);">Rischio trading: <strong style="color:' + riskColor + ';">' + riskScore + '</strong></div>';
-      html += '<div style="font-size:0.72rem;color:var(--text-gray);">Bankroll consigliato: <strong style="color:white;">' + (favProb >= 70 ? '3-5%' : favProb >= 55 ? '1-3%' : '0.5-1%') + '</strong></div>';
+      // Consiglio combo NG
+      if (level === 'strong' || level === 'moderate') {
+        var pOU = d.pOU || {};
+        html += '<div style="padding:10px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:10px;">';
+        html += '<div style="font-size:0.65rem;font-weight:700;color:#10b981;margin-bottom:6px;">💡 Combo NG consigliate:</div>';
+        var combos = [];
+        if (pOU[2.5] && pOU[2.5].under >= 45) {
+          combos.push('NG + Under 2.5 → ' + ((ngProb * pOU[2.5].under) / 100).toFixed(0) + '% @' + (10000 / (ngProb * pOU[2.5].under)).toFixed(2));
+        }
+        if (pOU[3.5] && pOU[3.5].under >= 55) {
+          combos.push('NG + Under 3.5 → ' + ((ngProb * pOU[3.5].under) / 100).toFixed(0) + '% @' + (10000 / (ngProb * pOU[3.5].under)).toFixed(2));
+        }
+        var p1X2 = d.p1X2 || {};
+        if (p1X2.home >= 55) {
+          combos.push('NG + 1 (Casa) → ' + ((ngProb * p1X2.home) / 100).toFixed(0) + '% @' + (10000 / (ngProb * p1X2.home)).toFixed(2));
+        } else if (p1X2.away >= 55) {
+          combos.push('NG + 2 (Ospite) → ' + ((ngProb * p1X2.away) / 100).toFixed(0) + '% @' + (10000 / (ngProb * p1X2.away)).toFixed(2));
+        }
+        if (combos.length > 0) {
+          html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+          combos.forEach(function(c) {
+            html += '<div style="font-size:0.62rem;color:var(--text-gray);padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:6px;">• ' + c + '</div>';
+          });
+          html += '</div>';
+        } else {
+          html += '<div style="font-size:0.62rem;color:var(--text-dark);">Nessuna combo particolarmente forte per questa partita.</div>';
+        }
+        html += '</div>';
+      }
+      
       html += '</div>';
-      
-      html += '</div>'; // fine trading plan
-      
-      return html + '</div>';
+      return html;
     }
+
+    // renderBettingExchange rimossa
+
+    // === GG INSIGHT — Indicatore intelligente Goal/Goal ===
+    // Legge SOLO dati esistenti — ZERO impatto sull'algoritmo
+    function renderGGInsight(match, d) {
+      const pBTTS = d.pBTTS || 50;
+      const hD = d.homeData || {};
+      const aD = d.awayData || {};
+      const xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      const hCS = hD.cleanSheetPct || 25;
+      const aCS = aD.cleanSheetPct || 25;
+      const hFTS = hD.failedToScorePct || 25;
+      const aFTS = aD.failedToScorePct || 25;
+      
+      var signals = [];
+      var ggScore = 0;
+      
+      // 1. Probabilità diretta GG
+      if (pBTTS >= 58) { ggScore += 22; signals.push({ text: 'GG al ' + pBTTS.toFixed(0) + '% (Poisson+DC) — entrambe segnano spesso', icon: '📊', positive: true }); }
+      else if (pBTTS >= 50) { ggScore += 12; signals.push({ text: 'GG al ' + pBTTS.toFixed(0) + '% — zona equilibrata', icon: '📊', positive: true }); }
+      else { ggScore -= 10; signals.push({ text: 'NG favorito al ' + (100 - pBTTS).toFixed(0) + '% — GG sfavorevole', icon: '📊', positive: false }); }
+      
+      // 2. Entrambe segnano bene (goalsFor)
+      if (hD.goalsFor >= 1.5 && aD.goalsFor >= 1.2) {
+        ggScore += 18;
+        signals.push({ text: 'Entrambe offensive: ' + match.home.name + ' ' + hD.goalsFor.toFixed(1) + ' gol/g, ' + match.away.name + ' ' + aD.goalsFor.toFixed(1) + ' gol/g', icon: '⚽', positive: true });
+      } else if (hD.goalsFor >= 1.3 && aD.goalsFor >= 1.0) {
+        ggScore += 8;
+        signals.push({ text: 'Attacchi discreti: ' + hD.goalsFor.toFixed(1) + ' e ' + aD.goalsFor.toFixed(1) + ' gol/g', icon: '⚽', positive: true });
+      }
+      
+      // 3. Clean sheet bassa di ENTRAMBE = difese fragili
+      if (hCS < 25 && aCS < 25) {
+        ggScore += 18;
+        signals.push({ text: 'Difese fragili: CS ' + hCS.toFixed(0) + '% e ' + aCS.toFixed(0) + '% — entrambe subiscono spesso', icon: '🚪', positive: true });
+      } else if (hCS < 30 && aCS < 30) {
+        ggScore += 8;
+        signals.push({ text: 'Difese non impenetrabili: CS ' + hCS.toFixed(0) + '% e ' + aCS.toFixed(0) + '%', icon: '🚪', positive: true });
+      }
+      
+      // 4. Failed to Score basso di ENTRAMBE = segnano quasi sempre
+      if (hFTS < 20 && aFTS < 20) {
+        ggScore += 16;
+        signals.push({ text: 'Entrambe segnano quasi sempre: FTS ' + hFTS.toFixed(0) + '% e ' + aFTS.toFixed(0) + '%', icon: '🎯', positive: true });
+      }
+      
+      // 5. xG alto di entrambe
+      if (xG.home >= 1.3 && xG.away >= 1.0) {
+        ggScore += 12;
+        signals.push({ text: 'xG alti: ' + xG.home.toFixed(2) + ' vs ' + xG.away.toFixed(2) + ' — entrambe pericolose', icon: '📈', positive: true });
+      }
+      
+      // 6. Penalità: una squadra non segna quasi mai
+      if (hFTS >= 40 || aFTS >= 40) {
+        var worstTeam = hFTS >= aFTS ? match.home.name : match.away.name;
+        var worstFTS = Math.max(hFTS, aFTS);
+        ggScore -= 18;
+        signals.push({ text: worstTeam + ': non segna nel ' + worstFTS.toFixed(0) + '% — rischio NG alto', icon: '⚠️', positive: false });
+      }
+      
+      // 7. Penalità: una difesa è un muro
+      if (hCS >= 45 || aCS >= 45) {
+        var wallTeam = hCS >= aCS ? match.home.name : match.away.name;
+        var wallCS = Math.max(hCS, aCS);
+        ggScore -= 15;
+        signals.push({ text: wallTeam + ': clean sheet ' + wallCS.toFixed(0) + '% — muro difensivo', icon: '⚠️', positive: false });
+      }
+      
+      ggScore = Math.max(0, Math.min(100, ggScore));
+      
+      var level, label, color;
+      if (ggScore >= 60) { level = 'strong'; label = 'GG FORTE'; color = '#10b981'; }
+      else if (ggScore >= 40) { level = 'moderate'; label = 'GG POSSIBILE'; color = '#fbbf24'; }
+      else if (ggScore >= 20) { level = 'weak'; label = 'GG DEBOLE'; color = '#f97316'; }
+      else { level = 'avoid'; label = 'EVITA GG'; color = '#ef4444'; }
+      
+      // === RENDERING ===
+      var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+      
+      var radius = 36;
+      var circumference = 2 * Math.PI * radius;
+      var dashoffset = circumference - (ggScore / 100) * circumference;
+      
+      html += '<div style="display:flex;align-items:center;gap:16px;padding:14px;background:rgba(' + (level === 'strong' ? '16,185,129' : level === 'moderate' ? '251,191,36' : level === 'weak' ? '249,115,22' : '239,68,68') + ',0.06);border:1.5px solid ' + color + '30;border-radius:14px;">';
+      
+      html += '<div style="flex-shrink:0;position:relative;width:80px;height:80px;">';
+      html += '<svg width="80" height="80" viewBox="0 0 80 80" style="transform:rotate(-90deg);">';
+      html += '<circle cx="40" cy="40" r="' + radius + '" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>';
+      html += '<circle cx="40" cy="40" r="' + radius + '" fill="none" stroke="' + color + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + dashoffset.toFixed(1) + '"/>';
+      html += '</svg>';
+      html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">';
+      html += '<div style="font-size:1.3rem;font-weight:900;color:' + color + ';">' + ggScore + '</div>';
+      html += '<div style="font-size:0.45rem;color:var(--text-dark);font-weight:600;">GG SCORE</div>';
+      html += '</div></div>';
+      
+      html += '<div style="flex:1;">';
+      html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-bottom:3px;">Indicatore Goal/Goal</div>';
+      html += '<div style="font-size:1.05rem;font-weight:900;color:' + color + ';margin-bottom:2px;">' + label + '</div>';
+      html += '<div style="font-size:0.78rem;font-weight:700;color:white;">GG: ' + pBTTS.toFixed(0) + '% <span style="font-size:0.65rem;color:var(--text-dark)">| NG: ' + (100 - pBTTS).toFixed(0) + '%</span></div>';
+      
+      if (level === 'strong') {
+        html += '<div style="font-size:0.62rem;color:#10b981;margin-top:3px;">✅ Condizioni ideali per GG — giocabile con fiducia</div>';
+      } else if (level === 'moderate') {
+        html += '<div style="font-size:0.62rem;color:#fbbf24;margin-top:3px;">⚡ GG possibile — valuta il contesto prima di giocare</div>';
+      } else if (level === 'weak') {
+        html += '<div style="font-size:0.62rem;color:#f97316;margin-top:3px;">⚠️ GG rischioso — una delle due potrebbe non segnare</div>';
+      } else {
+        html += '<div style="font-size:0.62rem;color:#ef4444;margin-top:3px;">🚫 NG più probabile — evita GG</div>';
+      }
+      html += '</div></div>';
+      
+      // Segnali
+      html += '<div style="display:flex;flex-direction:column;gap:5px;">';
+      signals.forEach(function(s) {
+        var bg = s.positive ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.04)';
+        var border = s.positive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.08)';
+        var textCol = s.positive ? 'var(--text-gray)' : 'var(--text-dark)';
+        html += '<div style="padding:7px 10px;background:' + bg + ';border:1px solid ' + border + ';border-radius:8px;font-size:0.65rem;color:' + textCol + ';">' + s.icon + ' ' + s.text + '</div>';
+      });
+      html += '</div>';
+      
+      // Combo GG consigliate
+      if (level === 'strong' || level === 'moderate') {
+        var pOU = d.pOU || {};
+        html += '<div style="padding:10px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:10px;">';
+        html += '<div style="font-size:0.65rem;font-weight:700;color:#10b981;margin-bottom:6px;">💡 Combo GG consigliate:</div>';
+        var combos = [];
+        if (pOU[2.5] && pOU[2.5].over >= 50) {
+          combos.push('GG + Over 2.5 → ' + ((pBTTS * pOU[2.5].over) / 100).toFixed(0) + '% @' + (10000 / (pBTTS * pOU[2.5].over)).toFixed(2));
+        }
+        if (pOU[3.5] && pOU[3.5].under >= 50) {
+          combos.push('GG + Under 3.5 → ' + ((pBTTS * pOU[3.5].under) / 100).toFixed(0) + '% @' + (10000 / (pBTTS * pOU[3.5].under)).toFixed(2));
+        }
+        if (pOU[1.5] && pOU[1.5].over >= 65) {
+          combos.push('GG + Over 1.5 → ' + ((pBTTS * pOU[1.5].over) / 100).toFixed(0) + '% @' + (10000 / (pBTTS * pOU[1.5].over)).toFixed(2));
+        }
+        if (combos.length > 0) {
+          html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+          combos.forEach(function(c) {
+            html += '<div style="font-size:0.62rem;color:var(--text-gray);padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:6px;">• ' + c + '</div>';
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+
+    // === MULTIGOL COMBINATO Casa + Ospite ===
+    // Calcola le migliori combo MG Casa + MG Ospite con prob e quota teorica
+    // Legge SOLO multigoalHome/Away già calcolati — ZERO impatto sull'algoritmo
+    function renderMultigolCombinato(match, d) {
+      var mH = d.multigoalHome || [];
+      var mA = d.multigoalAway || [];
+      
+      if (mH.length === 0 || mA.length === 0) {
+        return '<div style="padding:14px;color:var(--text-dark);font-size:0.75rem;">Dati multigol non disponibili per questa partita.</div>';
+      }
+      
+      // Range utili per le combo (escludiamo singoli come "0", "1+", etc.)
+      var rangesH = mH.filter(function(mg) { return mg.range.indexOf('-') > -1; });
+      var rangesA = mA.filter(function(mg) { return mg.range.indexOf('-') > -1; });
+      
+      // Aggiungiamo anche 0 gol come range singolo
+      var zeroH = mH.find(function(mg) { return mg.range === '0'; });
+      var zeroA = mA.find(function(mg) { return mg.range === '0'; });
+      if (zeroH) rangesH.unshift({ range: '0', prob: zeroH.prob });
+      if (zeroA) rangesA.unshift({ range: '0', prob: zeroA.prob });
+      
+      // Genera tutte le combo
+      var combos = [];
+      rangesH.forEach(function(h) {
+        rangesA.forEach(function(a) {
+          var comboProb = (h.prob * a.prob) / 100;
+          if (comboProb >= 8) { // Solo combo con almeno 8% di prob
+            var quota = comboProb > 0 ? (100 / comboProb).toFixed(2) : '—';
+            combos.push({
+              homeRange: h.range,
+              awayRange: a.range,
+              homeProb: h.prob,
+              awayProb: a.prob,
+              comboProb: comboProb,
+              quota: quota
+            });
+          }
+        });
+      });
+      
+      // Ordina per probabilità decrescente
+      combos.sort(function(a, b) { return b.comboProb - a.comboProb; });
+      
+      // Top 12
+      var top = combos.slice(0, 12);
+      
+      var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+      
+      // Header
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html += '<div style="font-size:0.7rem;color:var(--text-dark);">Combo multigol con probabilità più alta</div>';
+      html += '<div style="font-size:0.55rem;color:var(--text-dark);background:rgba(0,212,255,0.08);padding:3px 8px;border-radius:6px;">Top ' + top.length + ' combo</div>';
+      html += '</div>';
+      
+      // Best combo highlight
+      if (top.length > 0) {
+        var best = top[0];
+        var bestColor = best.comboProb >= 40 ? '#10b981' : best.comboProb >= 25 ? '#fbbf24' : '#00d4ff';
+        html += '<div style="padding:14px;background:rgba(' + (best.comboProb >= 40 ? '16,185,129' : best.comboProb >= 25 ? '251,191,36' : '0,212,255') + ',0.06);border:1.5px solid ' + bestColor + '30;border-radius:12px;display:flex;align-items:center;gap:14px;">';
+        html += '<div style="font-size:1.4rem;">🏆</div>';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-size:0.55rem;color:var(--text-dark);">Miglior combo MG Casa + MG Ospite</div>';
+        html += '<div style="font-size:1rem;font-weight:900;color:white;margin:2px 0;">';
+        html += '<span style="color:#60a5fa;">' + esc(match.home.name.substring(0, 12)) + '</span> <span style="color:' + bestColor + ';">' + best.homeRange + '</span>';
+        html += ' + ';
+        html += '<span style="color:#f87171;">' + esc(match.away.name.substring(0, 12)) + '</span> <span style="color:' + bestColor + ';">' + best.awayRange + '</span>';
+        html += '</div>';
+        html += '<div style="font-size:0.8rem;font-weight:800;color:' + bestColor + ';">' + best.comboProb.toFixed(0) + '% <span style="font-size:0.62rem;color:var(--text-dark);">@' + best.quota + '</span></div>';
+        html += '</div></div>';
+      }
+      
+      // Grid combo
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;">';
+      top.forEach(function(c, i) {
+        var probColor = c.comboProb >= 35 ? '#10b981' : c.comboProb >= 20 ? '#fbbf24' : c.comboProb >= 12 ? '#00d4ff' : 'var(--text-dark)';
+        var isBest = i === 0;
+        html += '<div style="padding:8px 10px;background:' + (isBest ? 'rgba(16,185,129,0.06)' : 'rgba(255,255,255,0.02)') + ';border:1px solid ' + (isBest ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.06)') + ';border-radius:10px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">';
+        html += '<span style="font-size:0.68rem;font-weight:800;color:white;">' + c.homeRange + ' / ' + c.awayRange + '</span>';
+        html += '<span style="font-size:0.58rem;color:var(--text-dark);">@' + c.quota + '</span>';
+        html += '</div>';
+        // Barra probabilità
+        html += '<div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-bottom:3px;">';
+        html += '<div style="height:100%;width:' + Math.min(100, c.comboProb * 1.5) + '%;background:' + probColor + ';border-radius:2px;"></div>';
+        html += '</div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:0.55rem;">';
+        html += '<span style="color:var(--text-dark);">🏠' + c.homeProb.toFixed(0) + '% × 🏟️' + c.awayProb.toFixed(0) + '%</span>';
+        html += '<span style="font-weight:800;color:' + probColor + ';">' + c.comboProb.toFixed(0) + '%</span>';
+        html += '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      
+      // Nota
+      html += '<div style="font-size:0.55rem;color:var(--text-dark);padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:6px;text-align:center;">Le quote sono teoriche (prob pura senza margine). Confronta con il bookmaker per trovare value bet.</div>';
+      
+      html += '</div>';
+      return html;
+    }
+
 
     // === LIVE BETTING SYSTEM ===
     
@@ -13281,27 +13511,33 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         label: '🇪🇺 Top 5',
         countries: ['England', 'Italy', 'Spain', 'Germany', 'France'],
         leagueNames: ['Premier League', 'Serie A', 'La Liga', 'Bundesliga', 'Ligue 1']
-      },
-      italia: {
-        label: '🇮🇹 Italia',
-        countries: ['Italy']
-      },
-      inghilterra: {
-        label: '🏴 Inghilterra',
-        countries: ['England']
-      },
-      spagna: {
-        label: '🇪🇸 Spagna',
-        countries: ['Spain']
-      },
-      germania: {
-        label: '🇩🇪 Germania',
-        countries: ['Germany']
-      },
-      francia: {
-        label: '🇫🇷 Francia',
-        countries: ['France']
       }
+    };
+    
+    // Bandiere per tutte le nazioni — usate per generare bottoni dinamici
+    const COUNTRY_FLAGS = {
+      'Albania':'🇦🇱','Algeria':'🇩🇿','Andorra':'🇦🇩','Angola':'🇦🇴','Argentina':'🇦🇷','Armenia':'🇦🇲',
+      'Australia':'🇦🇺','Austria':'🇦🇹','Azerbaijan':'🇦🇿','Bahrain':'🇧🇭','Bangladesh':'🇧🇩','Belarus':'🇧🇾',
+      'Belgium':'🇧🇪','Bolivia':'🇧🇴','Bosnia':'🇧🇦','Bosnia and Herzegovina':'🇧🇦','Brazil':'🇧🇷','Bulgaria':'🇧🇬',
+      'Cameroon':'🇨🇲','Canada':'🇨🇦','Chile':'🇨🇱','China':'🇨🇳','Colombia':'🇨🇴','Costa-Rica':'🇨🇷','Costa Rica':'🇨🇷',
+      'Croatia':'🇭🇷','Cyprus':'🇨🇾','Czech-Republic':'🇨🇿','Czech Republic':'🇨🇿','Denmark':'🇩🇰',
+      'Ecuador':'🇪🇨','Egypt':'🇪🇬','El-Salvador':'🇸🇻','England':'🏴','Estonia':'🇪🇪','Ethiopia':'🇪🇹',
+      'Faroe-Islands':'🇫🇴','Finland':'🇫🇮','France':'🇫🇷','Georgia':'🇬🇪','Germany':'🇩🇪','Ghana':'🇬🇭',
+      'Gibraltar':'🇬🇮','Greece':'🇬🇷','Guatemala':'🇬🇹','Honduras':'🇭🇳','Hong-Kong':'🇭🇰','Hungary':'🇭🇺',
+      'Iceland':'🇮🇸','India':'🇮🇳','Indonesia':'🇮🇩','Iran':'🇮🇷','Iraq':'🇮🇶','Ireland':'🇮🇪',
+      'Israel':'🇮🇱','Italy':'🇮🇹','Ivory-Coast':'🇨🇮','Jamaica':'🇯🇲','Japan':'🇯🇵','Jordan':'🇯🇴',
+      'Kazakhstan':'🇰🇿','Kenya':'🇰🇪','Kosovo':'🇽🇰','Kuwait':'🇰🇼','Latvia':'🇱🇻','Lebanon':'🇱🇧',
+      'Libya':'🇱🇾','Lithuania':'🇱🇹','Luxembourg':'🇱🇺','Malaysia':'🇲🇾','Mali':'🇲🇱','Malta':'🇲🇹',
+      'Mexico':'🇲🇽','Moldova':'🇲🇩','Montenegro':'🇲🇪','Morocco':'🇲🇦','Netherlands':'🇳🇱','New-Zealand':'🇳🇿',
+      'Nicaragua':'🇳🇮','Nigeria':'🇳🇬','North-Macedonia':'🇲🇰','Northern-Ireland':'🇬🇧','Norway':'🇳🇴',
+      'Oman':'🇴🇲','Palestine':'🇵🇸','Panama':'🇵🇦','Paraguay':'🇵🇾','Peru':'🇵🇪','Philippines':'🇵🇭',
+      'Poland':'🇵🇱','Portugal':'🇵🇹','Qatar':'🇶🇦','Romania':'🇷🇴','Russia':'🇷🇺','Rwanda':'🇷🇼',
+      'Saudi-Arabia':'🇸🇦','Saudi Arabia':'🇸🇦','Scotland':'🏴','Senegal':'🇸🇳','Serbia':'🇷🇸',
+      'Singapore':'🇸🇬','Slovakia':'🇸🇰','Slovenia':'🇸🇮','South-Africa':'🇿🇦','South Africa':'🇿🇦',
+      'South-Korea':'🇰🇷','South Korea':'🇰🇷','Spain':'🇪🇸','Sudan':'🇸🇩','Sweden':'🇸🇪','Switzerland':'🇨🇭',
+      'Syria':'🇸🇾','Tanzania':'🇹🇿','Thailand':'🇹🇭','Tunisia':'🇹🇳','Turkey':'🇹🇷','Uganda':'🇺🇬',
+      'Ukraine':'🇺🇦','United-Arab-Emirates':'🇦🇪','UAE':'🇦🇪','Uruguay':'🇺🇾','USA':'🇺🇸',
+      'Uzbekistan':'🇺🇿','Venezuela':'🇻🇪','Vietnam':'🇻🇳','Wales':'🏴','World':'🌍','Zambia':'🇿🇲','Zimbabwe':'🇿🇼'
     };
     
     function toggleFavoriteLeague(leagueId) {
@@ -13344,6 +13580,10 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           if (group.leagueNames && group.leagueNames.some(n => l.name.includes(n))) return true;
           return false;
         });
+      } else if (filter.startsWith('country:')) {
+        // Filtro dinamico per nazione: "country:Italy", "country:Brazil", etc.
+        const countryName = filter.substring(8);
+        filtered = filtered.filter(l => l.country === countryName);
       }
       // else 'all' → nessun filtro
       
@@ -13361,17 +13601,36 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       const filtered = getFilteredLeagues();
       const hasFavs = state.favoriteLeagues.length > 0;
       
-      // Build league buttons
+      // Build league buttons — dinamici: prende le nazioni dalle partite del giorno
+      const countrySet = {};
+      state.leagues.forEach(function(l) {
+        if (l.country && !countrySet[l.country]) {
+          countrySet[l.country] = (state.matches || []).filter(m => m.league && m.league.country === l.country).length;
+        }
+      });
+      // Ordina: Top 5 prima, poi per numero partite decrescente, poi alfabetico
+      const top5Countries = ['Italy', 'England', 'Spain', 'Germany', 'France'];
+      const countryList = Object.keys(countrySet).sort(function(a, b) {
+        const aTop = top5Countries.indexOf(a);
+        const bTop = top5Countries.indexOf(b);
+        if (aTop >= 0 && bTop < 0) return -1;
+        if (bTop >= 0 && aTop < 0) return 1;
+        if (aTop >= 0 && bTop >= 0) return aTop - bTop;
+        if (countrySet[b] !== countrySet[a]) return countrySet[b] - countrySet[a];
+        return a.localeCompare(b);
+      });
+      
       const filterBtns = [
         { key: 'all', label: '🌍 Tutti', count: state.leagues.length },
         ...(hasFavs ? [{ key: 'favorites', label: '⭐ Preferiti', count: state.leagues.filter(l => state.favoriteLeagues.includes(l.id)).length }] : []),
-        { key: 'top5', label: '🇪🇺 Top 5', count: null },
-        { key: 'italia', label: '🇮🇹', count: null },
-        { key: 'inghilterra', label: '🏴', count: null },
-        { key: 'spagna', label: '🇪🇸', count: null },
-        { key: 'germania', label: '🇩🇪', count: null },
-        { key: 'francia', label: '🇫🇷', count: null }
+        { key: 'top5', label: '🇪🇺 Top 5', count: null }
       ];
+      
+      // Aggiungi bandierine per ogni nazione presente
+      countryList.forEach(function(country) {
+        const flag = COUNTRY_FLAGS[country] || '🏳️';
+        filterBtns.push({ key: 'country:' + country, label: flag, count: null, title: country });
+      });
       
       return `
         <div class="date-tabs">
@@ -13389,19 +13648,19 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           <!-- FILTRI RAPIDI -->
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);">
             ${filterBtns.map(f => `
-              <button onclick="setLeagueFilter('${f.key}')" style="
-                padding:6px 12px;border-radius:20px;font-size:0.72rem;font-weight:700;cursor:pointer;
+              <button onclick="setLeagueFilter('${f.key.replace(/'/g, "\\'")}')" title="${f.title || f.label}" style="
+                padding:6px ${f.count !== null || f.key === 'top5' || f.key === 'all' || f.key === 'favorites' ? '12px' : '8px'};border-radius:20px;font-size:${f.key.startsWith('country:') ? '0.85rem' : '0.72rem'};font-weight:700;cursor:pointer;
                 border:1.5px solid ${state.leagueFilter === f.key ? 'var(--accent-cyan)' : 'var(--border)'};
                 background:${state.leagueFilter === f.key ? 'rgba(0,212,255,0.12)' : 'var(--bg-input)'};
                 color:${state.leagueFilter === f.key ? 'var(--accent-cyan)' : 'var(--text-gray)'};
-                white-space:nowrap;transition:all 0.2s;
+                white-space:nowrap;transition:all 0.2s;min-width:${f.key.startsWith('country:') ? '34px' : 'auto'};text-align:center;
               ">${f.label}${f.count !== null ? ' (' + f.count + ')' : ''}</button>
             `).join('')}
           </div>
           
           ${filtered.length === 0 ? `
             <div style="text-align:center;padding:20px;color:var(--text-dark);">
-              ${state.leagueFilter === 'favorites' ? '⭐ Nessun preferito. Tap sulla ⭐ accanto al campionato per aggiungerlo.' : 'Nessun campionato trovato per questo filtro.'}
+              ${state.leagueFilter === 'favorites' ? '⭐ Nessun preferito. Tap sulla ⭐ accanto al campionato per aggiungerlo.' : state.leagueFilter.startsWith('country:') ? '🏳️ Nessun campionato di ' + state.leagueFilter.substring(8) + ' con partite oggi.' : 'Nessun campionato trovato per questo filtro.'}
             </div>
           ` : `
             <!-- LISTA CAMPIONATI -->
@@ -14119,16 +14378,57 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         </div>
       </div>
       
-      <!-- BETTING EXCHANGE -->
+      <!-- NG INSIGHT -->
       <div class="section-accordion">
-        <div class="section-accordion-header open" onclick="toggleAccordion(this)">
-          <div class="section-accordion-title"><span>📊</span> Betting Exchange</div>
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>🚫</span> NG Insight</div>
           <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              try {
+                const ngP = (100 - (d.pBTTS || 50)).toFixed(0);
+                const ngColor = ngP >= 55 ? '#10b981' : ngP >= 48 ? '#fbbf24' : '#ef4444';
+                return '<span style="font-size:0.6rem;background:' + ngColor + '18;color:' + ngColor + ';padding:2px 8px;border-radius:8px;font-weight:700;">NG ' + ngP + '%</span>';
+              } catch(e) { return ''; }
+            })()}
             <span class="section-accordion-arrow">▼</span>
           </div>
         </div>
-        <div class="section-accordion-body open">
-          ${safeRender(() => renderBettingExchange(m, d, ai, stat), '', 'BettingExchange')}
+        <div class="section-accordion-body">
+          ${safeRender(() => renderNGInsight(m, d), '', 'NGInsight')}
+        </div>
+      </div>
+      
+      <!-- GG INSIGHT -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>⚽</span> GG Insight</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              try {
+                const ggP = (d.pBTTS || 50).toFixed(0);
+                const ggColor = ggP >= 58 ? '#10b981' : ggP >= 50 ? '#fbbf24' : '#ef4444';
+                return '<span style="font-size:0.6rem;background:' + ggColor + '18;color:' + ggColor + ';padding:2px 8px;border-radius:8px;font-weight:700;">GG ' + ggP + '%</span>';
+              } catch(e) { return ''; }
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${safeRender(() => renderGGInsight(m, d), '', 'GGInsight')}
+        </div>
+      </div>
+      
+      <!-- MULTIGOL COMBINATO -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>🎯</span> Multigol Combinato</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:0.6rem;background:rgba(0,212,255,0.12);color:#00d4ff;padding:2px 8px;border-radius:8px;font-weight:700;">Casa+Ospite</span>
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${safeRender(() => renderMultigolCombinato(m, d), '', 'MultigolCombinato')}
         </div>
       </div>
       
