@@ -4736,7 +4736,7 @@
       slip: [], // Schedina
       slipModal: false,
       // Picks del giorno
-      dailyPicks: { raddoppi: [], gg: [], ng: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], matchAdvices: [] },
+      dailyPicks: { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], matchAdvices: [] },
       quickFind: null, // 'home1'|'away2'|'gg'|'over25'|'over15'|'under25'
       leagueFilter: 'all', // 'all'|'favorites'|'top5'|'italia'|'inghilterra'|'spagna'|'germania'|'francia'
       favoriteLeagues: JSON.parse(localStorage.getItem('bp2_fav_leagues') || '[]'),
@@ -5523,256 +5523,9 @@
         calculateDailyPicks();
         calculateTraderPicks();
         autoRecordAllPredictions();
-        autoTrackForResults(); // Salva per verifica OK/KO
       }, 2 * 60 * 60 * 1000); // 2 ore
       console.log('⏰ Auto-record timer avviato (ogni 2 ore)');
     }
-    
-    // === RESULT TRACKER — Verifica automatica OK/KO ===
-    // Sistema separato: salva pronostici, verifica risultati, mostra stats
-    // ZERO impatto sull'algoritmo — legge solo dati già calcolati
-    
-    function getResultTracker() {
-      try {
-        return JSON.parse(localStorage.getItem('bp2_result_tracker') || '{}');
-      } catch(e) { return {}; }
-    }
-    
-    function saveResultTracker(data) {
-      try {
-        // Mantieni solo ultimi 7 giorni
-        var sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        var cutoff = sevenDaysAgo.toISOString().split('T')[0];
-        Object.keys(data).forEach(function(dateKey) {
-          if (dateKey < cutoff) delete data[dateKey];
-        });
-        localStorage.setItem('bp2_result_tracker', JSON.stringify(data));
-        saveToFirebase('resultTracker', data).catch(function(e) {
-          console.debug('resultTracker Firebase sync:', e.message);
-        });
-      } catch(e) { console.warn('saveResultTracker error:', e); }
-    }
-    
-    // Salva automaticamente tutti i pronostici del giorno per verifica futura
-    function autoTrackForResults() {
-      var advices = state.dailyPicks?.matchAdvices || [];
-      if (advices.length === 0) return;
-      
-      var today = getDateString(state.selectedDate);
-      var tracker = getResultTracker();
-      if (!tracker[today]) tracker[today] = { predictions: [], checked: false };
-      
-      var existing = tracker[today].predictions;
-      var added = 0;
-      
-      advices.forEach(function(a) {
-        if (!a.pick || !a.prob || !a.matchId) return;
-        // Non duplicare
-        var exists = existing.some(function(e) { return e.matchId === a.matchId; });
-        if (exists) return;
-        
-        existing.push({
-          matchId: a.matchId,
-          matchName: a.matchName || (a.homeName + ' vs ' + a.awayName),
-          pick: a.pick,
-          prob: a.prob,
-          confidence: a.confidence || 'medium',
-          league: a.league || '',
-          time: a.time || '',
-          result: null, // Sarà compilato dopo
-          status: 'pending' // pending → ok / ko
-        });
-        added++;
-      });
-      
-      if (added > 0) {
-        saveResultTracker(tracker);
-        console.log('📋 ResultTracker: salvati ' + added + ' pronostici per ' + today);
-      }
-    }
-    
-    // Verifica risultati reali delle partite finite
-    async function checkResultTrackerOKKO() {
-      var tracker = getResultTracker();
-      var updated = false;
-      
-      for (var dateKey of Object.keys(tracker)) {
-        var day = tracker[dateKey];
-        if (!day.predictions) continue;
-        
-        for (var pred of day.predictions) {
-          if (pred.status !== 'pending') continue;
-          
-          try {
-            var data = await callAPIFootball('/fixtures', { id: pred.matchId });
-            if (!data || !data.response || !data.response[0]) continue;
-            
-            var fixture = data.response[0];
-            var fStatus = fixture.fixture.status.short;
-            if (!['FT', 'AET', 'PEN'].includes(fStatus)) continue;
-            
-            var hg = fixture.goals.home;
-            var ag = fixture.goals.away;
-            var totalGoals = hg + ag;
-            pred.result = hg + '-' + ag;
-            
-            // Verifica OK/KO
-            var won = false;
-            var pick = pred.pick.toLowerCase().trim();
-            
-            // Over/Under
-            if (pick.includes('over 3.5') && totalGoals >= 4) won = true;
-            else if (pick.includes('over 2.5') && totalGoals >= 3) won = true;
-            else if (pick.includes('over 1.5') && totalGoals >= 2) won = true;
-            else if (pick.includes('over 0.5') && totalGoals >= 1) won = true;
-            else if (pick.includes('under 1.5') && totalGoals < 2) won = true;
-            else if (pick.includes('under 2.5') && totalGoals < 3) won = true;
-            else if (pick.includes('under 3.5') && totalGoals < 4) won = true;
-            // GG/NG
-            else if ((pick === 'gg' || pick.includes('entrambe segnano') || pick.includes('goal/goal')) && hg > 0 && ag > 0) won = true;
-            else if ((pick === 'ng' || pick.includes('no gol') || pick.includes('nessuna')) && (hg === 0 || ag === 0)) won = true;
-            // Doppie chance
-            else if ((pick === '1x' || pick.startsWith('1x ') || pick.includes('casa o pareggio')) && hg >= ag) won = true;
-            else if ((pick === 'x2' || pick.startsWith('x2 ') || pick.includes('pareggio o ospite')) && hg <= ag) won = true;
-            // 1X2
-            else if ((pick === '1' || pick.includes('vittoria casa') || (pick.startsWith('1 ') && !pick.startsWith('1x'))) && hg > ag) won = true;
-            else if ((pick === 'x' || pick === 'pareggio' || pick.includes('pareggio)')) && hg === ag) won = true;
-            else if ((pick === '2' || pick.includes('vittoria ospite') || (pick.startsWith('2 ') && !pick.startsWith('2x'))) && hg < ag) won = true;
-            // Multigol
-            else if (pick.includes('multigol 1-3') && totalGoals >= 1 && totalGoals <= 3) won = true;
-            else if (pick.includes('multigol 2-4') && totalGoals >= 2 && totalGoals <= 4) won = true;
-            
-            pred.status = won ? 'ok' : 'ko';
-            updated = true;
-            console.log('📊 ResultTracker: ' + pred.matchName + ' ' + pred.pick + ' → ' + pred.result + ' = ' + pred.status.toUpperCase());
-          } catch(e) {
-            // Skip silently
-          }
-        }
-      }
-      
-      if (updated) {
-        saveResultTracker(tracker);
-        render();
-      }
-    }
-    
-    // Calcola statistiche risultati
-    function getResultStats() {
-      var tracker = getResultTracker();
-      var stats = { total: 0, ok: 0, ko: 0, pending: 0, byMarket: {}, byDate: {} };
-      
-      Object.keys(tracker).forEach(function(dateKey) {
-        var day = tracker[dateKey];
-        if (!day.predictions) return;
-        
-        var dayStats = { ok: 0, ko: 0, pending: 0 };
-        
-        day.predictions.forEach(function(p) {
-          stats.total++;
-          if (p.status === 'ok') { stats.ok++; dayStats.ok++; }
-          else if (p.status === 'ko') { stats.ko++; dayStats.ko++; }
-          else { stats.pending++; dayStats.pending++; }
-          
-          // Per mercato
-          var market = 'altro';
-          var pick = (p.pick || '').toLowerCase();
-          if (pick.includes('over')) market = 'Over';
-          else if (pick.includes('under')) market = 'Under';
-          else if (pick === 'gg' || pick.includes('entrambe')) market = 'GG';
-          else if (pick === 'ng' || pick.includes('no gol')) market = 'NG';
-          else if (pick === '1x' || pick.includes('1x')) market = '1X';
-          else if (pick === 'x2' || pick.includes('x2')) market = 'X2';
-          else if (pick.startsWith('1') || pick.includes('casa')) market = '1';
-          else if (pick.startsWith('2') || pick.includes('ospite')) market = '2';
-          else if (pick === 'x' || pick.includes('pareggio')) market = 'X';
-          
-          if (!stats.byMarket[market]) stats.byMarket[market] = { ok: 0, ko: 0 };
-          if (p.status === 'ok') stats.byMarket[market].ok++;
-          else if (p.status === 'ko') stats.byMarket[market].ko++;
-        });
-        
-        stats.byDate[dateKey] = dayStats;
-      });
-      
-      stats.hitRate = stats.ok + stats.ko > 0 ? ((stats.ok / (stats.ok + stats.ko)) * 100).toFixed(1) : '—';
-      return stats;
-    }
-    
-    // Rendering stats card per la home
-    function renderResultTrackerCard() {
-      var stats = getResultStats();
-      if (stats.total === 0) return '';
-      
-      var verified = stats.ok + stats.ko;
-      var hitRate = verified > 0 ? (stats.ok / verified * 100) : 0;
-      var hrColor = hitRate >= 65 ? '#10b981' : hitRate >= 50 ? '#fbbf24' : '#ef4444';
-      
-      var html = '<div class="panel" style="margin-bottom:16px;">';
-      html += '<div class="panel-title" style="margin-bottom:10px;">📊 Risultati Pronostici</div>';
-      
-      // Stats principali
-      html += '<div style="display:flex;gap:8px;margin-bottom:10px;">';
-      // OK
-      html += '<div style="flex:1;text-align:center;padding:10px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:10px;">';
-      html += '<div style="font-size:1.2rem;font-weight:900;color:#10b981;">' + stats.ok + '</div>';
-      html += '<div style="font-size:0.6rem;color:var(--text-dark);">OK ✅</div>';
-      html += '</div>';
-      // KO
-      html += '<div style="flex:1;text-align:center;padding:10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:10px;">';
-      html += '<div style="font-size:1.2rem;font-weight:900;color:#ef4444;">' + stats.ko + '</div>';
-      html += '<div style="font-size:0.6rem;color:var(--text-dark);">KO ❌</div>';
-      html += '</div>';
-      // Hit Rate
-      html += '<div style="flex:1;text-align:center;padding:10px;background:rgba(' + (hitRate >= 50 ? '16,185,129' : '239,68,68') + ',0.06);border:1px solid ' + hrColor + '25;border-radius:10px;">';
-      html += '<div style="font-size:1.2rem;font-weight:900;color:' + hrColor + ';">' + (verified > 0 ? hitRate.toFixed(0) + '%' : '—') + '</div>';
-      html += '<div style="font-size:0.6rem;color:var(--text-dark);">Hit Rate</div>';
-      html += '</div>';
-      // Pending
-      if (stats.pending > 0) {
-        html += '<div style="flex:1;text-align:center;padding:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;">';
-        html += '<div style="font-size:1.2rem;font-weight:900;color:var(--text-gray);">' + stats.pending + '</div>';
-        html += '<div style="font-size:0.6rem;color:var(--text-dark);">In attesa ⏳</div>';
-        html += '</div>';
-      }
-      html += '</div>';
-      
-      // Hit rate per mercato
-      var marketKeys = Object.keys(stats.byMarket).sort(function(a, b) {
-        var totA = stats.byMarket[a].ok + stats.byMarket[a].ko;
-        var totB = stats.byMarket[b].ok + stats.byMarket[b].ko;
-        return totB - totA;
-      });
-      
-      if (marketKeys.length > 0 && verified >= 3) {
-        html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-bottom:5px;">Hit Rate per mercato:</div>';
-        html += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;">';
-        marketKeys.forEach(function(mk) {
-          var m = stats.byMarket[mk];
-          var tot = m.ok + m.ko;
-          if (tot === 0) return;
-          var hr = (m.ok / tot * 100).toFixed(0);
-          var c = hr >= 65 ? '#10b981' : hr >= 50 ? '#fbbf24' : '#ef4444';
-          html += '<div style="padding:4px 8px;background:rgba(255,255,255,0.03);border:1px solid ' + c + '25;border-radius:6px;font-size:0.6rem;">';
-          html += '<span style="font-weight:700;color:white;">' + mk + '</span> ';
-          html += '<span style="color:' + c + ';font-weight:700;">' + hr + '%</span>';
-          html += '<span style="color:var(--text-dark);"> (' + m.ok + '/' + tot + ')</span>';
-          html += '</div>';
-        });
-        html += '</div>';
-      }
-      
-      // Bottone verifica
-      if (stats.pending > 0) {
-        html += '<button onclick="checkResultTrackerOKKO()" style="width:100%;padding:8px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:8px;color:var(--accent-cyan);font-size:0.7rem;font-weight:700;cursor:pointer;">🔄 Verifica Risultati (' + stats.pending + ' in attesa)</button>';
-      }
-      
-      html += '</div>';
-      return html;
-    }
-    
-    window.checkResultTrackerOKKO = checkResultTrackerOKKO;
     
     function calculateDailyPicks() {
       if (!state.matches || state.matches.length === 0) {
@@ -5783,7 +5536,7 @@
       console.log(`&#x1F504; calculateDailyPicks: Analisi di ${state.matches.length} partite...`);
       console.log(`&#x1F916; ML Attivo: ${state.settings.useMLThresholds ? 'SÌ' : 'NO'}`);
       
-      const picks = { raddoppi: [], gg: [], ng: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], matchAdvices: [] };
+      const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], matchAdvices: [] };
       const safeBets = []; // Per costruire i raddoppi
       
       // Raccogli i consigli AI per tutte le partite
@@ -6217,24 +5970,6 @@
           });
         }
         
-        // Aggiungi NG se probabilità >= 52%
-        const pNG = 100 - pBTTS;
-        const pNG_ML = 100 - pBTTS_ML;
-        if (pNG_ML >= 52) {
-          var ngConf = 'low';
-          if (pNG_ML >= 65) ngConf = 'high';
-          else if (pNG_ML >= 58) ngConf = 'medium';
-          picks.ng.push({
-            ...matchInfo,
-            match,
-            bet: 'NG',
-            prob: pNG_ML,
-            probBase: pNG,
-            confidence: ngConf,
-            dataQuality
-          });
-        }
-        
         // Aggiungi Over 2.5 se probabilità >= 50%
         const mlAdjO25 = getMLAdjustment('Over 2.5', match.id);
         const pOver25_ML = clamp(10, pOver25 + mlAdjO25, 92);
@@ -6265,7 +6000,6 @@
       };
       
       picks.gg = picks.gg.sort(sortByConfidence).slice(0, 20);
-      picks.ng = picks.ng.sort(sortByConfidence).slice(0, 20);
       picks.over25 = picks.over25.sort(sortByConfidence).slice(0, 20);
       picks.vittorieCasa = picks.vittorieCasa.sort(sortByConfidence).slice(0, 20);
       picks.vittorieOspite = picks.vittorieOspite.sort(sortByConfidence).slice(0, 20);
@@ -7578,7 +7312,6 @@
           calculateDailyPicks();
           calculateTraderPicks();
           autoRecordAllPredictions();
-          autoTrackForResults();
           startAutoRecordTimer();
           render(); // Re-render per aggiornare i consigli
         }).catch(e => {
@@ -7588,7 +7321,6 @@
           calculateDailyPicks();
           calculateTraderPicks();
           autoRecordAllPredictions();
-          autoTrackForResults();
           startAutoRecordTimer();
           render();
         });
@@ -10746,313 +10478,98 @@
     // === MULTIGOL COMBINATO Casa + Ospite ===
     // Calcola le migliori combo MG Casa + MG Ospite con prob e quota teorica
     // Legge SOLO multigoalHome/Away già calcolati — ZERO impatto sull'algoritmo
-    // === MULTIGOL COMBINATO Casa + Ospite ===
-    // xG corretto con dati reali — ZERO impatto sull'algoritmo
     function renderMultigolCombinato(match, d) {
-      var xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
-      var hD = d.homeData || {};
-      var aD = d.awayData || {};
+      var mH = d.multigoalHome || [];
+      var mA = d.multigoalAway || [];
       
-      // xG corretto: blend xG + gol reali (60/40) + aggiusta per difesa avversaria
-      var hXG = xG.home;
-      var aXG = xG.away;
-      if (hD.goalsFor && hD.goalsFor > 0) hXG = hXG * 0.6 + hD.goalsFor * 0.4;
-      if (aD.goalsFor && aD.goalsFor > 0) aXG = aXG * 0.6 + aD.goalsFor * 0.4;
-      if (aD.goalsAgainst && aD.goalsAgainst > 1.5) hXG *= 1 + (aD.goalsAgainst - 1.5) * 0.1;
-      if (hD.goalsAgainst && hD.goalsAgainst > 1.5) aXG *= 1 + (hD.goalsAgainst - 1.5) * 0.1;
+      if (mH.length === 0 || mA.length === 0) {
+        return '<div style="padding:14px;color:var(--text-dark);font-size:0.75rem;">Dati multigol non disponibili per questa partita.</div>';
+      }
       
-      var allRangesH = [
-        { range: '0', prob: calcTeamMultigol(hXG, 0, 0) },
-        { range: '0-1', prob: calcTeamMultigol(hXG, 0, 1) },
-        { range: '0-2', prob: calcTeamMultigol(hXG, 0, 2) },
-        { range: '0-3', prob: calcTeamMultigol(hXG, 0, 3) },
-        { range: '1-2', prob: calcTeamMultigol(hXG, 1, 2) },
-        { range: '1-3', prob: calcTeamMultigol(hXG, 1, 3) },
-        { range: '2-3', prob: calcTeamMultigol(hXG, 2, 3) },
-        { range: '2-4', prob: calcTeamMultigol(hXG, 2, 4) },
-        { range: '1+', prob: calcTeamMultigol(hXG, 1, 6) },
-        { range: '2+', prob: calcTeamMultigol(hXG, 2, 6) }
-      ];
-      var allRangesA = [
-        { range: '0', prob: calcTeamMultigol(aXG, 0, 0) },
-        { range: '0-1', prob: calcTeamMultigol(aXG, 0, 1) },
-        { range: '0-2', prob: calcTeamMultigol(aXG, 0, 2) },
-        { range: '0-3', prob: calcTeamMultigol(aXG, 0, 3) },
-        { range: '1-2', prob: calcTeamMultigol(aXG, 1, 2) },
-        { range: '1-3', prob: calcTeamMultigol(aXG, 1, 3) },
-        { range: '2-3', prob: calcTeamMultigol(aXG, 2, 3) },
-        { range: '2-4', prob: calcTeamMultigol(aXG, 2, 4) },
-        { range: '1+', prob: calcTeamMultigol(aXG, 1, 6) },
-        { range: '2+', prob: calcTeamMultigol(aXG, 2, 6) }
-      ];
+      // Range utili per le combo (escludiamo singoli come "0", "1+", etc.)
+      var rangesH = mH.filter(function(mg) { return mg.range.indexOf('-') > -1; });
+      var rangesA = mA.filter(function(mg) { return mg.range.indexOf('-') > -1; });
       
+      // Aggiungiamo anche 0 gol come range singolo
+      var zeroH = mH.find(function(mg) { return mg.range === '0'; });
+      var zeroA = mA.find(function(mg) { return mg.range === '0'; });
+      if (zeroH) rangesH.unshift({ range: '0', prob: zeroH.prob });
+      if (zeroA) rangesA.unshift({ range: '0', prob: zeroA.prob });
+      
+      // Genera tutte le combo
       var combos = [];
-      allRangesH.forEach(function(h) {
-        allRangesA.forEach(function(a) {
+      rangesH.forEach(function(h) {
+        rangesA.forEach(function(a) {
           var comboProb = (h.prob * a.prob) / 100;
-          if (comboProb >= 5) {
-            combos.push({ homeRange: h.range, awayRange: a.range, homeProb: h.prob, awayProb: a.prob, comboProb: comboProb, quota: comboProb > 0 ? parseFloat((100 / comboProb).toFixed(2)) : 99 });
+          if (comboProb >= 8) { // Solo combo con almeno 8% di prob
+            var quota = comboProb > 0 ? (100 / comboProb).toFixed(2) : '—';
+            combos.push({
+              homeRange: h.range,
+              awayRange: a.range,
+              homeProb: h.prob,
+              awayProb: a.prob,
+              comboProb: comboProb,
+              quota: quota
+            });
           }
         });
       });
+      
+      // Ordina per probabilità decrescente
       combos.sort(function(a, b) { return b.comboProb - a.comboProb; });
-      var top = combos.slice(0, 15);
+      
+      // Top 12
+      var top = combos.slice(0, 12);
       
       var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
-      if ((hD.goalsFor && hD.goalsFor > 0) || (aD.goalsFor && aD.goalsFor > 0)) {
-        html += '<div style="font-size:0.55rem;color:var(--accent-cyan);padding:4px 8px;background:rgba(0,212,255,0.05);border-radius:6px;">📐 xG corretto: Casa ' + hXG.toFixed(2) + ' | Ospite ' + aXG.toFixed(2) + '</div>';
-      }
+      
+      // Header
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html += '<div style="font-size:0.7rem;color:var(--text-dark);">Combo multigol con probabilità più alta</div>';
+      html += '<div style="font-size:0.55rem;color:var(--text-dark);background:rgba(0,212,255,0.08);padding:3px 8px;border-radius:6px;">Top ' + top.length + ' combo</div>';
+      html += '</div>';
+      
+      // Best combo highlight
       if (top.length > 0) {
         var best = top[0];
         var bestColor = best.comboProb >= 40 ? '#10b981' : best.comboProb >= 25 ? '#fbbf24' : '#00d4ff';
         html += '<div style="padding:14px;background:rgba(' + (best.comboProb >= 40 ? '16,185,129' : best.comboProb >= 25 ? '251,191,36' : '0,212,255') + ',0.06);border:1.5px solid ' + bestColor + '30;border-radius:12px;display:flex;align-items:center;gap:14px;">';
-        html += '<div style="font-size:1.4rem;">🏆</div><div style="flex:1;">';
+        html += '<div style="font-size:1.4rem;">🏆</div>';
+        html += '<div style="flex:1;">';
         html += '<div style="font-size:0.55rem;color:var(--text-dark);">Miglior combo MG Casa + MG Ospite</div>';
-        html += '<div style="font-size:1rem;font-weight:900;color:white;margin:2px 0;"><span style="color:#60a5fa;">' + esc(match.home.name.substring(0, 12)) + '</span> <span style="color:' + bestColor + ';">' + best.homeRange + '</span> + <span style="color:#f87171;">' + esc(match.away.name.substring(0, 12)) + '</span> <span style="color:' + bestColor + ';">' + best.awayRange + '</span></div>';
-        html += '<div style="font-size:0.8rem;font-weight:800;color:' + bestColor + ';">' + best.comboProb.toFixed(0) + '% <span style="font-size:0.62rem;color:var(--text-dark);">@' + best.quota.toFixed(2) + '</span></div>';
+        html += '<div style="font-size:1rem;font-weight:900;color:white;margin:2px 0;">';
+        html += '<span style="color:#60a5fa;">' + esc(match.home.name.substring(0, 12)) + '</span> <span style="color:' + bestColor + ';">' + best.homeRange + '</span>';
+        html += ' + ';
+        html += '<span style="color:#f87171;">' + esc(match.away.name.substring(0, 12)) + '</span> <span style="color:' + bestColor + ';">' + best.awayRange + '</span>';
+        html += '</div>';
+        html += '<div style="font-size:0.8rem;font-weight:800;color:' + bestColor + ';">' + best.comboProb.toFixed(0) + '% <span style="font-size:0.62rem;color:var(--text-dark);">@' + best.quota + '</span></div>';
         html += '</div></div>';
       }
-      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;">';
+      
+      // Grid combo
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;">';
       top.forEach(function(c, i) {
         var probColor = c.comboProb >= 35 ? '#10b981' : c.comboProb >= 20 ? '#fbbf24' : c.comboProb >= 12 ? '#00d4ff' : 'var(--text-dark)';
-        var isValue = c.comboProb >= 25 && c.quota >= 1.80 && c.quota <= 4.00;
-        html += '<div style="padding:8px 10px;background:' + (i === 0 ? 'rgba(16,185,129,0.06)' : isValue ? 'rgba(251,191,36,0.04)' : 'rgba(255,255,255,0.02)') + ';border:1px solid ' + (i === 0 ? 'rgba(16,185,129,0.2)' : isValue ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)') + ';border-radius:10px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;"><span style="font-size:0.68rem;font-weight:800;color:white;">' + c.homeRange + ' / ' + c.awayRange + '</span><span style="font-size:0.58rem;color:' + (isValue ? '#fbbf24' : 'var(--text-dark)') + ';">@' + c.quota.toFixed(2) + (isValue ? ' 💎' : '') + '</span></div>';
-        html += '<div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-bottom:3px;"><div style="height:100%;width:' + Math.min(100, c.comboProb * 1.8) + '%;background:' + probColor + ';border-radius:2px;"></div></div>';
-        html += '<div style="display:flex;justify-content:space-between;font-size:0.55rem;"><span style="color:var(--text-dark);">🏠' + c.homeProb.toFixed(0) + '% × 🏟️' + c.awayProb.toFixed(0) + '%</span><span style="font-weight:800;color:' + probColor + ';">' + c.comboProb.toFixed(0) + '%</span></div></div>';
+        var isBest = i === 0;
+        html += '<div style="padding:8px 10px;background:' + (isBest ? 'rgba(16,185,129,0.06)' : 'rgba(255,255,255,0.02)') + ';border:1px solid ' + (isBest ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.06)') + ';border-radius:10px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">';
+        html += '<span style="font-size:0.68rem;font-weight:800;color:white;">' + c.homeRange + ' / ' + c.awayRange + '</span>';
+        html += '<span style="font-size:0.58rem;color:var(--text-dark);">@' + c.quota + '</span>';
+        html += '</div>';
+        // Barra probabilità
+        html += '<div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-bottom:3px;">';
+        html += '<div style="height:100%;width:' + Math.min(100, c.comboProb * 1.5) + '%;background:' + probColor + ';border-radius:2px;"></div>';
+        html += '</div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:0.55rem;">';
+        html += '<span style="color:var(--text-dark);">🏠' + c.homeProb.toFixed(0) + '% × 🏟️' + c.awayProb.toFixed(0) + '%</span>';
+        html += '<span style="font-weight:800;color:' + probColor + ';">' + c.comboProb.toFixed(0) + '%</span>';
+        html += '</div>';
+        html += '</div>';
       });
       html += '</div>';
-      html += '<div style="font-size:0.52rem;color:var(--text-dark);padding:6px;background:rgba(255,255,255,0.02);border-radius:6px;text-align:center;">💎 = Zona Valore (prob 25-55%, quota @1.80-4.00). Quote teoriche — confronta col bookmaker.</div>';
-      html += '</div>';
-      return html;
-    }
-
-
-
-    function renderValueAnalysis(match, d, ai) {
-      var bk = d.bookmakerOdds || {};
-      var p = d.p1X2 || { home: 33, draw: 33, away: 33 };
-      var pOU = d.pOU || {};
-      var pBTTS = d.pBTTS || 50;
-      var xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
-      var hD = d.homeData || {};
-      var aD = d.awayData || {};
-      var hForm = d.homeForm || '';
-      var aForm = d.awayForm || '';
       
-      var html = '<div style="display:flex;flex-direction:column;gap:14px;">';
-      
-      // ===============================
-      // 1. VALUE BET CALCULATOR
-      // ===============================
-      var valueBets = [];
-      var hasOdds = bk.homeOdd && bk.homeOdd > 1;
-      
-      if (hasOdds) {
-        // Mercati da analizzare: 1X2
-        var markets = [
-          { name: '1 (Casa)', modelProb: p.home, odd: bk.homeOdd, icon: '🏠' },
-          { name: 'X (Pareggio)', modelProb: p.draw, odd: bk.drawOdd, icon: '🤝' },
-          { name: '2 (Ospite)', modelProb: p.away, odd: bk.awayOdd, icon: '✈️' }
-        ];
-        // Over/Under
-        if (pOU[2.5]) {
-          var o25Impl = 100 / (pOU[2.5].overOdd || (100 / pOU[2.5].over));
-          markets.push({ name: 'Over 2.5', modelProb: pOU[2.5].over, odd: pOU[2.5].overOdd || (100 / pOU[2.5].over), icon: '📈', synthetic: !pOU[2.5].overOdd });
-          markets.push({ name: 'Under 2.5', modelProb: pOU[2.5].under, odd: pOU[2.5].underOdd || (100 / pOU[2.5].under), icon: '📉', synthetic: !pOU[2.5].underOdd });
-        }
-        // GG/NG
-        markets.push({ name: 'GG', modelProb: pBTTS, odd: pBTTS > 0 ? 100 / pBTTS : 2.0, icon: '⚽', synthetic: true });
-        markets.push({ name: 'NG', modelProb: 100 - pBTTS, odd: (100 - pBTTS) > 0 ? 100 / (100 - pBTTS) : 2.0, icon: '🚫', synthetic: true });
-        // Double Chance
-        markets.push({ name: '1X', modelProb: p.home + p.draw, odd: 100 / (p.home + p.draw), icon: '🛡️', synthetic: true });
-        markets.push({ name: 'X2', modelProb: p.draw + p.away, odd: 100 / (p.draw + p.away), icon: '🛡️', synthetic: true });
-        
-        markets.forEach(function(m) {
-          if (!m.odd || m.odd <= 1) return;
-          var impliedProb = (1 / m.odd) * 100;
-          var edge = m.modelProb - impliedProb;
-          // Kelly = (bp - q) / b dove b=odds-1, p=prob, q=1-p
-          var b = m.odd - 1;
-          var kelly = b > 0 ? ((b * (m.modelProb / 100) - (1 - m.modelProb / 100)) / b) * 100 : 0;
-          kelly = Math.max(0, Math.min(25, kelly)); // Cap 25%
-          
-          valueBets.push({
-            name: m.name,
-            icon: m.icon,
-            modelProb: m.modelProb,
-            impliedProb: impliedProb,
-            odd: m.odd,
-            edge: edge,
-            kelly: kelly,
-            isValue: edge > 3, // Almeno 3% di edge per essere value
-            synthetic: m.synthetic || false
-          });
-        });
-        
-        valueBets.sort(function(a, b) { return b.edge - a.edge; });
-      }
-      
-      // ===============================
-      // 3. HOME ADVANTAGE PER LEGA
-      // ===============================
-      var LEAGUE_HOME_ADV = {
-        // Serie A, La Liga, Bundesliga, Premier League, Ligue 1
-        135: 0.08, 140: 0.07, 78: 0.05, 39: 0.04, 61: 0.06,
-        // Serie B, Championship, La Liga 2, Bundesliga 2, Ligue 2
-        136: 0.09, 40: 0.05, 141: 0.07, 79: 0.06, 62: 0.07,
-        // Eredivisie, Primeira Liga, Belgian Pro, Super Lig, Russian PL
-        88: 0.04, 94: 0.07, 144: 0.05, 203: 0.08, 235: 0.07,
-        // Brasileirão, Argentina Primera, MLS
-        71: 0.10, 128: 0.09, 253: 0.06,
-        // Scottish PL, Süper Lig
-        179: 0.06, 119: 0.08
-      };
-      var leagueId = match.league ? match.league.id : 0;
-      var leagueHA = LEAGUE_HOME_ADV[leagueId] || 0.06;
-      var stdHA = 0.06; // Standard usato dall'algo
-      var haCorrection = leagueHA - stdHA; // Differenza
-      
-      // ===============================
-      // 2. REGRESSIONE ALLA MEDIA
-      // ===============================
-      var regressionWarnings = [];
-      
-      // Home team: forma vs xG
-      if (hForm.length >= 4) {
-        var hWins = hForm.slice(0, 5).split('').filter(function(r) { return r === 'W'; }).length;
-        if (hWins >= 4 && hD.goalsFor < 1.3) {
-          regressionWarnings.push({ team: match.home.name, type: 'inflated', detail: hWins + 'V/5 ma segna solo ' + (hD.goalsFor || 0).toFixed(1) + ' gol/g. Probabile regressione negativa.', severity: 'high' });
-        } else if (hWins <= 1 && hD.goalsFor >= 1.5 && xG.home >= 1.4) {
-          regressionWarnings.push({ team: match.home.name, type: 'undervalued', detail: 'Solo ' + hWins + 'V/5 ma xG ' + xG.home.toFixed(2) + '. Probabile regressione positiva — sfortuna recente.', severity: 'medium' });
-        }
-      }
-      if (aForm.length >= 4) {
-        var aWins = aForm.slice(0, 5).split('').filter(function(r) { return r === 'W'; }).length;
-        if (aWins >= 4 && aD.goalsFor < 1.3) {
-          regressionWarnings.push({ team: match.away.name, type: 'inflated', detail: aWins + 'V/5 ma segna solo ' + (aD.goalsFor || 0).toFixed(1) + ' gol/g. Probabile regressione negativa.', severity: 'high' });
-        } else if (aWins <= 1 && aD.goalsFor >= 1.3 && xG.away >= 1.2) {
-          regressionWarnings.push({ team: match.away.name, type: 'undervalued', detail: 'Solo ' + aWins + 'V/5 ma xG ' + xG.away.toFixed(2) + '. Probabile regressione positiva.', severity: 'medium' });
-        }
-      }
-      // Win rate vs expected
-      if (hD.winRate && hD.goalsFor) {
-        var expectedWR = Math.min(85, Math.max(15, (hD.goalsFor / (hD.goalsFor + (hD.goalsAgainst || 1.2))) * 100 * 1.15));
-        if (hD.winRate > expectedWR + 15) {
-          regressionWarnings.push({ team: match.home.name, type: 'lucky', detail: 'WR ' + hD.winRate.toFixed(0) + '% vs atteso ~' + expectedWR.toFixed(0) + '%. Vince più di quanto i suoi gol giustificano.', severity: 'medium' });
-        }
-      }
-      if (aD.winRate && aD.goalsFor) {
-        var expectedWRA = Math.min(85, Math.max(15, (aD.goalsFor / (aD.goalsFor + (aD.goalsAgainst || 1.2))) * 100 * 1.05));
-        if (aD.winRate > expectedWRA + 15) {
-          regressionWarnings.push({ team: match.away.name, type: 'lucky', detail: 'WR ' + aD.winRate.toFixed(0) + '% vs atteso ~' + expectedWRA.toFixed(0) + '%. Vince più di quanto meriti.', severity: 'medium' });
-        }
-      }
-      
-      // ===============================
-      // 5. BEST VALUE PICK
-      // ===============================
-      var bestValue = valueBets.length > 0 ? valueBets[0] : null;
-      var aiPick = ai ? ai.pick : '';
-      
-      // === RENDERING ===
-      
-      // --- BEST VALUE PICK (hero) ---
-      if (bestValue && bestValue.edge > 2) {
-        var bvColor = bestValue.edge >= 10 ? '#10b981' : bestValue.edge >= 5 ? '#fbbf24' : '#00d4ff';
-        html += '<div style="padding:14px;background:rgba(' + (bestValue.edge >= 10 ? '16,185,129' : bestValue.edge >= 5 ? '251,191,36' : '0,212,255') + ',0.06);border:1.5px solid ' + bvColor + '30;border-radius:14px;">';
-        html += '<div style="display:flex;align-items:center;gap:12px;">';
-        html += '<div style="font-size:1.6rem;">' + bestValue.icon + '</div>';
-        html += '<div style="flex:1;">';
-        html += '<div style="font-size:0.55rem;color:var(--text-dark);">💎 Miglior Value Bet</div>';
-        html += '<div style="font-size:1.1rem;font-weight:900;color:white;">' + bestValue.name + '</div>';
-        html += '<div style="display:flex;gap:12px;margin-top:3px;font-size:0.72rem;">';
-        html += '<span>Modello: <strong style="color:' + bvColor + ';">' + bestValue.modelProb.toFixed(0) + '%</strong></span>';
-        html += '<span>Book: <strong style="color:var(--text-dark);">' + bestValue.impliedProb.toFixed(0) + '%</strong></span>';
-        html += '<span>Edge: <strong style="color:' + bvColor + ';">+' + bestValue.edge.toFixed(1) + '%</strong></span>';
-        if (!bestValue.synthetic) html += '<span>Quota: <strong>@' + bestValue.odd.toFixed(2) + '</strong></span>';
-        html += '</div>';
-        // Kelly
-        if (bestValue.kelly > 1) {
-          html += '<div style="font-size:0.6rem;color:' + bvColor + ';margin-top:4px;">📊 Kelly suggerisce: ' + Math.min(bestValue.kelly, 10).toFixed(1) + '% del bankroll' + (bestValue.kelly > 10 ? ' (capped a 10%)' : '') + '</div>';
-        }
-        html += '</div></div>';
-        
-        // Confronto con AI pick
-        if (aiPick && !bestValue.name.toLowerCase().includes(aiPick.split(' ')[0].toLowerCase())) {
-          html += '<div style="font-size:0.58rem;color:#f59e0b;margin-top:6px;padding:4px 8px;background:rgba(245,158,11,0.05);border-radius:6px;">⚠️ Il pronostico AI suggerisce <strong>' + esc(aiPick) + '</strong>, ma il miglior valore è su <strong>' + bestValue.name + '</strong>. Valuta in base alla tua strategia.</div>';
-        }
-        html += '</div>';
-      } else if (!hasOdds) {
-        html += '<div style="padding:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;font-size:0.7rem;color:var(--text-dark);text-align:center;">📊 Quote bookmaker non disponibili per questa partita. L\'analisi Value richiede le quote reali.</div>';
-      }
-      
-      // --- TUTTI I VALUE BET ---
-      if (valueBets.length > 0) {
-        html += '<div>';
-        html += '<div style="font-size:0.68rem;font-weight:700;color:var(--text-gray);margin-bottom:8px;">📊 Mappa Value Bet — tutti i mercati</div>';
-        html += '<div style="display:flex;flex-direction:column;gap:4px;">';
-        valueBets.forEach(function(vb) {
-          var barWidth = Math.max(5, Math.min(100, (vb.edge + 20) * 2));
-          var edgeColor = vb.edge >= 8 ? '#10b981' : vb.edge >= 3 ? '#fbbf24' : vb.edge >= 0 ? '#94a3b8' : '#ef4444';
-          var bgColor = vb.isValue ? 'rgba(16,185,129,0.04)' : vb.edge < 0 ? 'rgba(239,68,68,0.03)' : 'rgba(255,255,255,0.02)';
-          html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:' + bgColor + ';border:1px solid ' + (vb.isValue ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)') + ';border-radius:8px;">';
-          html += '<span style="font-size:0.8rem;width:20px;">' + vb.icon + '</span>';
-          html += '<span style="font-size:0.65rem;font-weight:700;color:white;width:65px;">' + vb.name + '</span>';
-          html += '<div style="flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">';
-          html += '<div style="height:100%;width:' + barWidth + '%;background:' + edgeColor + ';border-radius:3px;"></div>';
-          html += '</div>';
-          html += '<span style="font-size:0.6rem;font-weight:800;color:' + edgeColor + ';width:48px;text-align:right;">' + (vb.edge >= 0 ? '+' : '') + vb.edge.toFixed(1) + '%</span>';
-          html += '<span style="font-size:0.55rem;color:var(--text-dark);width:28px;text-align:right;">' + vb.modelProb.toFixed(0) + '%</span>';
-          if (vb.isValue) html += '<span style="font-size:0.6rem;">💎</span>';
-          html += '</div>';
-        });
-        html += '</div>';
-        html += '<div style="font-size:0.5rem;color:var(--text-dark);margin-top:4px;">💎 = Value (edge 3%+) | Edge = prob modello − prob implicita quota | Rosso = scommessa sfavorevole</div>';
-        html += '</div>';
-      }
-      
-      // --- REGRESSIONE ALLA MEDIA ---
-      if (regressionWarnings.length > 0) {
-        html += '<div style="padding:10px;background:rgba(249,115,22,0.04);border:1px solid rgba(249,115,22,0.15);border-radius:10px;">';
-        html += '<div style="font-size:0.68rem;font-weight:700;color:#f97316;margin-bottom:6px;">📉 Regressione alla Media</div>';
-        regressionWarnings.forEach(function(rw) {
-          var rwIcon = rw.type === 'inflated' ? '🎈' : rw.type === 'undervalued' ? '💪' : '🍀';
-          var rwColor = rw.severity === 'high' ? '#ef4444' : '#f97316';
-          html += '<div style="padding:5px 8px;background:rgba(255,255,255,0.02);border-radius:6px;margin-bottom:3px;font-size:0.6rem;">';
-          html += '<span style="font-weight:700;color:' + rwColor + ';">' + rwIcon + ' ' + esc(rw.team) + '</span> — ';
-          html += '<span style="color:var(--text-gray);">' + rw.detail + '</span>';
-          html += '</div>';
-        });
-        html += '</div>';
-      }
-      
-      // --- HOME ADVANTAGE PER LEGA ---
-      if (Math.abs(haCorrection) >= 0.01) {
-        var haColor = haCorrection > 0 ? '#10b981' : '#f97316';
-        var haText = haCorrection > 0 
-          ? 'In ' + esc(match.league.name) + ' il vantaggio casa è +' + (leagueHA * 100).toFixed(0) + '% (sopra la media di +6%). La casa è più forte di quanto il modello standard stima.'
-          : 'In ' + esc(match.league.name) + ' il vantaggio casa è solo +' + (leagueHA * 100).toFixed(0) + '% (sotto la media di +6%). La casa è meno decisiva qui.';
-        html += '<div style="padding:8px 10px;background:rgba(' + (haCorrection > 0 ? '16,185,129' : '249,115,22') + ',0.04);border:1px solid ' + haColor + '20;border-radius:8px;font-size:0.6rem;">';
-        html += '<span style="color:' + haColor + ';font-weight:700;">🏟️ Fattore Casa</span> — <span style="color:var(--text-gray);">' + haText + '</span>';
-        // Correzione prob suggerita
-        var corrHome = p.home * (1 + haCorrection);
-        var corrAway = p.away * (1 - haCorrection);
-        if (Math.abs(haCorrection) >= 0.02) {
-          html += '<div style="margin-top:3px;color:var(--text-dark);">Prob corretta: Casa ~' + corrHome.toFixed(0) + '% (vs ' + p.home.toFixed(0) + ') | Ospite ~' + corrAway.toFixed(0) + '% (vs ' + p.away.toFixed(0) + ')</div>';
-        }
-        html += '</div>';
-      }
-      
-      // --- KELLY CRITERION SPIEGATO ---
-      if (bestValue && bestValue.kelly > 0.5) {
-        html += '<div style="padding:8px 10px;background:rgba(168,85,247,0.04);border:1px solid rgba(168,85,247,0.12);border-radius:8px;font-size:0.6rem;">';
-        html += '<span style="color:#a855f7;font-weight:700;">📐 Kelly Criterion</span> — ';
-        var kellyFrac = Math.min(bestValue.kelly * 0.5, 5); // Half-Kelly, capped 5%
-        html += '<span style="color:var(--text-gray);">Su ' + bestValue.name + ' con edge +' + bestValue.edge.toFixed(1) + '%, Half-Kelly suggerisce <strong style="color:#a855f7;">' + kellyFrac.toFixed(1) + '%</strong> del bankroll. ';
-        html += 'Es: bankroll 100€ → puntata ~' + (kellyFrac).toFixed(1) + '€</span>';
-        html += '</div>';
-      }
+      // Nota
+      html += '<div style="font-size:0.55rem;color:var(--text-dark);padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:6px;text-align:center;">Le quote sono teoriche (prob pura senza margine). Confronta con il bookmaker per trovare value bet.</div>';
       
       html += '</div>';
       return html;
@@ -14392,7 +13909,6 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         { key: 'home1',   label: '🏠 Trova 1',    color: '#00d4ff', getData: () => picks.vittorieCasa.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: '1 (Casa)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
         { key: 'away2',   label: '✈️ Trova 2',    color: '#f87171', getData: () => picks.vittorieOspite.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: '2 (Ospite)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
         { key: 'gg',      label: '⚽ Trova GG',   color: '#00e5a0', getData: () => picks.gg.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: 'GG (' + p.prob.toFixed(0) + '%)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
-        { key: 'ng',      label: '🚫 Trova NG',   color: '#94a3b8', getData: () => picks.ng.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: 'NG (' + p.prob.toFixed(0) + '%)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
         { key: 'over25',  label: '📈 Over 2.5',   color: '#f59e0b', getData: () => picks.over25.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: 'Over 2.5', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
         { key: 'over15',  label: '📊 Over 1.5',   color: '#a78bfa', getData: () => (picks.matchAdvices || []).filter(a => { try { const pOU = calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1)); return pOU[1.5].over >= 72; } catch(e) { return false; } }).map(a => ({ ...a, pick: 'Over 1.5', prob: (() => { try { return calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1))[1.5].over; } catch(e) { return 0; } })() })).sort((a,b) => b.prob - a.prob).slice(0, 15) },
         { key: 'under25', label: '📉 Under 2.5',  color: '#64748b', getData: () => (picks.matchAdvices || []).filter(a => { try { const pOU = calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1)); return pOU[2.5].under >= 50; } catch(e) { return false; } }).map(a => ({ ...a, pick: 'Under 2.5', prob: (() => { try { return calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1))[2.5].under; } catch(e) { return 0; } })() })).sort((a,b) => b.prob - a.prob).slice(0, 15) },
@@ -14411,7 +13927,6 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       }
       
       return `
-        ${renderResultTrackerCard()}
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-title" style="margin-bottom:12px;">&#x1F50D; Trova i Migliori Pick</div>
           <div style="display:flex;gap:7px;flex-wrap:wrap;${qf ? 'margin-bottom:14px;' : ''}">
@@ -14932,28 +14447,6 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         </div>
         <div class="section-accordion-body">
           ${safeRender(() => renderMultigolCombinato(m, d), '', 'MultigolCombinato')}
-        </div>
-      </div>
-      
-      <!-- VALUE ANALYSIS -->
-      <div class="section-accordion">
-        <div class="section-accordion-header open" onclick="toggleAccordion(this)">
-          <div class="section-accordion-title"><span>💎</span> Value Analysis</div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            ${(() => {
-              try {
-                const bko = d.bookmakerOdds || {};
-                if (bko.homeOdd && bko.homeOdd > 1) {
-                  return '<span style="font-size:0.6rem;background:rgba(16,185,129,0.12);color:#10b981;padding:2px 8px;border-radius:8px;font-weight:700;">PRO</span>';
-                }
-                return '<span style="font-size:0.6rem;background:rgba(255,255,255,0.06);color:var(--text-dark);padding:2px 8px;border-radius:8px;font-weight:700;">no quote</span>';
-              } catch(e) { return ''; }
-            })()}
-            <span class="section-accordion-arrow">▼</span>
-          </div>
-        </div>
-        <div class="section-accordion-body open">
-          ${safeRender(() => renderValueAnalysis(m, d, ai), '', 'ValueAnalysis')}
         </div>
       </div>
       
