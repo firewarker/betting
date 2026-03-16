@@ -5684,6 +5684,7 @@
               awayLogo: match.away.logo || '',
               league: matchInfo.league,
               leagueLogo: match.league.logo || '',
+              leagueId: match.league?.id || 0,
               time: matchInfo.time,
               pick: aiAdvice.pick,
               prob: aiAdvice.prob,
@@ -5693,7 +5694,12 @@
               dataQuality,
               xgHome: homeXG.toFixed(2),
               xgAway: awayXG.toFixed(2),
-              xgTotal: totXG.toFixed(2)
+              xgTotal: totXG.toFixed(2),
+              p1X2: p1X2,
+              pBTTS: pBTTS,
+              pOver25: pOver25,
+              homeFormMult: homeFormMultiplier,
+              awayFormMult: awayFormMultiplier
             });
           }
         } catch (advErr) {
@@ -6211,6 +6217,146 @@
       return clamp(8, baseOver + adjustment, 92);
     }
     
+    // === ANALIZZATE DALL'AMICO — Smart pick selection ===
+    // Analizza TUTTE le partite e restituisce solo le migliori
+    // Score 0-100: probabilità + confidence + dati + xG gap + favorito + tipo pick + forma + campionato
+    // ZERO impatto sull'algoritmo — legge solo matchAdvices già calcolati
+    
+    function calculateAmicoScore(a) {
+      var score = 0, details = [];
+      var prob = a.prob || 0;
+      var conf = a.confidence || 'low';
+      var dq = a.dataQuality || 'low';
+      var p = a.p1X2 || { home: 33, draw: 33, away: 33 };
+      var xgH = parseFloat(a.xgHome || 1.3), xgA = parseFloat(a.xgAway || 1.1);
+      var xgGap = Math.abs(xgH - xgA);
+      var maxP = Math.max(p.home, p.away);
+      var pick = (a.pick || '').toLowerCase();
+      
+      // Stima quota implicita dal pick
+      var impliedOdds = prob > 0 ? 100 / prob : 5;
+      
+      // 1. Probabilità (0-25) — importante ma non dominante
+      if (prob >= 75) { score += 25; }
+      else if (prob >= 65) { score += 22; }
+      else if (prob >= 58) { score += 18; }
+      else if (prob >= 50) { score += 12; }
+      else { score += 5; }
+      
+      // 2. VALORE SCOMMESSA (0-20) — NUOVO: premia pick con quota giocabile
+      // Una quota @1.50-2.50 è la zona ideale (prob 40-67%)
+      if (impliedOdds >= 1.70 && impliedOdds <= 2.80) { score += 20; details.push('Quota ideale ~@' + impliedOdds.toFixed(2)); }
+      else if (impliedOdds >= 1.45 && impliedOdds <= 3.50) { score += 14; details.push('Quota buona ~@' + impliedOdds.toFixed(2)); }
+      else if (impliedOdds >= 1.30 && impliedOdds <= 4.00) { score += 8; }
+      else if (impliedOdds < 1.30) { score += 2; details.push('Quota troppo bassa @' + impliedOdds.toFixed(2)); }
+      else { score += 4; }
+      
+      // 3. Confidence AI (0-10)
+      if (conf === 'high') { score += 10; details.push('Alta fiducia'); }
+      else if (conf === 'medium') { score += 6; }
+      else { score += 2; }
+      
+      // 4. Qualità dati (0-8)
+      if (dq === 'high') { score += 8; details.push('Dati premium'); }
+      else if (dq === 'medium') { score += 5; }
+      else { score += 2; }
+      
+      // 5. Dominanza xG (0-10)
+      if (xgGap >= 0.8) { score += 10; details.push('xG dominante'); }
+      else if (xgGap >= 0.5) { score += 7; }
+      else if (xgGap >= 0.25) { score += 3; }
+      
+      // 6. Favorito chiaro (0-10)
+      if (maxP >= 65) { score += 10; details.push('Favorito netto'); }
+      else if (maxP >= 55) { score += 6; }
+      else if (maxP >= 48) { score += 2; }
+      
+      // 7. Tipo pick — premia mercati con buon rapporto prob/quota
+      if ((pick.startsWith('1') && !pick.includes('1x')) || (pick.startsWith('2') && !pick.includes('2x'))) {
+        if (prob >= 60) { score += 8; details.push('Segno secco forte'); }
+        else { score += 4; }
+      }
+      else if (pick.includes('1x') || pick.includes('x2')) { score += 6; details.push('Doppia Chance'); }
+      else if (pick.includes('over 2.5')) { score += 5; }
+      else if (pick.includes('over 1.5')) { 
+        // Over 1.5 è sicuro ma ha quota bassa — va bene solo come ancora multipla
+        score += 2; details.push('Over 1.5 (ancora multipla)');
+      }
+      else if (pick.includes('gg')) { score += 4; }
+      else if (pick === 'x' || pick.includes('pareggio')) { score -= 3; }
+      
+      // 8. Gap forma
+      if (a.homeFormMult && a.awayFormMult) {
+        if (Math.abs(a.homeFormMult - a.awayFormMult) >= 0.15) { score += 4; details.push('Forma diversa'); }
+      }
+      
+      // 9. Campionato top
+      if ([39,135,140,78,61,71,88,94,128,253,2,3,848].includes(a.leagueId)) { score += 4; }
+      
+      score = Math.max(0, Math.min(100, score));
+      
+      var tier, tierLabel, tierColor, tierIcon;
+      if (score >= 62) { tier = 'gold'; tierLabel = 'ORO'; tierColor = '#fbbf24'; tierIcon = '🥇'; }
+      else if (score >= 45) { tier = 'silver'; tierLabel = 'ARGENTO'; tierColor = '#94a3b8'; tierIcon = '🥈'; }
+      else if (score >= 28) { tier = 'bronze'; tierLabel = 'BRONZO'; tierColor = '#cd7f32'; tierIcon = '🥉'; }
+      else { tier = 'skip'; tierLabel = 'SKIP'; tierColor = '#ef4444'; tierIcon = '⛔'; }
+      
+      return { score: score, tier: tier, tierLabel: tierLabel, tierColor: tierColor, tierIcon: tierIcon, details: details, pick: a.pick, prob: prob, matchName: a.matchName, matchId: a.matchId, homeName: a.homeName, awayName: a.awayName, league: a.league, time: a.time, confidence: conf, impliedOdds: impliedOdds };
+    }
+    
+    function getAmicoPicks() {
+      var advices = state.dailyPicks?.matchAdvices || [];
+      if (!advices.length) return [];
+      var scored = [];
+      advices.forEach(function(a) { try { var s = calculateAmicoScore(a); if (s && s.tier !== 'skip') scored.push(s); } catch(e) {} });
+      scored.sort(function(a, b) { return b.score - a.score; });
+      return scored.slice(0, 15);
+    }
+    
+    function renderAmicoPicks() {
+      var picks = getAmicoPicks();
+      if (!picks.length) return '';
+      
+      var gold = picks.filter(function(p) { return p.tier === 'gold'; });
+      var silver = picks.filter(function(p) { return p.tier === 'silver'; });
+      var bronze = picks.filter(function(p) { return p.tier === 'bronze'; });
+      
+      var html = '<div class="panel" style="margin-bottom:16px;">';
+      html += '<div class="panel-title" style="margin-bottom:4px;">🎯 Analizzate dall\'Amico</div>';
+      html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-bottom:12px;">Top ' + picks.length + ' partite — filtrate per probabilità, dati e dominanza</div>';
+      
+      // Suggerimento strategia
+      var sug = '';
+      if (gold.length >= 3) sug = '💡 Oggi ' + gold.length + ' ORO! Multipla da 2-3 ORO (quota ~@' + gold.slice(0,3).reduce(function(q,p){return q*(p.impliedOdds||1.5)},1).toFixed(2) + '). Il resto singole.';
+      else if (gold.length >= 1) sug = '💡 ' + gold.length + ' pick ORO. Singole sulle ORO oppure 1 ORO + 1-2 ARGENTO in multipla.';
+      else if (silver.length >= 3) sug = '⚠️ Nessun ORO oggi. Multipla cautela da 2 ARGENTO max. No schedine lunghe.';
+      else sug = '🚫 Giornata debole. Valuta di NON giocare o solo singole sulle migliori.';
+      html += '<div style="padding:10px 12px;background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.15);border-radius:10px;font-size:0.68rem;color:var(--text-gray);margin-bottom:14px;">' + sug + '</div>';
+      
+      function renderTier(tp, name, color, icon) {
+        if (!tp.length) return '';
+        var t = '<div style="margin-bottom:14px;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;"><span style="font-size:0.9rem;">' + icon + '</span><span style="font-size:0.72rem;font-weight:800;color:' + color + ';">' + name + '</span><span style="font-size:0.6rem;color:var(--text-dark);">(' + tp.length + ')</span></div>';
+        t += '<div style="display:flex;flex-direction:column;gap:6px;">';
+        tp.forEach(function(p) {
+          t += '<div onclick="{ const m=state.matches.find(x=>x.id===' + p.matchId + '); if(m)analyzeMatch(m); }" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-card);border:1.5px solid ' + color + '20;border-radius:10px;transition:.15s;" onmouseover="this.style.borderColor=\'' + color + '\'" onmouseout="this.style.borderColor=\'' + color + '20\'">';
+          t += '<div style="flex-shrink:0;width:38px;height:38px;border-radius:50%;background:' + color + '15;border:1.5px solid ' + color + '40;display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:900;color:' + color + ';">' + p.score + '</div>';
+          t += '<div style="flex:1;min-width:0;"><div style="font-size:0.72rem;font-weight:800;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(p.homeName) + ' - ' + esc(p.awayName) + '</div><div style="font-size:0.58rem;color:var(--text-dark);margin-top:1px;">' + esc(p.league) + ' · ' + p.time + '</div></div>';
+          t += '<div style="flex-shrink:0;text-align:right;"><div style="font-size:0.75rem;font-weight:900;color:' + color + ';">' + esc(p.pick.split('(')[0].trim()) + '</div><div style="font-size:0.68rem;font-weight:700;color:var(--text-gray);">' + p.prob.toFixed(0) + '% <span style="font-size:0.55rem;color:var(--text-dark);">~@' + (p.impliedOdds ? p.impliedOdds.toFixed(2) : '?') + '</span></div></div>';
+          t += '</div>';
+        });
+        t += '</div></div>';
+        return t;
+      }
+      
+      html += renderTier(gold, 'ORO — Massima fiducia', '#fbbf24', '🥇');
+      html += renderTier(silver, 'ARGENTO — Buone opportunità', '#94a3b8', '🥈');
+      html += renderTier(bronze, 'BRONZO — Solo singole', '#cd7f32', '🥉');
+      html += '</div>';
+      return html;
+    }
+    
+    window.toggleAmicoPicks = function() { var el = document.getElementById('amicoPicksContainer'); if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none'; };
+
     // === TRADER PICKS ===
     // Calcola i migliori picks per il trader con strategia
     function calculateTraderPicks() {
@@ -10575,6 +10721,152 @@
       return html;
     }
 
+    // === CORNER & TIRI IN PORTA — Analisi mercati speciali ===
+    // Usa dati corner già calcolati + stima tiri da xG
+    // ZERO impatto sull'algoritmo
+    function renderCornerTiri(match, d) {
+      var corners = d.corners || {};
+      var cards = d.cards || {};
+      var xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      var hD = d.homeData || {};
+      var aD = d.awayData || {};
+      
+      var html = '<div style="display:flex;flex-direction:column;gap:14px;">';
+      
+      // ═══ CORNER ═══
+      var cH = corners.home || 5.0, cA = corners.away || 4.3;
+      var cTot = corners.total || (cH + cA);
+      var cProbs = corners.probs || {};
+      
+      html += '<div style="padding:12px;background:rgba(251,191,36,0.04);border:1px solid rgba(251,191,36,0.15);border-radius:12px;">';
+      html += '<div style="font-size:0.75rem;font-weight:800;color:#fbbf24;margin-bottom:10px;">🚩 Corner</div>';
+      
+      // Media corner per squadra
+      html += '<div style="display:flex;gap:10px;margin-bottom:10px;">';
+      html += '<div style="flex:1;text-align:center;padding:8px;background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.15);border-radius:8px;"><div style="font-size:1rem;font-weight:900;color:#60a5fa;">' + cH.toFixed(1) + '</div><div style="font-size:0.55rem;color:var(--text-dark);">' + esc(match.home.name.substring(0, 12)) + '</div></div>';
+      html += '<div style="flex:0;display:flex;align-items:center;font-size:0.6rem;color:var(--text-dark);">+</div>';
+      html += '<div style="flex:1;text-align:center;padding:8px;background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.15);border-radius:8px;"><div style="font-size:1rem;font-weight:900;color:#f87171;">' + cA.toFixed(1) + '</div><div style="font-size:0.55rem;color:var(--text-dark);">' + esc(match.away.name.substring(0, 12)) + '</div></div>';
+      html += '<div style="flex:0;display:flex;align-items:center;font-size:0.6rem;color:var(--text-dark);">=</div>';
+      html += '<div style="flex:1;text-align:center;padding:8px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.15);border-radius:8px;"><div style="font-size:1rem;font-weight:900;color:#fbbf24;">' + cTot.toFixed(1) + '</div><div style="font-size:0.55rem;color:var(--text-dark);">Totale</div></div>';
+      html += '</div>';
+      
+      // Over/Under corner lines
+      html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">';
+      [8.5, 9.5, 10.5, 11.5].forEach(function(line) {
+        var p = cProbs[line] || { over: 50, under: 50 };
+        var overColor = p.over >= 60 ? '#10b981' : p.over >= 50 ? '#fbbf24' : '#ef4444';
+        var best = p.over >= 55 ? 'Over' : p.under >= 55 ? 'Under' : '—';
+        var bestProb = Math.max(p.over, p.under);
+        html += '<div style="padding:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+        html += '<span style="font-size:0.7rem;font-weight:800;color:white;">Corner ' + line + '</span>';
+        if (bestProb >= 55) html += '<span style="font-size:0.6rem;font-weight:800;color:' + overColor + ';">' + best + ' ' + bestProb.toFixed(0) + '%</span>';
+        html += '</div>';
+        html += '<div style="height:6px;background:rgba(239,68,68,0.15);border-radius:3px;overflow:hidden;">';
+        html += '<div style="height:100%;width:' + p.over.toFixed(0) + '%;background:' + overColor + ';border-radius:3px;"></div>';
+        html += '</div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:0.52rem;color:var(--text-dark);margin-top:2px;"><span>Over ' + p.over.toFixed(0) + '%</span><span>Under ' + p.under.toFixed(0) + '%</span></div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      
+      // Best corner pick
+      var bestCorner = null;
+      [8.5, 9.5, 10.5, 11.5].forEach(function(line) {
+        var p = cProbs[line] || { over: 50, under: 50 };
+        var bestP = Math.max(p.over, p.under);
+        if (bestP >= 58 && (!bestCorner || bestP > bestCorner.prob)) {
+          bestCorner = { line: line, pick: p.over >= p.under ? 'Over' : 'Under', prob: bestP };
+        }
+      });
+      if (bestCorner) {
+        var bcColor = bestCorner.prob >= 65 ? '#10b981' : '#fbbf24';
+        html += '<div style="margin-top:6px;padding:8px 10px;background:' + bcColor + '08;border:1px solid ' + bcColor + '25;border-radius:8px;font-size:0.65rem;"><span style="font-weight:800;color:' + bcColor + ';">💡 Miglior pick:</span> <span style="color:var(--text-gray);">' + bestCorner.pick + ' ' + bestCorner.line + ' Corner al ' + bestCorner.prob.toFixed(0) + '%</span></div>';
+      }
+      html += '</div>';
+      
+      // ═══ TIRI IN PORTA (stimati da xG) ═══
+      // Relazione: shots on target ≈ xG × 3.2 (media europea)
+      // Shots totali ≈ xG × 8.5
+      var hSoT = xG.home * 3.2, aSoT = xG.away * 3.2;
+      var hShots = xG.home * 8.5, aShots = xG.away * 8.5;
+      
+      // Aggiusta con dati reali se disponibili
+      if (hD.goalsFor >= 2.0) { hSoT *= 1.1; hShots *= 1.08; }
+      if (aD.goalsFor >= 1.8) { aSoT *= 1.08; aShots *= 1.06; }
+      if (hD.cleanSheetPct >= 35) { aSoT *= 0.9; aShots *= 0.92; }
+      if (aD.cleanSheetPct >= 35) { hSoT *= 0.9; hShots *= 0.92; }
+      
+      var totSoT = hSoT + aSoT;
+      var totShots = hShots + aShots;
+      
+      html += '<div style="padding:12px;background:rgba(96,165,250,0.04);border:1px solid rgba(96,165,250,0.15);border-radius:12px;">';
+      html += '<div style="font-size:0.75rem;font-weight:800;color:#60a5fa;margin-bottom:10px;">🎯 Tiri in Porta (stimati da xG)</div>';
+      
+      // Tiri per squadra
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">';
+      // Casa
+      html += '<div style="padding:10px;background:rgba(96,165,250,0.04);border:1px solid rgba(96,165,250,0.12);border-radius:8px;">';
+      html += '<div style="font-size:0.62rem;font-weight:700;color:#60a5fa;margin-bottom:6px;">' + esc(match.home.name.substring(0, 14)) + '</div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.6rem;margin-bottom:3px;"><span style="color:var(--text-dark);">Tiri totali</span><span style="color:white;font-weight:700;">~' + hShots.toFixed(1) + '</span></div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.6rem;"><span style="color:var(--text-dark);">In porta</span><span style="color:#10b981;font-weight:700;">~' + hSoT.toFixed(1) + '</span></div>';
+      html += '</div>';
+      // Ospite
+      html += '<div style="padding:10px;background:rgba(248,113,113,0.04);border:1px solid rgba(248,113,113,0.12);border-radius:8px;">';
+      html += '<div style="font-size:0.62rem;font-weight:700;color:#f87171;margin-bottom:6px;">' + esc(match.away.name.substring(0, 14)) + '</div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.6rem;margin-bottom:3px;"><span style="color:var(--text-dark);">Tiri totali</span><span style="color:white;font-weight:700;">~' + aShots.toFixed(1) + '</span></div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.6rem;"><span style="color:var(--text-dark);">In porta</span><span style="color:#10b981;font-weight:700;">~' + aSoT.toFixed(1) + '</span></div>';
+      html += '</div>';
+      html += '</div>';
+      
+      // Over/Under tiri in porta usando Poisson
+      html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">';
+      [3.5, 4.5, 5.5, 6.5].forEach(function(line) {
+        // Poisson per tiri in porta
+        var pOver = 0;
+        for (var i = 0; i <= 20; i++) {
+          var p = (Math.pow(totSoT, i) * Math.exp(-totSoT)) / (function f(n){return n<=1?1:n*f(n-1)})(i);
+          if (i > line) pOver += p;
+        }
+        pOver = Math.max(10, Math.min(90, pOver * 100));
+        var pUnder = 100 - pOver;
+        var color = pOver >= 60 ? '#10b981' : pOver >= 50 ? '#fbbf24' : '#ef4444';
+        var best = pOver >= 55 ? 'Over' : pUnder >= 55 ? 'Under' : '—';
+        var bestP = Math.max(pOver, pUnder);
+        
+        html += '<div style="padding:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
+        html += '<span style="font-size:0.68rem;font-weight:800;color:white;">SoT ' + line + '</span>';
+        if (bestP >= 55) html += '<span style="font-size:0.58rem;font-weight:800;color:' + color + ';">' + best + ' ' + bestP.toFixed(0) + '%</span>';
+        html += '</div>';
+        html += '<div style="height:6px;background:rgba(239,68,68,0.15);border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + pOver.toFixed(0) + '%;background:' + color + ';border-radius:3px;"></div></div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:0.52rem;color:var(--text-dark);margin-top:2px;"><span>Over ' + pOver.toFixed(0) + '%</span><span>Under ' + pUnder.toFixed(0) + '%</span></div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      
+      html += '<div style="font-size:0.5rem;color:var(--text-dark);margin-top:4px;text-align:center;">SoT = Shots on Target (Tiri in porta). Stime basate su xG e profilo offensivo/difensivo.</div>';
+      html += '</div>';
+      
+      // ═══ CARTELLINI ═══
+      if (cards.total > 0) {
+        var cardsT = cards.total || 4.0;
+        html += '<div style="padding:10px;background:rgba(251,191,36,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;">';
+        html += '<span style="font-size:0.68rem;font-weight:700;color:#fbbf24;">🟨 Cartellini stimati</span>';
+        html += '<span style="font-size:0.8rem;font-weight:900;color:white;">' + cardsT.toFixed(1) + '</span>';
+        html += '</div>';
+        var cProb35 = cards.probs && cards.probs[3.5] ? cards.probs[3.5] : null;
+        if (cProb35) {
+          html += '<div style="font-size:0.55rem;color:var(--text-dark);margin-top:4px;">Over 3.5: ' + cProb35.over.toFixed(0) + '% | Under 3.5: ' + cProb35.under.toFixed(0) + '%</div>';
+        }
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+
 
     // === LIVE BETTING SYSTEM ===
     
@@ -13729,21 +14021,6 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         <!-- QUICK FIND BUTTONS -->
         ${renderQuickFind(picks)}
         
-        <!-- LIVE ALERTS SECTION -->
-        <div class="panel" style="margin-bottom:16px;">
-          <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleLiveMode()">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="live-dot" style="width:8px;height:8px;border-radius:50%;background:${state.liveMode ? '#ef4444' : '#64748b'};display:inline-block;${state.liveMode ? 'animation:pulse 1.5s infinite;' : ''}"></span>
-              <span>📡 Live Alerts</span>
-              ${state.liveAlerts.length > 0 ? '<span style="background:rgba(239,68,68,0.15);color:#f87171;font-size:0.65rem;padding:2px 8px;border-radius:10px;font-weight:800;">' + state.liveAlerts.length + ' alert</span>' : ''}
-            </div>
-            <button style="background:${state.liveMode ? 'rgba(239,68,68,0.15)' : 'rgba(0,212,255,0.1)'};border:1px solid ${state.liveMode ? 'rgba(239,68,68,0.3)' : 'rgba(0,212,255,0.2)'};border-radius:10px;padding:5px 14px;cursor:pointer;color:${state.liveMode ? '#f87171' : '#00d4ff'};font-size:0.72rem;font-weight:700;">
-              ${state.liveMode ? '⏹ Ferma' : '▶ Attiva Live'}
-            </button>
-          </div>
-          ${state.liveMode ? renderLiveSection() : '<div style="text-align:center;padding:14px;color:var(--text-dark);font-size:0.78rem;">Clicca <strong>▶ Attiva Live</strong> per monitorare le partite in corso e ricevere alert in tempo reale.</div>'}
-        </div>
-        
       `;
     }
     
@@ -13927,6 +14204,14 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       }
       
       return `
+        ${(() => {
+          try {
+            var ap = getAmicoPicks();
+            if (!ap.length) return '';
+            var goldN = ap.filter(function(p){return p.tier==='gold'}).length;
+            return '<div style="margin-bottom:16px;"><button onclick="toggleAmicoPicks()" style="width:100%;padding:14px 16px;background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(245,158,11,0.04));border:1.5px solid rgba(251,191,36,0.25);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:inherit;"><div style="display:flex;align-items:center;gap:10px;"><span style="font-size:1.3rem;">🎯</span><div style="text-align:left;"><div style="font-size:0.85rem;font-weight:900;color:#fbbf24;">Analizzate dall\'Amico</div><div style="font-size:0.6rem;color:var(--text-dark);">' + ap.length + ' picks · ' + goldN + ' ORO ' + (ap.length - goldN) + ' altri</div></div></div><span style="font-size:1.2rem;color:var(--text-dark);">▾</span></button><div id="amicoPicksContainer" style="display:none;margin-top:8px;">' + renderAmicoPicks() + '</div></div>';
+          } catch(e) { console.warn('Amico error:', e); return ''; }
+        })()}
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-title" style="margin-bottom:12px;">&#x1F50D; Trova i Migliori Pick</div>
           <div style="display:flex;gap:7px;flex-wrap:wrap;${qf ? 'margin-bottom:14px;' : ''}">
@@ -14447,6 +14732,25 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
         </div>
         <div class="section-accordion-body">
           ${safeRender(() => renderMultigolCombinato(m, d), '', 'MultigolCombinato')}
+        </div>
+      </div>
+      
+      <!-- CORNER & TIRI -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>🚩</span> Corner & Tiri</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              try {
+                const c = d.corners || {};
+                return c.total ? '<span style="font-size:0.6rem;background:rgba(251,191,36,0.12);color:#fbbf24;padding:2px 8px;border-radius:8px;font-weight:700;">' + c.total.toFixed(1) + ' corner</span>' : '';
+              } catch(e) { return ''; }
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${safeRender(() => renderCornerTiri(m, d), '', 'CornerTiri')}
         </div>
       </div>
       
