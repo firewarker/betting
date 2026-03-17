@@ -4111,13 +4111,73 @@
       button:active, .date-tab:active, .filter-btn:active, .match-card:active { opacity: 0.7; transition: opacity 0.1s; }
     }
 
+    /* === ODDS LAB === */
+    .odds-lab { margin-top: 14px; }
+    .odds-lab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    @media (max-width: 600px) { .odds-lab-grid { grid-template-columns: 1fr; } }
+    .odds-bk-card { background: var(--bg-card-light); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .odds-bk-name { font-size: 0.68rem; color: var(--text-dark); font-weight: 600; margin-bottom: 6px; }
+    .odds-bk-row { display: flex; justify-content: space-between; gap: 6px; }
+    .odds-bk-cell { flex: 1; text-align: center; padding: 6px 4px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+    .odds-bk-cell.home { background: rgba(59,130,246,0.12); color: #60a5fa; }
+    .odds-bk-cell.draw { background: rgba(251,191,36,0.12); color: #fbbf24; }
+    .odds-bk-cell.away { background: rgba(248,113,113,0.12); color: #f87171; }
+    .odds-bk-cell.sharp { border: 1px solid rgba(0,229,160,0.4); }
+    .odds-steam { margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-size: 0.72rem; }
+    .odds-steam.bullish { background: rgba(0,229,160,0.08); border: 1px solid rgba(0,229,160,0.2); color: #00e5a0; }
+    .odds-steam.bearish { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); color: #f87171; }
+    .odds-steam.neutral { background: rgba(100,116,139,0.08); border: 1px solid rgba(100,116,139,0.2); color: #94a3b8; }
+    .odds-drop-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; font-size: 0.62rem; font-weight: 700; }
+    .odds-drop-badge.drop { background: rgba(0,229,160,0.15); color: #00e5a0; }
+    .odds-drop-badge.rise { background: rgba(248,113,113,0.15); color: #f87171; }
+
+    /* === VALUE BET ENGINE === */
+    .value-engine { margin-top: 14px; }
+    .value-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-top: 10px; }
+    .value-card { padding: 10px; border-radius: 10px; background: var(--bg-card-light); border: 1px solid var(--border); position: relative; overflow: hidden; }
+    .value-card.is-value { border-color: rgba(0,229,160,0.4); background: rgba(0,229,160,0.04); }
+    .value-card.is-value::before { content: 'VALUE'; position: absolute; top: 4px; right: 6px; font-size: 0.52rem; font-weight: 800; color: #00e5a0; letter-spacing: 1px; }
+    .value-market { font-size: 0.68rem; color: var(--text-dark); font-weight: 600; margin-bottom: 4px; }
+    .value-pick { font-size: 0.88rem; font-weight: 800; color: var(--text-white); }
+    .value-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+    .value-prob { font-size: 0.68rem; color: var(--accent-cyan); font-family: 'JetBrains Mono', monospace; }
+    .value-edge { font-size: 0.68rem; font-weight: 700; }
+    .value-edge.positive { color: #00e5a0; }
+    .value-edge.negative { color: #f87171; }
+    .value-kelly { font-size: 0.62rem; color: var(--accent-gold); margin-top: 3px; }
+
+    /* === REGRESSION SCORE === */
+    .regression-panel { margin-top: 14px; padding: 14px; background: linear-gradient(135deg, rgba(139,92,246,0.06), rgba(59,130,246,0.04)); border: 1px solid rgba(139,92,246,0.2); border-radius: 12px; }
+    .regression-score-big { font-size: 2.2rem; font-weight: 900; font-family: 'JetBrains Mono', monospace; text-align: center; }
+    .regression-label { font-size: 0.68rem; color: var(--text-dark); text-align: center; margin-top: 2px; }
+    .regression-factors { margin-top: 12px; }
+    .regression-factor { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .regression-factor:last-child { border-bottom: none; }
+    .regression-factor-name { flex: 1; font-size: 0.68rem; color: var(--text-gray); }
+    .regression-factor-bar { width: 80px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }
+    .regression-factor-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .regression-factor-val { font-size: 0.68rem; font-weight: 700; width: 36px; text-align: right; font-family: 'JetBrains Mono', monospace; }
+
+    /* === CONSENSUS ENGINE === */
+    .consensus-panel { margin-top: 14px; padding: 16px; background: linear-gradient(135deg, rgba(0,212,255,0.08), rgba(245,158,11,0.06)); border: 1px solid rgba(0,212,255,0.25); border-radius: 14px; }
+    .consensus-pick { font-size: 1.4rem; font-weight: 900; text-align: center; margin: 8px 0; }
+    .consensus-confidence { text-align: center; font-size: 0.72rem; margin-bottom: 10px; }
+    .consensus-sources { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; margin-top: 10px; }
+    .consensus-src { padding: 8px; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border); text-align: center; }
+    .consensus-src.agrees { border-color: rgba(0,229,160,0.3); }
+    .consensus-src.disagrees { border-color: rgba(248,113,113,0.2); }
+    .consensus-src-name { font-size: 0.6rem; color: var(--text-dark); font-weight: 600; margin-bottom: 3px; }
+    .consensus-src-pick { font-size: 0.78rem; font-weight: 800; }
+    .consensus-meter { height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; margin: 10px 0 6px; }
+    .consensus-meter-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+
   </style>
 </head>
 <body>
   <div id="app"></div>
   <script>
     // ===================================================
-    // BETTINGPRO v6 - CON ML AVANZATO E FIREBASE AUTH
+    // BETTINGPRO v7 - CON ML AVANZATO, ODDS LAB, VALUE ENGINE, CONSENSUS
     // ===================================================
     
     // ============================================
@@ -4824,7 +4884,16 @@
       aiFromCache: false,     // true se analisi AI caricata da cache Firebase
       superAIRunning: false,
       // STORICO VARIAZIONI PRONOSTICI
-      predictionHistory: JSON.parse(localStorage.getItem('bp2_prediction_history') || '{}')
+      predictionHistory: JSON.parse(localStorage.getItem('bp2_prediction_history') || '{}'),
+      // === NUOVI MODULI v7 ===
+      // Odds Lab - Multi-bookmaker
+      oddsLab: null,
+      // Value Bet Engine
+      valueBets: null,
+      // Regression Score
+      regressionScore: null,
+      // Consensus Engine
+      consensus: null
     };
 
     // === FUNZIONI STORICO VARIAZIONI ===
@@ -7842,6 +7911,11 @@
       state.analysis = null;
       state.superAnalysis = null;
       state.superAIAnalysis = null;
+      // v7 resets
+      state.oddsLab = null;
+      state.valueBets = null;
+      state.regressionScore = null;
+      state.consensus = null;
       render();
 
       // Auto-fetch risultato se partita passata o finita
@@ -7870,6 +7944,23 @@
           try { state.superAnalysis = runSuperAlgorithm(match, cached); render(); }
           catch(e) { Logger.log('SuperAlgo-cache', e); }
         }
+        // v7: Calcola moduli avanzati anche da cache
+        (async () => {
+          try {
+            const oddsLab = await fetchOddsLab(match.id);
+            state.oddsLab = oddsLab;
+            if (oddsLab) state.valueBets = calculateValueBets(cached, oddsLab);
+            state.regressionScore = calculateRegressionScore(match, cached, oddsLab);
+            const aiC = generateAIAdvice(match, cached);
+            state.consensus = buildConsensusEngine(match, cached, aiC, oddsLab, state.regressionScore, state.superAIAnalysis, state.superAnalysis);
+            render();
+          } catch(e) {
+            state.regressionScore = calculateRegressionScore(match, cached, null);
+            const aiC = generateAIAdvice(match, cached);
+            state.consensus = buildConsensusEngine(match, cached, aiC, null, state.regressionScore, null, state.superAnalysis);
+            render();
+          }
+        })();
         return;
       }
       
@@ -7998,6 +8089,49 @@
         } catch(e) { 
           console.warn('⚠️ Errore salvataggio storico:', e); 
         }
+      }
+      
+      // === v7: CALCOLO MODULI AVANZATI (non-blocking, post-render) ===
+      if (state.analysis) {
+        // Render immediato con dati base
+        state.loading = false;
+        render();
+        
+        // Poi calcola Odds Lab in background
+        try {
+          console.log('🔬 v7: Fetching Odds Lab...');
+          const oddsLab = await fetchOddsLab(match.id);
+          state.oddsLab = oddsLab;
+          
+          // Value Bets (richiede oddsLab)
+          if (oddsLab) {
+            state.valueBets = calculateValueBets(state.analysis, oddsLab);
+            console.log('✅ v7: Value Bets calcolate,', state.valueBets?.totalValueBets || 0, 'value trovate');
+          }
+          
+          // Regression Score
+          state.regressionScore = calculateRegressionScore(match, state.analysis, oddsLab);
+          console.log('✅ v7: Regression Score:', state.regressionScore?.score, state.regressionScore?.grade);
+          
+          // Consensus Engine (richiede tutti i dati)
+          const aiForConsensus = generateAIAdvice(match, state.analysis);
+          state.consensus = buildConsensusEngine(
+            match, state.analysis, aiForConsensus, oddsLab, state.regressionScore,
+            state.superAIAnalysis, state.superAnalysis
+          );
+          console.log('✅ v7: Consensus Engine:', state.consensus?.pick, state.consensus?.confidence);
+          
+          // Re-render con dati completi
+          render();
+        } catch(e) {
+          console.warn('⚠️ v7 modules partial error:', e);
+          // Calcola comunque Regression e Consensus senza oddsLab
+          state.regressionScore = calculateRegressionScore(match, state.analysis, null);
+          const aiForConsensus = generateAIAdvice(match, state.analysis);
+          state.consensus = buildConsensusEngine(match, state.analysis, aiForConsensus, null, state.regressionScore, state.superAIAnalysis, state.superAnalysis);
+          render();
+        }
+        return; // Già renderizzato sopra
       }
       
       state.loading = false;
@@ -10281,6 +10415,648 @@
       
       return result;
     }
+    
+    // ================================================================
+    // ============ BETTINGPRO v7 — MODULI AVANZATI ====================
+    // ================================================================
+    
+    // ============================================================
+    // 1. ODDS LAB — Multi-bookmaker + Steam Move Detection
+    // ============================================================
+    async function fetchOddsLab(fixtureId) {
+      try {
+        // Prendi quote da TUTTI i bookmaker disponibili
+        const data = await callAPIFootball('/odds', { fixture: fixtureId });
+        const bookmakers = data?.response?.[0]?.bookmakers || [];
+        if (!bookmakers.length) return null;
+        
+        const result = { bookmakers: [], sharp: null, consensus: null, steamMoves: [], markets: {} };
+        
+        // Bookmaker "sharp" (Pinnacle ID=15, bet365 ID=1, Unibet ID=21)
+        const sharpIds = [15, 1, 21, 8, 3]; // Pinnacle, Bet365, Unibet, Betfair, 888sport
+        const sharpNames = ['pinnacle', 'bet365', 'unibet', 'betfair', '888sport'];
+        
+        bookmakers.forEach(bk => {
+          const market1X2 = (bk.bets || []).find(b => 
+            b.name === 'Match Winner' || b.name === '1X2' || b.name === 'Home/Draw/Away'
+          );
+          const marketOU = (bk.bets || []).find(b => 
+            b.name === 'Goals Over/Under' || b.name === 'Over/Under'
+          );
+          const marketBTTS = (bk.bets || []).find(b => 
+            b.name === 'Both Teams Score' || b.name === 'Both Teams to Score'
+          );
+          
+          if (market1X2?.values?.length >= 3) {
+            const vals = market1X2.values;
+            const homeO = parseFloat(vals.find(v => v.value === 'Home')?.odd || 0);
+            const drawO = parseFloat(vals.find(v => v.value === 'Draw')?.odd || 0);
+            const awayO = parseFloat(vals.find(v => v.value === 'Away')?.odd || 0);
+            
+            if (homeO > 1 && drawO > 1 && awayO > 1) {
+              const raw1 = 1/homeO, rawX = 1/drawO, raw2 = 1/awayO;
+              const tot = raw1 + rawX + raw2;
+              const margin = ((tot - 1) * 100).toFixed(1);
+              const isSharp = sharpNames.some(s => (bk.name || '').toLowerCase().includes(s));
+              
+              const entry = {
+                id: bk.id,
+                name: bk.name,
+                isSharp,
+                odds: { home: homeO, draw: drawO, away: awayO },
+                impliedProb: { home: (raw1/tot)*100, draw: (rawX/tot)*100, away: (raw2/tot)*100 },
+                margin: parseFloat(margin)
+              };
+              
+              // Parse O/U 2.5
+              if (marketOU) {
+                const ou25Vals = marketOU.values.filter(v => v.value && v.value.includes('2.5'));
+                const overVal = ou25Vals.find(v => v.value.toLowerCase().includes('over'));
+                const underVal = ou25Vals.find(v => v.value.toLowerCase().includes('under'));
+                if (overVal && underVal) {
+                  entry.ou25 = { over: parseFloat(overVal.odd), under: parseFloat(underVal.odd) };
+                }
+              }
+              
+              // Parse BTTS
+              if (marketBTTS) {
+                const yesVal = marketBTTS.values.find(v => v.value === 'Yes');
+                const noVal = marketBTTS.values.find(v => v.value === 'No');
+                if (yesVal && noVal) {
+                  entry.btts = { yes: parseFloat(yesVal.odd), no: parseFloat(noVal.odd) };
+                }
+              }
+              
+              result.bookmakers.push(entry);
+              if (isSharp && !result.sharp) result.sharp = entry;
+            }
+          }
+        });
+        
+        if (result.bookmakers.length === 0) return null;
+        
+        // Se nessuno sharp, usa quello con margine più basso
+        if (!result.sharp) {
+          result.sharp = result.bookmakers.reduce((best, bk) => bk.margin < best.margin ? bk : best, result.bookmakers[0]);
+        }
+        
+        // CONSENSUS: media ponderata delle probabilità (sharp 2x peso)
+        let totalW = 0;
+        const consensusProb = { home: 0, draw: 0, away: 0 };
+        result.bookmakers.forEach(bk => {
+          const w = bk.isSharp ? 2.0 : 1.0;
+          consensusProb.home += bk.impliedProb.home * w;
+          consensusProb.draw += bk.impliedProb.draw * w;
+          consensusProb.away += bk.impliedProb.away * w;
+          totalW += w;
+        });
+        consensusProb.home /= totalW;
+        consensusProb.draw /= totalW;
+        consensusProb.away /= totalW;
+        result.consensus = consensusProb;
+        
+        // STEAM MOVES: confronta sharp vs media dei "soft" bookmaker
+        const softBks = result.bookmakers.filter(b => !b.isSharp);
+        if (softBks.length >= 2 && result.sharp) {
+          const avgSoftHome = softBks.reduce((s,b) => s + b.impliedProb.home, 0) / softBks.length;
+          const avgSoftAway = softBks.reduce((s,b) => s + b.impliedProb.away, 0) / softBks.length;
+          
+          // Se sharp dà più prob a Casa/Ospite rispetto ai soft → steam move
+          const deltaHome = result.sharp.impliedProb.home - avgSoftHome;
+          const deltaAway = result.sharp.impliedProb.away - avgSoftAway;
+          
+          if (deltaHome > 3) {
+            result.steamMoves.push({ direction: 'home', delta: deltaHome.toFixed(1), signal: 'Smart money punta sulla casa — sharp book più basso dei soft.', type: 'bullish' });
+          }
+          if (deltaAway > 3) {
+            result.steamMoves.push({ direction: 'away', delta: deltaAway.toFixed(1), signal: 'Smart money punta sull\'ospite — sharp book più basso dei soft.', type: 'bullish' });
+          }
+          
+          // Detect odds discrepancy (valore nascosto)
+          const maxHome = Math.max(...result.bookmakers.map(b => b.odds.home));
+          const minHome = Math.min(...result.bookmakers.map(b => b.odds.home));
+          const maxAway = Math.max(...result.bookmakers.map(b => b.odds.away));
+          const minAway = Math.min(...result.bookmakers.map(b => b.odds.away));
+          
+          if (maxHome - minHome > 0.25) {
+            result.steamMoves.push({ direction: 'home', delta: (maxHome - minHome).toFixed(2), signal: `Discrepanza quote Casa: ${minHome.toFixed(2)}→${maxHome.toFixed(2)}. Possibile value sul book più alto.`, type: 'neutral' });
+          }
+          if (maxAway - minAway > 0.25) {
+            result.steamMoves.push({ direction: 'away', delta: (maxAway - minAway).toFixed(2), signal: `Discrepanza quote Ospite: ${minAway.toFixed(2)}→${maxAway.toFixed(2)}. Possibile value sul book più alto.`, type: 'neutral' });
+          }
+        }
+        
+        // Aggregate markets per mercato O/U e BTTS
+        const bksWithOU = result.bookmakers.filter(b => b.ou25);
+        if (bksWithOU.length > 0) {
+          const avgOver = bksWithOU.reduce((s,b) => s + b.ou25.over, 0) / bksWithOU.length;
+          const avgUnder = bksWithOU.reduce((s,b) => s + b.ou25.under, 0) / bksWithOU.length;
+          result.markets.ou25 = { avgOver: avgOver.toFixed(2), avgUnder: avgUnder.toFixed(2), impliedOver: ((1/avgOver)*100).toFixed(1), impliedUnder: ((1/avgUnder)*100).toFixed(1) };
+        }
+        const bksWithBTTS = result.bookmakers.filter(b => b.btts);
+        if (bksWithBTTS.length > 0) {
+          const avgYes = bksWithBTTS.reduce((s,b) => s + b.btts.yes, 0) / bksWithBTTS.length;
+          const avgNo = bksWithBTTS.reduce((s,b) => s + b.btts.no, 0) / bksWithBTTS.length;
+          result.markets.btts = { avgYes: avgYes.toFixed(2), avgNo: avgNo.toFixed(2), impliedYes: ((1/avgYes)*100).toFixed(1), impliedNo: ((1/avgNo)*100).toFixed(1) };
+        }
+        
+        return result;
+      } catch(e) {
+        Logger.log('fetchOddsLab', e, 'warn');
+        return null;
+      }
+    }
+
+    // ============================================================
+    // 2. VALUE BET ENGINE — Kelly Criterion + Edge Detection
+    // ============================================================
+    function calculateValueBets(analysis, oddsLab) {
+      if (!analysis || !oddsLab) return null;
+      
+      const results = [];
+      const p1X2 = analysis.p1X2;
+      const pBTTS = analysis.pBTTS;
+      const pOU = analysis.pOU;
+      
+      // Trova il book con le quote migliori per ogni mercato
+      const bestOdds = { home: 0, draw: 0, away: 0, bkHome: '', bkDraw: '', bkAway: '' };
+      oddsLab.bookmakers.forEach(bk => {
+        if (bk.odds.home > bestOdds.home) { bestOdds.home = bk.odds.home; bestOdds.bkHome = bk.name; }
+        if (bk.odds.draw > bestOdds.draw) { bestOdds.draw = bk.odds.draw; bestOdds.bkDraw = bk.name; }
+        if (bk.odds.away > bestOdds.away) { bestOdds.away = bk.odds.away; bestOdds.bkAway = bk.name; }
+      });
+      
+      // Funzione Kelly Criterion: f* = (p*b - q) / b dove b = quota-1, p = prob, q = 1-p
+      function kellyFraction(prob, odds) {
+        const p = prob / 100;
+        const q = 1 - p;
+        const b = odds - 1;
+        if (b <= 0) return 0;
+        const kelly = (p * b - q) / b;
+        return Math.max(0, kelly); // Mai negativo (non suggerire scommesse con edge negativo)
+      }
+      
+      // Funzione Edge: (prob_nostra * quota) - 1
+      function calcEdge(prob, odds) {
+        return ((prob / 100) * odds - 1) * 100;
+      }
+      
+      // 1X2 Markets
+      const markets = [
+        { market: '1X2', pick: '1', prob: p1X2.home, odds: bestOdds.home, bk: bestOdds.bkHome },
+        { market: '1X2', pick: 'X', prob: p1X2.draw, odds: bestOdds.draw, bk: bestOdds.bkDraw },
+        { market: '1X2', pick: '2', prob: p1X2.away, odds: bestOdds.away, bk: bestOdds.bkAway }
+      ];
+      
+      // O/U 2.5
+      if (oddsLab.markets.ou25 && pOU && pOU[2.5]) {
+        const bestOverBk = oddsLab.bookmakers.filter(b => b.ou25).reduce((best, b) => b.ou25.over > (best.ou25?.over || 0) ? b : best, {});
+        const bestUnderBk = oddsLab.bookmakers.filter(b => b.ou25).reduce((best, b) => b.ou25.under > (best.ou25?.under || 0) ? b : best, {});
+        if (bestOverBk.ou25) {
+          markets.push({ market: 'O/U 2.5', pick: 'Over 2.5', prob: pOU[2.5].over, odds: bestOverBk.ou25.over, bk: bestOverBk.name });
+          markets.push({ market: 'O/U 2.5', pick: 'Under 2.5', prob: pOU[2.5].under, odds: bestUnderBk.ou25?.under || 0, bk: bestUnderBk.name || '' });
+        }
+      }
+      
+      // BTTS
+      if (oddsLab.markets.btts) {
+        const bestYesBk = oddsLab.bookmakers.filter(b => b.btts).reduce((best, b) => b.btts.yes > (best.btts?.yes || 0) ? b : best, {});
+        const bestNoBk = oddsLab.bookmakers.filter(b => b.btts).reduce((best, b) => b.btts.no > (best.btts?.no || 0) ? b : best, {});
+        if (bestYesBk.btts) {
+          markets.push({ market: 'GG/NG', pick: 'GG', prob: pBTTS, odds: bestYesBk.btts.yes, bk: bestYesBk.name });
+          markets.push({ market: 'GG/NG', pick: 'NG', prob: 100 - pBTTS, odds: bestNoBk.btts?.no || 0, bk: bestNoBk.name || '' });
+        }
+      }
+      
+      markets.forEach(m => {
+        if (m.odds <= 1) return;
+        const edge = calcEdge(m.prob, m.odds);
+        const kelly = kellyFraction(m.prob, m.odds);
+        const kellyPct = (kelly * 100).toFixed(1);
+        // Kelly frazionato al 25% (conservativo)
+        const kellyStake = Math.min(5, kelly * 25).toFixed(1);
+        const impliedProb = (1 / m.odds) * 100;
+        
+        results.push({
+          market: m.market,
+          pick: m.pick,
+          ourProb: m.prob.toFixed(1),
+          impliedProb: impliedProb.toFixed(1),
+          odds: m.odds.toFixed(2),
+          bestBookmaker: m.bk,
+          edge: edge.toFixed(1),
+          isValue: edge > 0,
+          kellyFull: kellyPct,
+          kellyStake: kellyStake,
+          rating: edge > 10 ? 'HOT' : (edge > 5 ? 'GOOD' : (edge > 0 ? 'MILD' : 'NO'))
+        });
+      });
+      
+      // Ordina: value bets prima, poi per edge
+      results.sort((a, b) => {
+        if (a.isValue && !b.isValue) return -1;
+        if (!a.isValue && b.isValue) return 1;
+        return parseFloat(b.edge) - parseFloat(a.edge);
+      });
+      
+      return {
+        bets: results,
+        topValue: results.filter(r => r.isValue),
+        totalValueBets: results.filter(r => r.isValue).length,
+        bestEdge: results.length ? results[0] : null
+      };
+    }
+
+    // ============================================================
+    // 3. REGRESSION SCORE — Multi-factor weighted scoring
+    //    Ispirato al metodo regressione di Quanta Predict
+    // ============================================================
+    function calculateRegressionScore(match, analysis, oddsLab) {
+      if (!analysis) return null;
+      
+      const factors = [];
+      let totalScore = 0;
+      let totalWeight = 0;
+      
+      const p1X2 = analysis.p1X2 || { home: 33, draw: 33, away: 33 };
+      const xG = analysis.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      const hD = analysis.homeData || {};
+      const aD = analysis.awayData || {};
+      const bk = analysis.bookmakerOdds || {};
+      const pBTTS = analysis.pBTTS || 50;
+      const pOU = analysis.pOU || {};
+      
+      // Chi è il favorito dal nostro modello
+      const favIs = p1X2.home > p1X2.away ? 'home' : 'away';
+      const favProb = favIs === 'home' ? p1X2.home : p1X2.away;
+      const favXG = favIs === 'home' ? xG.home : xG.away;
+      const undXG = favIs === 'home' ? xG.away : xG.home;
+      
+      // FATTORE 1: Forza Poisson (peso 25%)
+      // Il nostro modello Poisson quanto è convinto?
+      {
+        const w = 25;
+        const score = clamp(0, (favProb - 30) * (100/40), 100); // 30%=0, 70%=100
+        factors.push({ name: '🎯 Forza Poisson', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      // FATTORE 2: Dominanza xG (peso 20%)
+      {
+        const w = 20;
+        const xgDiff = favXG - undXG;
+        const score = clamp(0, (xgDiff / 1.5) * 100, 100); // Diff 1.5+ = 100
+        factors.push({ name: '⚽ Dominanza xG', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      // FATTORE 3: Conferma Bookmaker (peso 20%)
+      {
+        const w = 20;
+        let score = 50; // default neutro
+        if (oddsLab && oddsLab.consensus) {
+          const bkFavProb = favIs === 'home' ? oddsLab.consensus.home : oddsLab.consensus.away;
+          score = clamp(0, (bkFavProb - 25) * (100/45), 100);
+        } else if (bk && bk.home > 0) {
+          const bkFavProb = favIs === 'home' ? bk.home : bk.away;
+          score = clamp(0, (bkFavProb - 25) * (100/45), 100);
+        }
+        factors.push({ name: '💰 Conferma Quote', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      // FATTORE 4: Forma recente (peso 15%)
+      {
+        const w = 15;
+        const favForm = favIs === 'home' ? (analysis.homeForm || '') : (analysis.awayForm || '');
+        let score = 50;
+        if (favForm.length >= 3) {
+          const recent = favForm.slice(0, 5).split('');
+          const wins = recent.filter(r => r === 'W').length;
+          const losses = recent.filter(r => r === 'L').length;
+          score = clamp(0, ((wins - losses + 2.5) / 5) * 100, 100);
+        }
+        factors.push({ name: '📈 Forma Recente', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      // FATTORE 5: Solidità difensiva (peso 10%)
+      {
+        const w = 10;
+        const favGA = favIs === 'home' ? (hD.goalsAgainst || 1.2) : (aD.goalsAgainst || 1.2);
+        const score = clamp(0, (1.8 - favGA) / 1.5 * 100, 100); // 0.3 GA=100, 1.8+=0
+        factors.push({ name: '🛡️ Difesa', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      // FATTORE 6: Steam Move / Smart Money (peso 10%)
+      {
+        const w = 10;
+        let score = 50;
+        if (oddsLab && oddsLab.steamMoves.length > 0) {
+          const favSteam = oddsLab.steamMoves.find(s => s.direction === favIs && s.type === 'bullish');
+          const undSteam = oddsLab.steamMoves.find(s => s.direction !== favIs && s.type === 'bullish');
+          if (favSteam) score = 80 + parseFloat(favSteam.delta);
+          else if (undSteam) score = 20;
+        }
+        score = clamp(0, score, 100);
+        factors.push({ name: '🔥 Smart Money', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      const finalScore = totalWeight > 0 ? totalScore / totalWeight : 50;
+      
+      let grade, gradeColor;
+      if (finalScore >= 80) { grade = 'A+'; gradeColor = '#00e5a0'; }
+      else if (finalScore >= 70) { grade = 'A'; gradeColor = '#00d4ff'; }
+      else if (finalScore >= 60) { grade = 'B+'; gradeColor = '#3b82f6'; }
+      else if (finalScore >= 50) { grade = 'B'; gradeColor = '#fbbf24'; }
+      else if (finalScore >= 40) { grade = 'C'; gradeColor = '#f97316'; }
+      else { grade = 'D'; gradeColor = '#f87171'; }
+      
+      return {
+        score: finalScore.toFixed(0),
+        grade, gradeColor,
+        factors,
+        favIs,
+        favName: favIs === 'home' ? match.home.name : match.away.name,
+        recommendation: finalScore >= 70 ? 'FORTE' : (finalScore >= 55 ? 'GIOCABILE' : 'EVITARE')
+      };
+    }
+
+    // ============================================================
+    // 4. CONSENSUS ENGINE — Fusione intelligente di tutte le fonti
+    // ============================================================
+    function buildConsensusEngine(match, analysis, ai, oddsLab, regressionResult, superAI, superAlgo) {
+      if (!analysis) return null;
+      
+      const sources = [];
+      const pickVotes = {}; // { 'pick': { count, totalWeight, sources } }
+      
+      // Funzione helper per aggiungere un voto
+      function addVote(name, pick, prob, weight, icon) {
+        if (!pick || pick === 'N/A') return;
+        // Normalizza pick AGGRESSIVO — mappa tutte le varianti allo stesso pick canonico
+        const normalizedPick = normalizePick(pick);
+        const src = { name, pick: normalizedPick, prob: parseFloat(prob) || 0, weight, icon };
+        sources.push(src);
+        
+        if (!pickVotes[normalizedPick]) pickVotes[normalizedPick] = { count: 0, totalWeight: 0, maxProb: 0, sources: [] };
+        pickVotes[normalizedPick].count++;
+        pickVotes[normalizedPick].totalWeight += weight;
+        pickVotes[normalizedPick].maxProb = Math.max(pickVotes[normalizedPick].maxProb, src.prob);
+        pickVotes[normalizedPick].sources.push(name);
+      }
+      
+      function normalizePick(raw) {
+        if (!raw) return raw;
+        const p = raw.trim().toLowerCase();
+        
+        // === 1X2 ===
+        // "1", "1 Casa", "1 (Casa)", "1 (Vittoria Casa)", "Vittoria Casa", "Home Win"
+        if (/^1(\s|\(|$)/.test(p) || p.includes('vittoria casa') || p.includes('casa vince') || p.includes('home win')) return '1';
+        // "2", "2 Ospite", "2 (Ospite)", "2 (Vittoria Ospite)", "Vittoria Ospite", "Away Win"  
+        if (/^2(\s|\(|$)/.test(p) || p.includes('vittoria ospite') || p.includes('ospite vince') || p.includes('away win')) return '2';
+        // "X", "X (Pareggio)", "Pareggio", "Draw"
+        if (/^x(\s|\(|$)/.test(p) || p.includes('pareggio') || p === 'draw') return 'X';
+        
+        // === Double Chance ===
+        if (/^1x(\s|$)/i.test(p) || p === '1x') return '1X';
+        if (/^x2(\s|$)/i.test(p) || p === 'x2') return 'X2';
+        if (/^12(\s|$)/i.test(p) || p === '12') return '12';
+        
+        // === Over/Under ===
+        if (/over\s*0\.?5/i.test(p)) return 'Over 0.5';
+        if (/over\s*1\.?5/i.test(p)) return 'Over 1.5';
+        if (/over\s*2\.?5/i.test(p)) return 'Over 2.5';
+        if (/over\s*3\.?5/i.test(p)) return 'Over 3.5';
+        if (/under\s*0\.?5/i.test(p)) return 'Under 0.5';
+        if (/under\s*1\.?5/i.test(p)) return 'Under 1.5';
+        if (/under\s*2\.?5/i.test(p)) return 'Under 2.5';
+        if (/under\s*3\.?5/i.test(p)) return 'Under 3.5';
+        
+        // === GG/NG ===
+        if (p === 'gg' || p.includes('gol gol') || p.includes('both teams') || p.includes('btts')) return 'GG';
+        if (p === 'ng' || p === 'no gol' || p.includes('no gol') || p.includes('no goal')) return 'NG';
+        
+        // Fallback: trimma
+        return raw.trim();
+      }
+      
+      // 1. Modello Poisson/Dixon-Coles (peso 3)
+      if (ai && ai.pick) {
+        addVote('Poisson AI', ai.pick, ai.prob, 3, '🎯');
+      }
+      
+      // 2. Bookmaker consensus (peso 3)
+      if (oddsLab && oddsLab.consensus) {
+        const c = oddsLab.consensus;
+        const maxP = Math.max(c.home, c.draw, c.away);
+        const bkPick = c.home === maxP ? '1' : (c.away === maxP ? '2' : 'X');
+        addVote('Bookmakers', bkPick, maxP, 3, '💰');
+      } else if (analysis.bookmakerOdds) {
+        const b = analysis.bookmakerOdds;
+        const maxP = Math.max(b.home, b.draw, b.away);
+        const bkPick = b.home === maxP ? '1' : (b.away === maxP ? '2' : 'X');
+        addVote('Bookmaker', bkPick, maxP, 2.5, '💰');
+      }
+      
+      // 3. Regression Score (peso 2)
+      if (regressionResult && regressionResult.score >= 55) {
+        const rPick = regressionResult.favIs === 'home' ? '1' : '2';
+        addVote('Regressione', rPick, regressionResult.score, 2, '📊');
+      }
+      
+      // 4. Super AI con news (peso 2)
+      if (superAI && !superAI.error && superAI.bestPick) {
+        addVote('Oracle AI', superAI.bestPick, superAI.confidence || 60, 2, '🔮');
+      }
+      
+      // 5. Super Algoritmo locale (peso 2)
+      if (superAlgo && superAlgo.topPick) {
+        addVote('Super Algo', superAlgo.topPick.value, superAlgo.topPick.prob, 2, '⚡');
+      }
+      
+      // 6. Steam Move (peso 1.5)
+      if (oddsLab && oddsLab.steamMoves.length > 0) {
+        const bullish = oddsLab.steamMoves.find(s => s.type === 'bullish');
+        if (bullish) {
+          const steamPick = bullish.direction === 'home' ? '1' : '2';
+          addVote('Smart Money', steamPick, 65, 1.5, '🔥');
+        }
+      }
+      
+      // Trova il pick con il peso cumulativo più alto
+      const sortedPicks = Object.entries(pickVotes)
+        .map(([pick, data]) => ({ pick, ...data, score: data.totalWeight * (data.maxProb / 100) * data.count }))
+        .sort((a, b) => b.score - a.score);
+      
+      if (sortedPicks.length === 0) return null;
+      
+      const winner = sortedPicks[0];
+      const totalSources = sources.length;
+      const agreeSources = sources.filter(s => s.pick === winner.pick).length;
+      const agreement = totalSources > 0 ? (agreeSources / totalSources * 100) : 0;
+      
+      // Confidence calibrata
+      let confidence = 'medium', confidenceColor = '#fbbf24';
+      if (agreement >= 80 && winner.maxProb >= 60) { confidence = 'MASSIMA'; confidenceColor = '#00e5a0'; }
+      else if (agreement >= 60 && winner.maxProb >= 55) { confidence = 'ALTA'; confidenceColor = '#00d4ff'; }
+      else if (agreement >= 40) { confidence = 'MEDIA'; confidenceColor = '#fbbf24'; }
+      else { confidence = 'BASSA'; confidenceColor = '#f87171'; }
+      
+      // Calcola prob ponderata
+      const agreeingSources = sources.filter(s => s.pick === winner.pick);
+      let weightedProb = 0, sumWeights = 0;
+      agreeingSources.forEach(s => { weightedProb += s.prob * s.weight; sumWeights += s.weight; });
+      const finalProb = sumWeights > 0 ? weightedProb / sumWeights : winner.maxProb;
+      
+      return {
+        pick: winner.pick,
+        prob: finalProb.toFixed(1),
+        confidence,
+        confidenceColor,
+        agreement: agreement.toFixed(0),
+        agreeSources,
+        totalSources,
+        sources: sources.map(s => ({ ...s, agrees: s.pick === winner.pick })),
+        alternatives: sortedPicks.slice(1, 3).map(p => ({ pick: p.pick, sources: p.count, prob: p.maxProb.toFixed(0) }))
+      };
+    }
+
+    // ============================================================
+    // 6. RENDER FUNCTIONS per i nuovi moduli
+    // ============================================================
+    
+    function renderOddsLab(oddsLab) {
+      if (!oddsLab) return '';
+      const top4 = oddsLab.bookmakers.slice(0, 6);
+      
+      let bkCards = top4.map(bk => `
+        <div class="odds-bk-card">
+          <div class="odds-bk-name">${esc(bk.name)} ${bk.isSharp ? '⭐' : ''} <span style="color:var(--text-dark);font-size:0.58rem;">M: ${bk.margin}%</span></div>
+          <div class="odds-bk-row">
+            <div class="odds-bk-cell home ${bk.isSharp ? 'sharp' : ''}">${bk.odds.home.toFixed(2)}<br><span style="font-size:0.55rem;opacity:0.6">${bk.impliedProb.home.toFixed(0)}%</span></div>
+            <div class="odds-bk-cell draw ${bk.isSharp ? 'sharp' : ''}">${bk.odds.draw.toFixed(2)}<br><span style="font-size:0.55rem;opacity:0.6">${bk.impliedProb.draw.toFixed(0)}%</span></div>
+            <div class="odds-bk-cell away ${bk.isSharp ? 'sharp' : ''}">${bk.odds.away.toFixed(2)}<br><span style="font-size:0.55rem;opacity:0.6">${bk.impliedProb.away.toFixed(0)}%</span></div>
+          </div>
+          ${bk.ou25 ? `<div style="margin-top:5px;font-size:0.6rem;color:var(--text-dark);text-align:center;">O2.5 <b>${bk.ou25.over.toFixed(2)}</b> | U2.5 <b>${bk.ou25.under.toFixed(2)}</b></div>` : ''}
+          ${bk.btts ? `<div style="font-size:0.6rem;color:var(--text-dark);text-align:center;">GG <b>${bk.btts.yes.toFixed(2)}</b> | NG <b>${bk.btts.no.toFixed(2)}</b></div>` : ''}
+        </div>
+      `).join('');
+      
+      let steamHtml = '';
+      if (oddsLab.steamMoves.length > 0) {
+        steamHtml = oddsLab.steamMoves.map(s => `
+          <div class="odds-steam ${s.type}">${s.type === 'bullish' ? '🔥' : '📊'} ${esc(s.signal)}</div>
+        `).join('');
+      } else {
+        steamHtml = '<div class="odds-steam neutral">📊 Nessun movimento significativo rilevato. Quote stabili.</div>';
+      }
+      
+      // Consensus prob bar
+      let consensusBar = '';
+      if (oddsLab.consensus) {
+        const c = oddsLab.consensus;
+        consensusBar = `<div style="margin-top:10px;display:flex;height:20px;border-radius:6px;overflow:hidden;font-size:0.6rem;font-weight:700;">
+          <div style="width:${c.home.toFixed(0)}%;background:rgba(59,130,246,0.7);display:flex;align-items:center;justify-content:center;color:white;">1 ${c.home.toFixed(0)}%</div>
+          <div style="width:${c.draw.toFixed(0)}%;background:rgba(251,191,36,0.7);display:flex;align-items:center;justify-content:center;color:white;">X ${c.draw.toFixed(0)}%</div>
+          <div style="width:${c.away.toFixed(0)}%;background:rgba(248,113,113,0.7);display:flex;align-items:center;justify-content:center;color:white;">2 ${c.away.toFixed(0)}%</div>
+        </div>`;
+      }
+      
+      return `<div class="odds-lab">
+        <div style="font-size:0.62rem;color:var(--text-dark);margin-bottom:4px;">${oddsLab.bookmakers.length} bookmaker analizzati • Sharp: ${oddsLab.sharp?.name || 'N/A'}</div>
+        ${consensusBar}
+        <div class="odds-lab-grid">${bkCards}</div>
+        ${steamHtml}
+        ${oddsLab.markets.ou25 ? `<div style="margin-top:8px;padding:8px 10px;background:var(--bg-card-light);border-radius:8px;font-size:0.68rem;color:var(--text-gray);">📊 <b>O/U 2.5 media:</b> Over @${oddsLab.markets.ou25.avgOver} (${oddsLab.markets.ou25.impliedOver}%) | Under @${oddsLab.markets.ou25.avgUnder} (${oddsLab.markets.ou25.impliedUnder}%)</div>` : ''}
+        ${oddsLab.markets.btts ? `<div style="margin-top:4px;padding:8px 10px;background:var(--bg-card-light);border-radius:8px;font-size:0.68rem;color:var(--text-gray);">⚽ <b>GG/NG media:</b> GG @${oddsLab.markets.btts.avgYes} (${oddsLab.markets.btts.impliedYes}%) | NG @${oddsLab.markets.btts.avgNo} (${oddsLab.markets.btts.impliedNo}%)</div>` : ''}
+      </div>`;
+    }
+    
+    function renderValueBets(valueBets) {
+      if (!valueBets || !valueBets.bets.length) return '<div style="font-size:0.72rem;color:var(--text-dark);padding:10px;">Nessun dato quote disponibile per il calcolo value.</div>';
+      
+      const cards = valueBets.bets.map(vb => `
+        <div class="value-card ${vb.isValue ? 'is-value' : ''}">
+          <div class="value-market">${vb.market}</div>
+          <div class="value-pick">${vb.pick}</div>
+          <div class="value-row">
+            <div class="value-prob">Noi: ${vb.ourProb}%</div>
+            <div class="value-prob" style="color:var(--text-dark)">Book: ${vb.impliedProb}%</div>
+          </div>
+          <div class="value-row">
+            <div style="font-size:0.72rem;font-weight:700;color:var(--accent-gold);">@${vb.odds}</div>
+            <div class="value-edge ${parseFloat(vb.edge) > 0 ? 'positive' : 'negative'}">Edge: ${parseFloat(vb.edge) > 0 ? '+' : ''}${vb.edge}%</div>
+          </div>
+          ${vb.isValue ? `<div class="value-kelly">Kelly: ${vb.kellyStake}% del bankroll${vb.bestBookmaker ? ' • ' + vb.bestBookmaker : ''}</div>` : ''}
+        </div>
+      `).join('');
+      
+      const topCount = valueBets.topValue.length;
+      
+      return `<div class="value-engine">
+        <div style="font-size:0.68rem;color:var(--text-dark);margin-bottom:6px;">
+          ${topCount > 0 ? `<span style="color:#00e5a0;font-weight:700;">🎯 ${topCount} Value Bet trovate!</span> Edge positivo = il nostro modello vede un vantaggio rispetto al mercato.` : 'Nessuna value bet rilevata. Le quote sono allineate al nostro modello.'}
+        </div>
+        <div class="value-grid">${cards}</div>
+        <div style="margin-top:8px;font-size:0.58rem;color:var(--text-dark);">Kelly = % bankroll consigliata (frazionato al 25%). Edge = (prob × quota) - 100%.</div>
+      </div>`;
+    }
+    
+    function renderRegressionPanel(reg) {
+      if (!reg) return '';
+      
+      const factorBars = reg.factors.map(f => `
+        <div class="regression-factor">
+          <div class="regression-factor-name">${f.name}</div>
+          <div class="regression-factor-bar"><div class="regression-factor-fill" style="width:${f.score}%;background:${f.color};"></div></div>
+          <div class="regression-factor-val" style="color:${f.color};">${f.score}</div>
+        </div>
+      `).join('');
+      
+      return `<div class="regression-panel">
+        <div style="font-size:0.62rem;color:var(--text-dark);text-align:center;margin-bottom:4px;">REGRESSION SCORE • ${esc(reg.favName)}</div>
+        <div class="regression-score-big" style="color:${reg.gradeColor};">${reg.score}<span style="font-size:1rem;opacity:0.5">/100</span></div>
+        <div style="text-align:center;margin:4px 0;">
+          <span style="display:inline-block;padding:3px 12px;border-radius:6px;font-size:0.72rem;font-weight:800;background:${reg.gradeColor}22;color:${reg.gradeColor};border:1px solid ${reg.gradeColor}44;">${reg.grade} — ${reg.recommendation}</span>
+        </div>
+        <div class="regression-factors">${factorBars}</div>
+      </div>`;
+    }
+    
+    function renderConsensusPanel(consensus) {
+      if (!consensus) return '';
+      
+      const srcCards = consensus.sources.map(s => `
+        <div class="consensus-src ${s.agrees ? 'agrees' : 'disagrees'}">
+          <div class="consensus-src-name">${s.icon} ${s.name}</div>
+          <div class="consensus-src-pick" style="color:${s.agrees ? '#00e5a0' : '#f87171'};">${s.pick}</div>
+          <div style="font-size:0.58rem;color:var(--text-dark);">${s.prob.toFixed(0)}%</div>
+        </div>
+      `).join('');
+      
+      return `<div class="consensus-panel">
+        <div style="font-size:0.62rem;color:var(--text-dark);text-align:center;">CONSENSUS ENGINE • ${consensus.totalSources} fonti analizzate</div>
+        <div class="consensus-pick" style="color:${consensus.confidenceColor};">🏆 ${consensus.pick}</div>
+        <div class="consensus-confidence">
+          <span style="color:${consensus.confidenceColor};font-weight:800;">${consensus.confidence}</span> • Prob: ${consensus.prob}% • Accordo: ${consensus.agreement}% (${consensus.agreeSources}/${consensus.totalSources})
+        </div>
+        <div class="consensus-meter">
+          <div class="consensus-meter-fill" style="width:${consensus.agreement}%;background:${consensus.confidenceColor};"></div>
+        </div>
+        <div class="consensus-sources">${srcCards}</div>
+        ${consensus.alternatives.length > 0 ? `<div style="margin-top:8px;font-size:0.62rem;color:var(--text-dark);">Alternative: ${consensus.alternatives.map(a => a.pick + ' (' + a.sources + ' fonti, ' + a.prob + '%)').join(' • ')}</div>` : ''}
+      </div>`;
+    }
+
     
     function renderTrapDetector(match, d, ai) {
       const trap = calculateTrapScore(match, d, ai);
@@ -12678,6 +13454,46 @@
           </div>
           
           <div class="settings-section">
+            <div class="settings-section-title">📖 Guida Rapida — Come ottenere il pronostico migliore</div>
+            <div style="font-size:0.72rem;color:var(--text-gray);line-height:1.6;">
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-cyan);font-size:0.78rem;margin-bottom:4px;">STEP 1 · Seleziona la partita</div>
+                <div>Scegli la partita dalla lista. Il sistema calcola automaticamente <b>Poisson/Dixon-Coles</b>, probabilità 1X2, Over/Under, GG/NG, risultati esatti, Trap Detector e tutti i mercati. In background vengono caricate le quote da tutti i bookmaker.</div>
+              </div>
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-cyan);font-size:0.78rem;margin-bottom:4px;">STEP 2 · 🏆 Leggi il CONSENSUS ENGINE</div>
+                <div>È la sezione più importante. Fonde tutte le fonti (Poisson, Bookmaker, Regressione, Smart Money) in un <b>unico pick</b> con livello di confidenza. Se dice <span style="color:#00e5a0;font-weight:700;">MASSIMA</span> con accordo ≥80% → pick molto solido. Se <span style="color:#f87171;font-weight:700;">BASSA</span> → partita incerta, meglio evitare.</div>
+              </div>
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-purple);font-size:0.78rem;margin-bottom:4px;">STEP 3 · 📊 Controlla il REGRESSION SCORE</div>
+                <div>Punteggio 0-100 con grado A+→D. Analizza 6 fattori pesati: forza modello, xG, quote, forma, difesa, smart money. Gradi <span style="color:#00e5a0;font-weight:700;">A/A+</span> = pick forte. <span style="color:#fbbf24;font-weight:700;">B</span> = giocabile. <span style="color:#f87171;font-weight:700;">C/D</span> = da evitare in multipla.</div>
+              </div>
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-gold);font-size:0.78rem;margin-bottom:4px;">STEP 4 · ⚡ Premi "ANALIZZA con Super AI"</div>
+                <div>Lancia l'analisi AI Claude con notizie e infortuni aggiornati. Dopo il completamento, il <b>Consensus Engine si ricalcola</b> automaticamente includendo Oracle AI e Super Algoritmo. Il pick può rafforzarsi o cambiare.</div>
+              </div>
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-green);font-size:0.78rem;margin-bottom:4px;">STEP 5 · 🎯 Verifica le VALUE BET</div>
+                <div>Confronta le probabilità del modello con le quote dei bookmaker. Se l'<b>Edge</b> è positivo (verde) → value bet. Il <b>Kelly</b> indica quanto puntare in % del bankroll. L'<b>Odds Lab</b> mostra gli steam moves (dove puntano gli sharp bookmaker).</div>
+              </div>
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-red);font-size:0.78rem;margin-bottom:4px;">STEP 6 · 🚨 Controlla il TRAP DETECTOR</div>
+                <div>Verifica se la partita nasconde trappole. Score ≤20 = <span style="color:#10b981;">SICURA</span>. 21-40 = <span style="color:#fbbf24;">ATTENZIONE</span>. 41-60 = <span style="color:#f97316;">RISCHIO</span>. 61+ = <span style="color:#ef4444;">TRAPPOLA</span> — non giocare il favorito secco.</div>
+              </div>
+              <div style="padding:10px 0;">
+                <div style="font-weight:800;color:#f8fafc;font-size:0.82rem;margin-bottom:6px;">🏅 REGOLA D'ORO</div>
+                <div style="padding:10px;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);border-radius:10px;">
+                  Gioca solo quando:<br>
+                  ✅ <b>Consensus</b> = MASSIMA o ALTA<br>
+                  ✅ <b>Regression</b> = A o A+<br>
+                  ✅ <b>Trap Detector</b> = SICURA o ATTENZIONE<br><br>
+                  Se anche solo una condizione manca → rischio elevato. Per le <b>multiple</b>, usa solo partite che soddisfano tutte e tre.
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="settings-section">
             <button class="btn btn-secondary" style="width:100%" onclick="resetAllData()">
               &#x1F5D1;️ Reset tutti i dati
             </button>
@@ -13737,6 +14553,16 @@
         state.superAIAnalysis = { error: e.message, newsFound: false };
       }
       state.superAIRunning = false;
+      // v7: Ricalcola Consensus con dati Super AI aggiornati
+      if (state.analysis && state.selectedMatch) {
+        try {
+          const aiC = generateAIAdvice(state.selectedMatch, state.analysis);
+          state.consensus = buildConsensusEngine(
+            state.selectedMatch, state.analysis, aiC, state.oddsLab, state.regressionScore,
+            state.superAIAnalysis, state.superAnalysis
+          );
+        } catch(e2) { console.warn('v7 consensus recalc:', e2); }
+      }
       render();
     }
     
@@ -14790,6 +15616,80 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
       </div>
       
       <!-- NG INSIGHT -->
+
+      <!-- === v7: CONSENSUS ENGINE === -->
+      <div class="section-accordion">
+        <div class="section-accordion-header open" onclick="toggleAccordion(this)" style="border-color:rgba(0,212,255,0.25);">
+          <div class="section-accordion-title"><span>🏆</span> Consensus Engine</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              if (!state.consensus) return '<span style="font-size:0.6rem;color:var(--text-dark);">Caricamento...</span>';
+              return '<span style="font-size:0.6rem;background:' + state.consensus.confidenceColor + '18;color:' + state.consensus.confidenceColor + ';padding:2px 8px;border-radius:8px;font-weight:800;">' + state.consensus.pick + ' ' + state.consensus.prob + '% — ' + state.consensus.confidence + '</span>';
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body open">
+          ${state.consensus ? safeRender(() => renderConsensusPanel(state.consensus), '', 'ConsensusEngine') : '<div style="padding:14px;color:var(--text-dark);font-size:0.72rem;text-align:center;">⏳ Consensus Engine in elaborazione...</div>'}
+        </div>
+      </div>
+      
+      <!-- === v7: REGRESSION SCORE === -->
+      <div class="section-accordion">
+        <div class="section-accordion-header open" onclick="toggleAccordion(this)" style="border-color:rgba(139,92,246,0.2);">
+          <div class="section-accordion-title"><span>📊</span> Regression Score</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              if (!state.regressionScore) return '<span style="font-size:0.6rem;color:var(--text-dark);">Caricamento...</span>';
+              return '<span style="font-size:0.6rem;background:' + state.regressionScore.gradeColor + '18;color:' + state.regressionScore.gradeColor + ';padding:2px 8px;border-radius:8px;font-weight:800;">' + state.regressionScore.grade + ' ' + state.regressionScore.score + '/100</span>';
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body open">
+          ${state.regressionScore ? safeRender(() => renderRegressionPanel(state.regressionScore), '', 'RegressionScore') : '<div style="padding:14px;color:var(--text-dark);font-size:0.72rem;text-align:center;">⏳ Regression in elaborazione...</div>'}
+        </div>
+      </div>
+
+      <!-- === v7: ODDS LAB === -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)" style="border-color:rgba(245,158,11,0.2);">
+          <div class="section-accordion-title"><span>💰</span> Odds Lab — Multi-Bookmaker</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              if (!state.oddsLab) return '<span style="font-size:0.6rem;color:var(--text-dark);">Caricamento...</span>';
+              const steamCount = state.oddsLab.steamMoves.filter(s => s.type === 'bullish').length;
+              return '<span style="font-size:0.6rem;background:rgba(245,158,11,0.12);color:#f59e0b;padding:2px 8px;border-radius:8px;font-weight:700;">' + state.oddsLab.bookmakers.length + ' book' + (steamCount > 0 ? ' • 🔥' + steamCount + ' steam' : '') + '</span>';
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${state.oddsLab ? safeRender(() => renderOddsLab(state.oddsLab), '', 'OddsLab') : '<div style="padding:14px;color:var(--text-dark);font-size:0.72rem;text-align:center;">⏳ Fetching quote da multi-bookmaker...</div>'}
+        </div>
+      </div>
+      
+      <!-- === v7: VALUE BET ENGINE === -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)" style="border-color:rgba(0,229,160,0.2);">
+          <div class="section-accordion-title"><span>🎯</span> Value Bet Engine + Kelly</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              if (!state.valueBets) return '<span style="font-size:0.6rem;color:var(--text-dark);">Caricamento...</span>';
+              const count = state.valueBets.totalValueBets;
+              return count > 0 
+                ? '<span style="font-size:0.6rem;background:rgba(0,229,160,0.15);color:#00e5a0;padding:2px 8px;border-radius:8px;font-weight:800;">🎯 ' + count + ' VALUE</span>'
+                : '<span style="font-size:0.6rem;background:rgba(100,116,139,0.12);color:#94a3b8;padding:2px 8px;border-radius:8px;font-weight:700;">No value</span>';
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${state.valueBets ? safeRender(() => renderValueBets(state.valueBets), '', 'ValueBets') : '<div style="padding:14px;color:var(--text-dark);font-size:0.72rem;text-align:center;">⏳ Calcolo Value Bets in corso...</div>'}
+        </div>
+      </div>
+
+      <!-- NG INSIGHT (originale) -->
       <div class="section-accordion">
         <div class="section-accordion-header" onclick="toggleAccordion(this)">
           <div class="section-accordion-title"><span>🚫</span> NG Insight</div>
@@ -16152,7 +17052,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
 
     // === INIT ===
     async function init() {
-      console.log('&#x1F680; BettingPro v6 + Firebase Auth starting...');
+      console.log('&#x1F680; BettingPro v7 + Odds Lab + Value Engine + Consensus starting...');
 
       // === PULIZIA localStorage ALL'AVVIO ===
       // Svuota bp2_prediction_history se supera 1MB (previene QuotaExceededError)
