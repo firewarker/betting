@@ -5584,6 +5584,7 @@
     
     // Timer per auto-aggiornamento storico ogni 2 ore
     let _autoRecordTimer = null;
+    let _resultRefreshTimer = null;
     function startAutoRecordTimer() {
       if (_autoRecordTimer) clearInterval(_autoRecordTimer);
       // Ogni 2 ore ricalcola picks e registra variazioni
@@ -5594,6 +5595,48 @@
         autoRecordAllPredictions();
       }, 2 * 60 * 60 * 1000); // 2 ore
       console.log('⏰ Auto-record timer avviato (ogni 2 ore)');
+      
+      // Auto-refresh risultati ogni 30 min per aggiornare ✅/❌ nelle sezioni Home
+      if (_resultRefreshTimer) clearInterval(_resultRefreshTimer);
+      _resultRefreshTimer = setInterval(() => {
+        refreshMatchResults();
+      }, 30 * 60 * 1000); // 30 minuti (1 sola chiamata API per ciclo)
+      console.log('⏰ Result refresh avviato (ogni 30 min)');
+    }
+    
+    // Aggiorna risultati partite finite in state.matches
+    // Così checkPickResult/renderPickResultBadge mostrano ✅/❌
+    async function refreshMatchResults() {
+      if (!state.matches || state.matches.length === 0) return;
+      // Solo se ci sono partite che dovrebbero essere finite ma non hanno gol
+      const now = Date.now();
+      const stale = state.matches.some(m => {
+        if (['FT','AET','PEN'].includes(m.status) && m.goals?.home != null) return false;
+        return now - new Date(m.date).getTime() > 100 * 60 * 1000; // >100 min dal kick-off
+      });
+      if (!stale) return; // tutte già aggiornate, skip
+      
+      try {
+        const dateStr = getDateString(state.selectedDate);
+        const data = await callAPIFootball('/fixtures', { date: dateStr, timezone: 'Europe/Rome' });
+        if (!data?.response || !Array.isArray(data.response)) return;
+        
+        let updated = 0;
+        data.response.forEach(f => {
+          const ex = state.matches.find(m => m.id === f.fixture.id);
+          if (ex) {
+            const wasFinished = ['FT','AET','PEN'].includes(ex.status);
+            ex.status = f.fixture.status.short;
+            ex.elapsed = f.fixture.status.elapsed;
+            ex.goals = f.goals;
+            if (!wasFinished && ['FT','AET','PEN'].includes(ex.status)) updated++;
+          }
+        });
+        if (updated > 0) {
+          console.log(`✅ ${updated} risultati aggiornati → ✅/❌ visibili`);
+          render();
+        }
+      } catch(e) { console.debug('Result refresh skip:', e.message); }
     }
     
     function calculateDailyPicks() {
