@@ -5259,7 +5259,7 @@
       const results = [];
 
       state.matches.forEach(match => {
-        if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
+        if (['1H','2H','HT','ET','P','LIVE'].includes(match.status)) return;
 
         // xG variabili basati su campionato (stima)
         let homeXG = 1.50, awayXG = 1.15;
@@ -5664,7 +5664,8 @@
             skippedCount++;
             return;
           }
-          if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) {
+          // Skip solo partite LIVE (in corso) — le finite restano per mostrare ✅/❌
+          if (['1H','2H','HT','ET','P','LIVE'].includes(match.status)) {
             skippedCount++;
             return;
           }
@@ -6594,7 +6595,7 @@
       };
       
       state.matches.forEach(match => {
-        if (['1H','2H','HT','ET','P','LIVE','FT','AET','PEN'].includes(match.status)) return;
+        if (['1H','2H','HT','ET','P','LIVE'].includes(match.status)) return;
         
         // Stima xG - aumentati per generare picks
         let homeXG = 1.55, awayXG = 1.25;
