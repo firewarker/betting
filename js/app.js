@@ -7058,13 +7058,32 @@ async function analyzeMatch(match) {
       html += (trap.level === 'trap' ? '🔴' : trap.level === 'risk' ? '🟠' : trap.level === 'caution' ? '🟡' : trap.level === 'safe' ? '🟢' : 'ℹ️') + ' ' + trap.label;
       html += '</div>';
 
-      // === REVERSE XG INJECTION ===
+      if (trap.level === 'trap') {
+        html += '<div style="font-size:0.72rem;color:#ef4444;font-weight:600;">⚠️ Partita ad alto rischio upset! Evita nelle multiple.</div>';
+      } else if (trap.level === 'risk') {
+        html += '<div style="font-size:0.72rem;color:#f97316;font-weight:600;">⚡ Diversi segnali di rischio. Valuta come singola.</div>';
+      } else if (trap.level === 'caution') {
+        html += '<div style="font-size:0.72rem;color:#fbbf24;font-weight:600;">✓ Qualche segnale da monitorare, ma gestibile.</div>';
+      } else if (trap.level === 'safe') {
+        html += '<div style="font-size:0.72rem;color:#10b981;font-weight:600;">✅ Nessun segnale di trappola rilevante.</div>';
+      } else {
+        html += '<div style="font-size:0.72rem;color:var(--text-dark);">Nessun favorito netto — analisi trappola non applicabile.</div>';
+      }
+      
+      if (trap.favName) {
+        html += '<div style="font-size:0.6rem;color:var(--text-dark);margin-top:4px;">Favorito: <strong>' + esc(trap.favName) + '</strong> (' + (trap.favProb || 0).toFixed(0) + '%)';
+        if (trap.favOdds > 0) html += ' @' + trap.favOdds.toFixed(2);
+        html += '</div>';
+      }
+      html += '</div></div>';
+
+      // === REVERSE XG INJECTION (SEMPRE VISIBILE) ===
       if (d.bookmakerOdds) {
           const trapData = calculateReverseXG(d.bookmakerOdds, d.xG.home, d.xG.away);
-          if (trapData && trapData.trapStatus !== "neutro") {
+          if (trapData) {
               const b = d.bookmakerOdds;
               html += `
-              <div style="margin-top:0px; margin-bottom:14px; background:${trapData.trapColor}; border: 1px solid ${trapData.textColor}40; border-radius:12px; padding:15px;">
+              <div style="margin-top:0px; margin-bottom:0px; background:${trapData.trapColor}; border: 1px solid ${trapData.textColor}40; border-radius:12px; padding:15px;">
                   <div style="font-size:0.85rem; font-weight:800; color:${trapData.textColor}; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
                       <span>${trapData.icon}</span> Reverse xG Protocol
                   </div>
@@ -7090,27 +7109,7 @@ async function analyzeMatch(match) {
               </div>`;
           }
       }
-      
-      
-      if (trap.level === 'trap') {
-        html += '<div style="font-size:0.72rem;color:#ef4444;font-weight:600;">⚠️ Partita ad alto rischio upset! Evita nelle multiple.</div>';
-      } else if (trap.level === 'risk') {
-        html += '<div style="font-size:0.72rem;color:#f97316;font-weight:600;">⚡ Diversi segnali di rischio. Valuta come singola.</div>';
-      } else if (trap.level === 'caution') {
-        html += '<div style="font-size:0.72rem;color:#fbbf24;font-weight:600;">✓ Qualche segnale da monitorare, ma gestibile.</div>';
-      } else if (trap.level === 'safe') {
-        html += '<div style="font-size:0.72rem;color:#10b981;font-weight:600;">✅ Nessun segnale di trappola rilevante.</div>';
-      } else {
-        html += '<div style="font-size:0.72rem;color:var(--text-dark);">Nessun favorito netto — analisi trappola non applicabile.</div>';
-      }
-      
-      if (trap.favName) {
-        html += '<div style="font-size:0.6rem;color:var(--text-dark);margin-top:4px;">Favorito: <strong>' + esc(trap.favName) + '</strong> (' + (trap.favProb || 0).toFixed(0) + '%)';
-        if (trap.favOdds > 0) html += ' @' + trap.favOdds.toFixed(2);
-        html += '</div>';
-      }
-      html += '</div></div>';
-      
+            
       // === FATTORI DI RISCHIO ===
       if (trap.traps.length > 0) {
         html += '<div style="display:flex;flex-direction:column;gap:6px;">';
