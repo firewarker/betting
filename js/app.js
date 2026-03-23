@@ -7057,6 +7057,40 @@ async function analyzeMatch(match) {
       html += '<div style="font-size:1.1rem;font-weight:900;color:' + trap.color + ';margin-bottom:2px;">';
       html += (trap.level === 'trap' ? '🔴' : trap.level === 'risk' ? '🟠' : trap.level === 'caution' ? '🟡' : trap.level === 'safe' ? '🟢' : 'ℹ️') + ' ' + trap.label;
       html += '</div>';
+
+      // === REVERSE XG INJECTION ===
+      if (d.bookmakerOdds) {
+          const trapData = calculateReverseXG(d.bookmakerOdds, d.xG.home, d.xG.away);
+          if (trapData && trapData.trapStatus !== "neutro") {
+              const b = d.bookmakerOdds;
+              html += `
+              <div style="margin-top:0px; margin-bottom:14px; background:${trapData.trapColor}; border: 1px solid ${trapData.textColor}40; border-radius:12px; padding:15px;">
+                  <div style="font-size:0.85rem; font-weight:800; color:${trapData.textColor}; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                      <span>${trapData.icon}</span> Reverse xG Protocol
+                  </div>
+
+                  <div style="display:flex; gap:8px; margin-bottom:12px;">
+                      <div style="flex:1; background:rgba(0,0,0,0.2); padding:8px; border-radius:8px; text-align:center;">
+                        <div style="font-size:0.65rem; color:var(--text-dark);">Quota 1</div>
+                        <div style="font-weight:700; color:white; font-size:1rem;">${b.homeOdd.toFixed(2)}</div>
+                      </div>
+                      <div style="flex:1; background:rgba(0,0,0,0.2); padding:8px; border-radius:8px; text-align:center;">
+                        <div style="font-size:0.65rem; color:var(--text-dark);">Quota X</div>
+                        <div style="font-weight:700; color:white; font-size:1rem;">${b.drawOdd.toFixed(2)}</div>
+                      </div>
+                      <div style="flex:1; background:rgba(0,0,0,0.2); padding:8px; border-radius:8px; text-align:center;">
+                        <div style="font-size:0.65rem; color:var(--text-dark);">Quota 2</div>
+                        <div style="font-weight:700; color:white; font-size:1rem;">${b.awayOdd.toFixed(2)}</div>
+                      </div>
+                  </div>
+
+                  <div style="font-size:0.8rem; color:${trapData.textColor}; opacity: 0.9; line-height:1.5; background:rgba(0,0,0,0.15); padding:10px; border-radius:8px;">
+                      ${trapData.trapMessage}
+                  </div>
+              </div>`;
+          }
+      }
+      
       
       if (trap.level === 'trap') {
         html += '<div style="font-size:0.72rem;color:#ef4444;font-weight:600;">⚠️ Partita ad alto rischio upset! Evita nelle multiple.</div>';
