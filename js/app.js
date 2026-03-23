@@ -11572,6 +11572,19 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
               ${d.homeStats ? '<span style="font-size:0.6rem;background:rgba(139,92,246,0.1);color:#a78bfa;padding:2px 7px;border-radius:4px;">✔ Stats</span>' : ''}
               ${d.lineupsAvailable ? '<span style="font-size:0.6rem;background:rgba(0,229,160,0.2);color:#00e5a0;padding:2px 7px;border-radius:4px;font-weight:800;">⚽ Formazioni Ufficiali</span>' : '<span style="font-size:0.6rem;background:rgba(100,116,139,0.15);color:#64748b;padding:2px 7px;border-radius:4px;">⏳ Formazioni N/D</span>'}
               ${d.bookmakerOdds ? `<span style="font-size:0.6rem;background:rgba(245,158,11,0.15);color:#f59e0b;padding:2px 7px;border-radius:4px;">💰 ${d.bookmakerOdds.bookmakerName}</span>` : ''}
+              ${(() => {
+                // Qualità dati complessiva: conta quante fonti abbiamo
+                const signals = [
+                  d.homeStats ? 1 : 0,
+                  d.xG && d.xG.total > 0 ? 1 : 0,
+                  d.bookmakerOdds ? 1 : 0,
+                  d.h2h && (d.h2h.matches || d.h2h.totalMatches) >= 2 ? 1 : 0,
+                  d.quality === 'enhanced' ? 1 : 0
+                ].reduce((a, b) => a + b, 0);
+                if (signals >= 4) return '<span style="font-size:0.6rem;background:rgba(16,185,129,0.15);color:#10b981;padding:2px 7px;border-radius:4px;font-weight:700;">📊 Dati HD</span>';
+                if (signals >= 2) return '<span style="font-size:0.6rem;background:rgba(251,191,36,0.15);color:#fbbf24;padding:2px 7px;border-radius:4px;font-weight:700;">📉 Dati MD</span>';
+                return '<span style="font-size:0.6rem;background:rgba(239,68,68,0.15);color:#ef4444;padding:2px 7px;border-radius:4px;font-weight:700;">⚠️ Dati LD — cautela</span>';
+              })()}
               ${d.homeFatigue && d.homeFatigue < 0.95 ? `<span style="font-size:0.6rem;background:rgba(248,113,113,0.15);color:#f87171;padding:2px 7px;border-radius:4px;">⚡ ${m.home.name.split(' ')[0]} stanco</span>` : ''}
               ${d.awayFatigue && d.awayFatigue < 0.95 ? `<span style="font-size:0.6rem;background:rgba(248,113,113,0.15);color:#f87171;padding:2px 7px;border-radius:4px;">⚡ ${m.away.name.split(' ')[0]} stanco</span>` : ''}
             </div>
