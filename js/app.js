@@ -3774,49 +3774,86 @@
 function calculateReverseXG(oddsResult, homeXG, awayXG) {
     if (!oddsResult || !oddsResult.homeOdd) return null;
 
-    // Rimuoviamo l'aggio (lavagna) del bookmaker per trovare la prob. reale
-    const margin = (1/oddsResult.homeOdd) + (1/oddsResult.drawOdd) + (1/oddsResult.awayOdd) - 1;
-    const realHomeProb = (1/oddsResult.homeOdd) - (margin/3);
-    const realAwayProb = (1/oddsResult.awayOdd) - (margin/3);
+    // === MARGIN REMOVAL: Metodo PROPORZIONALE (corretto vs equal) ===
+    const rawH = 1/oddsResult.homeOdd;
+    const rawD = 1/oddsResult.drawOdd;
+    const rawA = 1/oddsResult.awayOdd;
+    const overround = rawH + rawD + rawA;
+    // Prob reali senza margine
+    const realHomeProb = Math.min(0.95, Math.max(0.02, rawH / overround));
+    const realDrawProb = Math.min(0.95, Math.max(0.02, rawD / overround));
+    const realAwayProb = Math.min(0.95, Math.max(0.02, rawA / overround));
 
-    // Formula inversa semplificata (da Probabilità a xG stimato)
-    const bookieHomeXG = -Math.log(1 - realHomeProb) * 1.5; 
-    const bookieAwayXG = -Math.log(1 - realAwayProb) * 1.5;
+    // === POISSON INVERSION via Newton-Raphson ===
+    // Trova lambda tale che P(X wins | lambda_X, lambda_opp) ≈ realProb
+    // Approccio: usa la relazione Poisson P(win) e cerca iterativamente
+    function poissonPMF(l, k) {
+        if (l <= 0) return k === 0 ? 1 : 0;
+        let r = 1; for (let i = 1; i <= k; i++) r *= l / i;
+        return r * Math.exp(-l);
+    }
+    function pWinPoisson(lH, lA) {
+        let w = 0;
+        for (let h = 0; h <= 7; h++) for (let a = 0; a <= 7; a++) {
+            if (h > a) w += poissonPMF(lH, h) * poissonPMF(lA, a);
+        }
+        return w;
+    }
+    // Newton: trova lambda_home dato P(home wins) e lambda_away fisso (media lega ~1.15)
+    function invertPoisson(targetProb, oppLambda) {
+        let lambda = 1.3; // starting guess
+        for (let iter = 0; iter < 20; iter++) {
+            const pW = pWinPoisson(lambda, oppLambda);
+            const err = pW - targetProb;
+            if (Math.abs(err) < 0.001) break;
+            // Numerical derivative
+            const pW2 = pWinPoisson(lambda + 0.05, oppLambda);
+            const deriv = (pW2 - pW) / 0.05;
+            if (Math.abs(deriv) < 0.0001) break;
+            lambda -= err / deriv;
+            lambda = Math.max(0.1, Math.min(4.0, lambda));
+        }
+        return lambda;
+    }
 
-    // Calcoliamo la differenza (Delta) tra il nostro xG matematico e quello percepito dal bookmaker
+    // Stima xG bookmaker: usa l'xG avversario come dato noto
+    const bookieHomeXG = invertPoisson(realHomeProb, awayXG);
+    const bookieAwayXG = invertPoisson(realAwayProb, homeXG);
+
+    // Delta: positivo = nostro xG > bookie (sottovalutato), negativo = nostro xG < bookie (sopravvalutato)
     const homeDelta = homeXG - bookieHomeXG;
     const awayDelta = awayXG - bookieAwayXG;
 
     let trapStatus = "neutro";
-    let trapMessage = "Quote allineate alle statistiche matematiche.";
-    let trapColor = "rgba(148,163,184,0.1)"; // Sfondo grigio leggero
+    let trapMessage = "Quote allineate alle statistiche. Δ Casa: " + homeDelta.toFixed(2) + " | Δ Ospite: " + awayDelta.toFixed(2);
+    let trapColor = "rgba(148,163,184,0.1)";
     let textColor = "#94a3b8";
     let icon = "⚖️";
 
-    // LOGICA DI RILEVAMENTO TRAPPOLA SULLA FAVORITA
-    if (oddsResult.homeOdd < 2.0 && homeDelta < -0.4) {
+    // TRAPPOLA: il bookmaker sopravvaluta il favorito (xG reale < bookie xG)
+    if (oddsResult.homeOdd < 2.0 && homeDelta < -0.30) {
         trapStatus = "trappola";
-        trapMessage = `TRAPPOLA 1X2: La quota ${oddsResult.homeOdd} in casa è falsata dal bookmaker. Vede un dominio, ma il nostro xG è solo ${homeXG.toFixed(2)}. Rischio altissimo, evitare l'1 fisso.`;
+        trapMessage = `TRAPPOLA CASA: Il bookmaker vede xG ${bookieHomeXG.toFixed(2)} ma il nostro modello calcola solo ${homeXG.toFixed(2)} (Δ${homeDelta.toFixed(2)}). La quota @${oddsResult.homeOdd} è gonfiata — evitare l'1 secco.`;
         trapColor = "rgba(248,113,113,0.15)";
         textColor = "#f87171";
         icon = "🚨";
-    } else if (oddsResult.awayOdd < 2.0 && awayDelta < -0.4) {
+    } else if (oddsResult.awayOdd < 2.0 && awayDelta < -0.30) {
         trapStatus = "trappola";
-        trapMessage = `TRAPPOLA 1X2: La quota ${oddsResult.awayOdd} ospite è troppo bassa per il reale xG in campo (${awayXG.toFixed(2)}). Trappola del palinsesto.`;
+        trapMessage = `TRAPPOLA OSPITE: Quota @${oddsResult.awayOdd} troppo bassa. Bookie stima xG ${bookieAwayXG.toFixed(2)} ma reale è solo ${awayXG.toFixed(2)} (Δ${awayDelta.toFixed(2)}).`;
         trapColor = "rgba(248,113,113,0.15)";
         textColor = "#f87171";
         icon = "🚨";
-    } 
-    // LOGICA VALUE BET (Valore nascosto)
-    else if (homeDelta > 0.45) {
+    }
+    // VALUE: il bookmaker sottovaluta una squadra (xG reale > bookie xG)
+    else if (homeDelta > 0.35) {
         trapStatus = "valore";
-        trapMessage = `VALUE BET: Il bookmaker sottovaluta enormemente la squadra in casa. xG reale altissimo (${homeXG.toFixed(2)}) ma quota generosa (${oddsResult.homeOdd})!`;
+        trapMessage = `VALUE CASA: Il bookmaker sottovaluta la casa. Modello: ${homeXG.toFixed(2)} xG vs Bookie: ${bookieHomeXG.toFixed(2)} (Δ+${homeDelta.toFixed(2)}). Quota @${oddsResult.homeOdd} interessante.`;
         trapColor = "rgba(0,229,160,0.15)";
         textColor = "#00e5a0";
         icon = "💎";
-    } else if (awayDelta > 0.45) {
+    } else if (awayDelta > 0.35) {
         trapStatus = "valore";
-        trapMessage = `VALUE BET: Ospiti pesantemente sottovalutati. xG reale: ${awayXG.toFixed(2)}. Possibile colpo esterno fuori radar.`;
+        trapMessage = `VALUE OSPITE: Sottovalutati dal mercato. Modello: ${awayXG.toFixed(2)} xG vs Bookie: ${bookieAwayXG.toFixed(2)} (Δ+${awayDelta.toFixed(2)}). Quota @${oddsResult.awayOdd} da considerare.`;
         trapColor = "rgba(0,229,160,0.15)";
         textColor = "#00e5a0";
         icon = "💎";
@@ -3824,7 +3861,12 @@ function calculateReverseXG(oddsResult, homeXG, awayXG) {
 
     return {
         bookieHomeXG: bookieHomeXG.toFixed(2),
+        bookieAwayXG: bookieAwayXG.toFixed(2),
         homeDelta: homeDelta.toFixed(2),
+        awayDelta: awayDelta.toFixed(2),
+        realHomeProb: (realHomeProb * 100).toFixed(1),
+        realAwayProb: (realAwayProb * 100).toFixed(1),
+        margin: ((overround - 1) * 100).toFixed(1),
         trapStatus,
         trapMessage,
         trapColor,
@@ -7146,9 +7188,10 @@ async function analyzeMatch(match) {
               <div style="margin-top:0px; margin-bottom:0px; background:${trapData.trapColor}; border: 1px solid ${trapData.textColor}40; border-radius:12px; padding:15px;">
                   <div style="font-size:0.85rem; font-weight:800; color:${trapData.textColor}; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
                       <span>${trapData.icon}</span> Reverse xG Protocol
+                      <span style="font-size:0.55rem;color:var(--text-dark);margin-left:auto;">Margine: ${trapData.margin}%</span>
                   </div>
 
-                  <div style="display:flex; gap:8px; margin-bottom:12px;">
+                  <div style="display:flex; gap:8px; margin-bottom:8px;">
                       <div style="flex:1; background:rgba(0,0,0,0.2); padding:8px; border-radius:8px; text-align:center;">
                         <div style="font-size:0.65rem; color:var(--text-dark);">Quota 1</div>
                         <div style="font-weight:700; color:white; font-size:1rem;">${b.homeOdd.toFixed(2)}</div>
@@ -7160,6 +7203,35 @@ async function analyzeMatch(match) {
                       <div style="flex:1; background:rgba(0,0,0,0.2); padding:8px; border-radius:8px; text-align:center;">
                         <div style="font-size:0.65rem; color:var(--text-dark);">Quota 2</div>
                         <div style="font-weight:700; color:white; font-size:1rem;">${b.awayOdd.toFixed(2)}</div>
+                      </div>
+                  </div>
+
+                  <div style="display:flex; gap:8px; margin-bottom:10px;">
+                      <div style="flex:1; background:rgba(0,0,0,0.15); padding:8px; border-radius:8px; text-align:center;">
+                        <div style="font-size:0.55rem; color:var(--text-dark);">xG Nostro Casa</div>
+                        <div style="font-weight:700; color:#60a5fa; font-size:0.9rem;">${d.xG.home.toFixed(2)}</div>
+                      </div>
+                      <div style="flex:1; background:rgba(0,0,0,0.15); padding:8px; border-radius:8px; text-align:center;">
+                        <div style="font-size:0.55rem; color:var(--text-dark);">xG Bookie Casa</div>
+                        <div style="font-weight:700; color:#f59e0b; font-size:0.9rem;">${trapData.bookieHomeXG}</div>
+                      </div>
+                      <div style="flex:1; background:rgba(0,0,0,0.15); padding:8px; border-radius:8px; text-align:center;">
+                        <div style="font-size:0.55rem; color:var(--text-dark);">Δ Casa</div>
+                        <div style="font-weight:800; color:${parseFloat(trapData.homeDelta)>0.1?'#00e5a0':parseFloat(trapData.homeDelta)<-0.1?'#f87171':'#94a3b8'}; font-size:0.9rem;">${parseFloat(trapData.homeDelta)>0?'+':''}${trapData.homeDelta}</div>
+                      </div>
+                  </div>
+                  <div style="display:flex; gap:8px; margin-bottom:10px;">
+                      <div style="flex:1; background:rgba(0,0,0,0.15); padding:8px; border-radius:8px; text-align:center;">
+                        <div style="font-size:0.55rem; color:var(--text-dark);">xG Nostro Ospite</div>
+                        <div style="font-weight:700; color:#a78bfa; font-size:0.9rem;">${d.xG.away.toFixed(2)}</div>
+                      </div>
+                      <div style="flex:1; background:rgba(0,0,0,0.15); padding:8px; border-radius:8px; text-align:center;">
+                        <div style="font-size:0.55rem; color:var(--text-dark);">xG Bookie Ospite</div>
+                        <div style="font-weight:700; color:#f59e0b; font-size:0.9rem;">${trapData.bookieAwayXG}</div>
+                      </div>
+                      <div style="flex:1; background:rgba(0,0,0,0.15); padding:8px; border-radius:8px; text-align:center;">
+                        <div style="font-size:0.55rem; color:var(--text-dark);">Δ Ospite</div>
+                        <div style="font-weight:800; color:${parseFloat(trapData.awayDelta)>0.1?'#00e5a0':parseFloat(trapData.awayDelta)<-0.1?'#f87171':'#94a3b8'}; font-size:0.9rem;">${parseFloat(trapData.awayDelta)>0?'+':''}${trapData.awayDelta}</div>
                       </div>
                   </div>
 
@@ -11528,7 +11600,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           
         </div>
         
-        <!-- PRESSURE GAUGE (Tachimetro) -->
+        <!-- PRESSURE GAUGE (Tachimetro) — xG puro -->
         ${(() => {
           if (!d.xG) return '';
           const homeXG = d.xG.home;
@@ -11536,17 +11608,18 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           const totalXG = homeXG + awayXG;
           let homePercent = 50;
           if (totalXG > 0) homePercent = Math.round((homeXG / totalXG) * 100);
+          homePercent = Math.max(15, Math.min(85, homePercent));
           const awayPercent = 100 - homePercent;
 
           // Rotation: 0% home = +90deg (Right), 50% = 0deg (Up), 100% home = -90deg (Left)
           let rotation = (50 - homePercent) * 1.8;
 
-          let domText = "Equilibrio Totale";
-          let domColor = "#94a3b8"; // Grigio
-          if (homePercent > 60) { domText = "Dominio Casa Est. 🏠"; domColor = "#0284c7"; }
-          else if (homePercent > 53) { domText = "Leggero Vantaggio Casa"; domColor = "#38bdf8"; }
-          else if (awayPercent > 60) { domText = "Dominio Ospite Est. ✈️"; domColor = "#8b5cf6"; }
-          else if (awayPercent > 53) { domText = "Leggero Vant. Ospite"; domColor = "#a78bfa"; }
+          let domText = "Equilibrio Totale ⚠️";
+          let domColor = "#94a3b8";
+          if (homePercent >= 61) { domText = "Dominio Casa 🏠"; domColor = "#0284c7"; }
+          else if (homePercent >= 54) { domText = "Leggero Vantaggio Casa"; domColor = "#38bdf8"; }
+          else if (awayPercent >= 61) { domText = "Dominio Ospite ✈️"; domColor = "#8b5cf6"; }
+          else if (awayPercent >= 54) { domText = "Leggero Vant. Ospite"; domColor = "#a78bfa"; }
 
           return `
           <div style="margin-bottom:20px; background:rgba(255,255,255,0.02); border-radius:12px; padding:15px; text-align:center;">
@@ -11569,6 +11642,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
               <div style="margin-top:15px; font-size:0.9rem; font-weight:800; color:${domColor}; background:rgba(255,255,255,0.03); display:inline-block; padding:6px 16px; border-radius:20px; border:1px solid ${domColor}30;">
                   ${domText}
               </div>
+              ${homePercent >= 45 && homePercent <= 55 ? '<div style="margin-top:6px; font-size:0.6rem; color:#f87171;">⚠️ Ago al centro = partita trappola per 1X2</div>' : ''}
           </div>`;
         })()}
 
