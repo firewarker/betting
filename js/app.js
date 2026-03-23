@@ -3769,7 +3769,71 @@
     }
 
     // === ANALYSIS ENGINE ===
-    async function analyzeMatch(match) {
+    
+// === REVERSE XG: TRAP DETECTOR ===
+function calculateReverseXG(oddsResult, homeXG, awayXG) {
+    if (!oddsResult || !oddsResult.homeOdd) return null;
+
+    // Rimuoviamo l'aggio (lavagna) del bookmaker per trovare la prob. reale
+    const margin = (1/oddsResult.homeOdd) + (1/oddsResult.drawOdd) + (1/oddsResult.awayOdd) - 1;
+    const realHomeProb = (1/oddsResult.homeOdd) - (margin/3);
+    const realAwayProb = (1/oddsResult.awayOdd) - (margin/3);
+
+    // Formula inversa semplificata (da Probabilità a xG stimato)
+    const bookieHomeXG = -Math.log(1 - realHomeProb) * 1.5; 
+    const bookieAwayXG = -Math.log(1 - realAwayProb) * 1.5;
+
+    // Calcoliamo la differenza (Delta) tra il nostro xG matematico e quello percepito dal bookmaker
+    const homeDelta = homeXG - bookieHomeXG;
+    const awayDelta = awayXG - bookieAwayXG;
+
+    let trapStatus = "neutro";
+    let trapMessage = "Quote allineate alle statistiche matematiche.";
+    let trapColor = "rgba(148,163,184,0.1)"; // Sfondo grigio leggero
+    let textColor = "#94a3b8";
+    let icon = "⚖️";
+
+    // LOGICA DI RILEVAMENTO TRAPPOLA SULLA FAVORITA
+    if (oddsResult.homeOdd < 2.0 && homeDelta < -0.4) {
+        trapStatus = "trappola";
+        trapMessage = `TRAPPOLA 1X2: La quota ${oddsResult.homeOdd} in casa è falsata dal bookmaker. Vede un dominio, ma il nostro xG è solo ${homeXG.toFixed(2)}. Rischio altissimo, evitare l'1 fisso.`;
+        trapColor = "rgba(248,113,113,0.15)";
+        textColor = "#f87171";
+        icon = "🚨";
+    } else if (oddsResult.awayOdd < 2.0 && awayDelta < -0.4) {
+        trapStatus = "trappola";
+        trapMessage = `TRAPPOLA 1X2: La quota ${oddsResult.awayOdd} ospite è troppo bassa per il reale xG in campo (${awayXG.toFixed(2)}). Trappola del palinsesto.`;
+        trapColor = "rgba(248,113,113,0.15)";
+        textColor = "#f87171";
+        icon = "🚨";
+    } 
+    // LOGICA VALUE BET (Valore nascosto)
+    else if (homeDelta > 0.45) {
+        trapStatus = "valore";
+        trapMessage = `VALUE BET: Il bookmaker sottovaluta enormemente la squadra in casa. xG reale altissimo (${homeXG.toFixed(2)}) ma quota generosa (${oddsResult.homeOdd})!`;
+        trapColor = "rgba(0,229,160,0.15)";
+        textColor = "#00e5a0";
+        icon = "💎";
+    } else if (awayDelta > 0.45) {
+        trapStatus = "valore";
+        trapMessage = `VALUE BET: Ospiti pesantemente sottovalutati. xG reale: ${awayXG.toFixed(2)}. Possibile colpo esterno fuori radar.`;
+        trapColor = "rgba(0,229,160,0.15)";
+        textColor = "#00e5a0";
+        icon = "💎";
+    }
+
+    return {
+        bookieHomeXG: bookieHomeXG.toFixed(2),
+        homeDelta: homeDelta.toFixed(2),
+        trapStatus,
+        trapMessage,
+        trapColor,
+        textColor,
+        icon
+    };
+}
+
+async function analyzeMatch(match) {
       if (!match) { Logger.log('analyzeMatch', new Error('match undefined')); return; }
       state.selectedMatch = match;
       state.view = 'analysis';
@@ -11371,6 +11435,49 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           
         </div>
         
+        <!-- PRESSURE GAUGE (Tachimetro) -->
+        ${(() => {
+          if (!d.xG) return '';
+          const homeXG = d.xG.home;
+          const awayXG = d.xG.away;
+          const totalXG = homeXG + awayXG;
+          let homePercent = 50;
+          if (totalXG > 0) homePercent = Math.round((homeXG / totalXG) * 100);
+          const awayPercent = 100 - homePercent;
+
+          let rotation = (homePercent / 100) * 180 - 90;
+
+          let domText = "Equilibrio Totale";
+          let domColor = "#94a3b8";
+          if (homePercent > 60) { domText = "Dominio Casa Est. 🏠"; domColor = "#0284c7"; }
+          else if (homePercent > 53) { domText = "Leggero Vantaggio Casa"; domColor = "#38bdf8"; }
+          else if (awayPercent > 60) { domText = "Dominio Ospite Est. ✈️"; domColor = "#8b5cf6"; }
+          else if (awayPercent > 53) { domText = "Leggero Vant. Ospite"; domColor = "#a78bfa"; }
+
+          return `
+          <div style="margin-bottom:20px; background:rgba(255,255,255,0.02); border-radius:12px; padding:15px; text-align:center;">
+              <div style="font-size:0.75rem; font-weight:700; color:var(--text-light); margin-bottom:20px; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                  <span style="font-size:1.1rem;">⚡</span> Tachimetro Pressione Pre-Match
+              </div>
+
+              <div style="position:relative; width:200px; height:100px; margin:0 auto; overflow:hidden;">
+                  <div style="position:absolute; top:0; left:0; width:200px; height:200px; border-radius:50%; background: conic-gradient(from 270deg, #8b5cf6 0deg, #8b5cf6 72deg, #94a3b8 72deg, #94a3b8 108deg, #0284c7 108deg, #0284c7 180deg, transparent 180deg); opacity:0.8;"></div>
+                  <div style="position:absolute; top:30px; left:30px; width:140px; height:140px; background:#080c14; border-radius:50%;"></div>
+                  <div style="position:absolute; bottom:0; left:50%; width:4px; height:80px; background:white; transform-origin:bottom center; transform:translateX(-50%) rotate(${rotation}deg); border-radius:4px; box-shadow: 0 0 10px rgba(255,255,255,0.5); z-index:2; transition:transform 1s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                  <div style="position:absolute; bottom:-10px; left:50%; width:20px; height:20px; background:white; border-radius:50%; transform:translateX(-50%); z-index:3; box-shadow: 0 0 10px rgba(0,0,0,0.5);"></div>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; margin-top:-10px; font-size:0.8rem; font-weight:800; position:relative; z-index:4; padding:0 10px;">
+                  <span style="color:#8b5cf6;">${awayPercent}%</span>
+                  <span style="color:#0284c7;">${homePercent}%</span>
+              </div>
+
+              <div style="margin-top:15px; font-size:0.9rem; font-weight:800; color:${domColor}; background:rgba(255,255,255,0.03); display:inline-block; padding:6px 16px; border-radius:20px; border:1px solid ${domColor}30;">
+                  ${domText}
+              </div>
+          </div>`;
+        })()}
+
         <!-- TABS PRONOSTICI: AI + STATISTICO -->
         <div class="section-accordion">
           <div class="section-accordion-header open" onclick="toggleAccordion(this)">
