@@ -6902,18 +6902,15 @@ async function analyzeMatch(match) {
         if (!raw) return raw;
         const p = raw.trim().toLowerCase();
         
-        // === 1X2 ===
-        // "1", "1 Casa", "1 (Casa)", "1 (Vittoria Casa)", "Vittoria Casa", "Home Win"
-        if (/^1(\s|\(|$)/.test(p) || p.includes('vittoria casa') || p.includes('casa vince') || p.includes('home win')) return '1';
-        // "2", "2 Ospite", "2 (Ospite)", "2 (Vittoria Ospite)", "Vittoria Ospite", "Away Win"  
-        if (/^2(\s|\(|$)/.test(p) || p.includes('vittoria ospite') || p.includes('ospite vince') || p.includes('away win')) return '2';
-        // "X", "X (Pareggio)", "Pareggio", "Draw"
-        if (/^x(\s|\(|$)/.test(p) || p.includes('pareggio') || p === 'draw') return 'X';
+        // === Double Chance (PRIMA di X per evitare che "1x casa o pareggio" matchi "pareggio" → X) ===
+        if (/^1x(\s|\(|$)/i.test(p) || p === '1x' || p.includes('casa o pareggio') || p.includes('1x (')) return '1X';
+        if (/^x2(\s|\(|$)/i.test(p) || p === 'x2' || p.includes('pareggio o ospite') || p.includes('x2 (')) return 'X2';
+        if (/^12(\s|$)/i.test(p) || p === '12' || p.includes('no pareggio')) return '12';
         
-        // === Double Chance ===
-        if (/^1x(\s|$)/i.test(p) || p === '1x') return '1X';
-        if (/^x2(\s|$)/i.test(p) || p === 'x2') return 'X2';
-        if (/^12(\s|$)/i.test(p) || p === '12') return '12';
+        // === 1X2 ===
+        if (/^1(\s|\(|$)/.test(p) || p.includes('vittoria casa') || p.includes('casa vince') || p.includes('home win')) return '1';
+        if (/^2(\s|\(|$)/.test(p) || p.includes('vittoria ospite') || p.includes('ospite vince') || p.includes('away win')) return '2';
+        if (/^x(\s|\(|$)/.test(p) || p === 'pareggio' || p === 'x (pareggio)' || p === 'draw') return 'X';
         
         // === Over/Under ===
         if (/over\s*0\.?5/i.test(p)) return 'Over 0.5';
@@ -6926,10 +6923,10 @@ async function analyzeMatch(match) {
         if (/under\s*3\.?5/i.test(p)) return 'Under 3.5';
         
         // === GG/NG ===
-        if (p === 'gg' || p.includes('gol gol') || p.includes('both teams') || p.includes('btts')) return 'GG';
+        if (p === 'gg' || p.includes('gol gol') || p.includes('both teams') || p.includes('btts') || p.includes('entrambe segnano')) return 'GG';
         if (p === 'ng' || p === 'no gol' || p.includes('no gol') || p.includes('no goal')) return 'NG';
         
-        // Fallback: trimma
+        // Fallback
         return raw.trim();
       }
       
