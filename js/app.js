@@ -4773,17 +4773,29 @@ async function analyzeMatch(match) {
     // === STATISTICAL ADVICE - Pronostico basato SOLO sulla probabilità più alta ===
     function generateStatisticalAdvice(match, analysis) {
       const { predictions } = analysis;
-      const bestPrediction = predictions.reduce((best, current) => {
+      
+      // Mercati STANDARD che le persone giocano realmente
+      const standardMarkets = ['Esito 1X2', 'GG/NG', 'O/U 2.5', 'O/U 1.5', 'O/U 0.5 1T'];
+      
+      // Prima cerca il migliore tra i mercati standard
+      const standardPreds = predictions.filter(p => standardMarkets.includes(p.market));
+      const allPreds = standardPreds.length > 0 ? standardPreds : predictions;
+      
+      const bestPrediction = allPreds.reduce((best, current) => {
         return current.prob > best.prob ? current : best;
-      }, predictions[0]);
+      }, allPreds[0]);
+      
       let confidence = 'medium';
       if (bestPrediction.prob >= 70) confidence = 'high';
       else if (bestPrediction.prob < 55) confidence = 'low';
+      
+      // Alternative: includi anche multigol/combo ma come secondari
       const alternatives = predictions
         .filter(p => p.market !== bestPrediction.market)
         .sort((a, b) => b.prob - a.prob)
         .slice(0, 3)
         .map(p => ({ pick: p.value, prob: p.prob.toFixed(0) }));
+      
       return {
         pick: bestPrediction.value,
         market: bestPrediction.market,
@@ -4928,26 +4940,74 @@ async function analyzeMatch(match) {
         advice.alternatives.push({ pick: '1', prob: p1X2.home.toFixed(0) });
         if (highScoring) advice.alternatives.push({ pick: '1X + Over 1.5', prob: (((p1X2.home + p1X2.draw) * pOU[1.5].over) / 100).toFixed(0) });
       }
+      // CASO 7B: X2 sicuro (ospite non perde)
+      else if ((p1X2.away + p1X2.draw) >= 73) {
+        advice.pick = 'X2 (Ospite o Pareggio)';
+        advice.prob = p1X2.away + p1X2.draw;
+        advice.confidence = (p1X2.away + p1X2.draw) >= 80 ? 'high' : 'medium';
+        advice.reasons.push({ text: `Ospite forte xG ${awayXG.toFixed(2)} vs Casa ${homeXG.toFixed(2)}`, type: 'positive' });
+        advice.reasons.push({ text: `Vittoria casa improbabile (${p1X2.home.toFixed(0)}%)`, type: 'positive' });
+        
+        advice.alternatives.push({ pick: '2', prob: p1X2.away.toFixed(0) });
+        advice.alternatives.push({ pick: 'Under 2.5', prob: pOU[2.5].under.toFixed(0) });
+      }
+      // CASO 7C: Under 2.5 (partita a basso punteggio)
+      else if (lowScoring && pOU[2.5].under >= 62) {
+        advice.pick = 'Under 2.5';
+        advice.prob = pOU[2.5].under;
+        advice.confidence = pOU[2.5].under >= 72 ? 'high' : 'medium';
+        advice.reasons.push({ text: `xG Totale basso: ${totXG.toFixed(2)}`, type: 'positive' });
+        advice.reasons.push({ text: `Probabilità Under 2.5: ${pOU[2.5].under.toFixed(0)}%`, type: 'positive' });
+        
+        advice.alternatives.push({ pick: 'Under 3.5', prob: pOU[3.5].under.toFixed(0) });
+        if (pBTTS < 45) advice.alternatives.push({ pick: 'NG', prob: (100 - pBTTS).toFixed(0) });
+      }
+      // CASO 7D: NG (almeno una squadra non segna)
+      else if (pBTTS < 42 && (homeXG < 0.9 || awayXG < 0.9)) {
+        advice.pick = 'NG (No Goal)';
+        advice.prob = 100 - pBTTS;
+        advice.confidence = pBTTS < 35 ? 'high' : 'medium';
+        advice.reasons.push({ text: `GG solo al ${pBTTS.toFixed(0)}% — almeno una squadra non segna`, type: 'positive' });
+        advice.reasons.push({ text: `xG debole: ${homeXG < 0.9 ? 'Casa ' + homeXG.toFixed(2) : 'Ospite ' + awayXG.toFixed(2)}`, type: 'positive' });
+        
+        advice.alternatives.push({ pick: 'Under 2.5', prob: pOU[2.5].under.toFixed(0) });
+      }
       // CASO 8: Partita equilibrata (generale)
       else if (balanced && p1X2.draw >= 28) {
-        advice.pick = 'Under 3.5';
-        advice.prob = pOU[3.5].under;
-        advice.confidence = lowScoring ? 'medium' : 'low';
-        advice.reasons.push({ text: `Partita equilibrata (xG simili)`, type: 'neutral' });
-        advice.reasons.push({ text: `Possibile pareggio (${p1X2.draw.toFixed(0)}%)`, type: 'neutral' });
-        
+        // Se under 2.5 è forte, suggerisci quello
+        if (pOU[2.5].under >= 55) {
+          advice.pick = 'Under 2.5';
+          advice.prob = pOU[2.5].under;
+          advice.confidence = pOU[2.5].under >= 65 ? 'medium' : 'low';
+          advice.reasons.push({ text: `Partita equilibrata e chiusa`, type: 'neutral' });
+          advice.reasons.push({ text: `Under 2.5 al ${pOU[2.5].under.toFixed(0)}%`, type: 'positive' });
+        } else {
+          advice.pick = 'Under 3.5';
+          advice.prob = pOU[3.5].under;
+          advice.confidence = lowScoring ? 'medium' : 'low';
+          advice.reasons.push({ text: `Partita equilibrata (xG simili)`, type: 'neutral' });
+        }
         advice.alternatives.push({ pick: 'X', prob: p1X2.draw.toFixed(0) });
         advice.alternatives.push({ pick: 'Under 2.5', prob: pOU[2.5].under.toFixed(0) });
       }
-      // CASO 8: Default - Over 1.5 (quasi sempre valido)
+      // CASO 9: Default — scegli il mercato con prob più alta tra quelli standard
       else {
-        advice.pick = 'Over 1.5';
-        advice.prob = pOU[1.5].over;
-        advice.confidence = pOU[1.5].over >= 70 ? 'medium' : 'low';
+        // Confronta: X2, Under 2.5, Over 1.5, NG
+        const candidates = [
+          { pick: 'X2 (Ospite o Pareggio)', prob: p1X2.away + p1X2.draw },
+          { pick: '1X (Casa o Pareggio)', prob: p1X2.home + p1X2.draw },
+          { pick: 'Under 2.5', prob: pOU[2.5].under },
+          { pick: 'Over 1.5', prob: pOU[1.5].over },
+        ];
+        if (pBTTS < 48) candidates.push({ pick: 'NG', prob: 100 - pBTTS });
+        candidates.sort((a, b) => b.prob - a.prob);
+        const best = candidates[0];
+        advice.pick = best.pick;
+        advice.prob = best.prob;
+        advice.confidence = best.prob >= 70 ? 'medium' : 'low';
         advice.reasons.push({ text: `Pronostico più sicuro per questa partita`, type: 'neutral' });
         advice.reasons.push({ text: `xG Totale ${totXG.toFixed(2)}`, type: 'neutral' });
-        
-        if (p1X2.home >= 55) advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
+        advice.alternatives = candidates.slice(1, 3).map(c => ({ pick: c.pick, prob: c.prob.toFixed(0) }));
       }
       
       // Aggiungi warning se i dati non sono affidabili
