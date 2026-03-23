@@ -632,6 +632,12 @@
         currentOdds: parseFloat(localStorage.getItem('bp2_odds')) || 1.80,
         history: JSON.parse(localStorage.getItem('bp2_history') || '[]')
       },
+      // Bankroll Manager — Fractional Staking Plan
+      stakeConfig: JSON.parse(localStorage.getItem('bp2_stake_config') || 'null') || {
+        capital: 300,
+        levels: { 1: 5, 2: 10, 3: 15 }, // difficulty → % of capital
+        labels: { 1: 'Difficile', 2: 'Media', 3: 'Facile' }
+      },
       // LIVE Betting (deprecato - mantengo variabili per compatibilità)
       consigliMode: false,
       liveMode: false,
@@ -2411,6 +2417,141 @@
       if (dq === 'medium') return '<span title="PPG/AvgGoals stimati" style="font-size:0.5rem;background:rgba(251,191,36,0.15);color:#fbbf24;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;">📉 MD</span>';
       return '<span title="Dati generici stimati — bassa affidabilità" style="font-size:0.5rem;background:rgba(239,68,68,0.15);color:#ef4444;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;">⚠️ LD</span>';
     }
+    
+    // ═══ BANKROLL MANAGER — Fractional Staking Plan ═══
+    
+    function saveStakeConfig() {
+      localStorage.setItem('bp2_stake_config', JSON.stringify(state.stakeConfig));
+    }
+    
+    function updateStakeCapital(val) {
+      const v = parseFloat(val);
+      if (!isNaN(v) && v > 0) { state.stakeConfig.capital = v; saveStakeConfig(); render(); }
+    }
+    
+    function updateStakeLevel(level, val) {
+      const v = parseFloat(val);
+      if (!isNaN(v) && v > 0 && v <= 50) { state.stakeConfig.levels[level] = v; saveStakeConfig(); render(); }
+    }
+    
+    // Auto-calcola la difficoltà basandosi sui segnali dell'app
+    function calculateMatchDifficulty(consensus, regression, trapScore, confidence, isMultiple) {
+      // Score 0-100 dove 100 = facilissima, 0 = impossibile
+      let easeScore = 50; // partenza neutra
+      
+      // Consensus (peso 30)
+      if (consensus) {
+        if (consensus.confidence === 'MASSIMA') easeScore += 25;
+        else if (consensus.confidence === 'ALTA') easeScore += 15;
+        else if (consensus.confidence === 'MEDIA') easeScore -= 5;
+        else easeScore -= 15; // BASSA
+        
+        // Accordo fonti
+        const accord = consensus.agreement || 0;
+        if (accord >= 80) easeScore += 5;
+        else if (accord < 50) easeScore -= 5;
+      }
+      
+      // Regression (peso 25)
+      if (regression) {
+        if (regression.grade === 'A+') easeScore += 20;
+        else if (regression.grade === 'A') easeScore += 15;
+        else if (regression.grade === 'B+') easeScore += 5;
+        else if (regression.grade === 'B') easeScore -= 3;
+        else if (regression.grade === 'C') easeScore -= 12;
+        else easeScore -= 20; // D
+      }
+      
+      // Trap (peso 20)
+      if (typeof trapScore === 'number') {
+        if (trapScore <= 20) easeScore += 15; // SICURA
+        else if (trapScore <= 40) easeScore += 5; // ATTENZIONE
+        else if (trapScore <= 60) easeScore -= 8; // RISCHIO
+        else easeScore -= 18; // TRAPPOLA
+      }
+      
+      // Confidence AI (peso 10)
+      if (confidence === 'high') easeScore += 8;
+      else if (confidence === 'medium') easeScore += 0;
+      else easeScore -= 8; // low
+      
+      // Multipla penalizzazione (peso 15)
+      if (isMultiple) easeScore -= 15;
+      
+      // Mappa su difficoltà 1-2-3
+      easeScore = Math.max(0, Math.min(100, easeScore));
+      if (easeScore >= 70) return 3; // Facile → stake alto
+      if (easeScore >= 45) return 2; // Media → stake medio
+      return 1; // Difficile → stake basso
+    }
+    
+    function getStakeAdvice(difficulty) {
+      const cfg = state.stakeConfig;
+      const pct = cfg.levels[difficulty] || 5;
+      const stake = Math.round(cfg.capital * pct / 100 * 100) / 100;
+      const label = cfg.labels[difficulty] || ('Livello ' + difficulty);
+      return { difficulty, pct, stake, label, capital: cfg.capital };
+    }
+    
+    function renderStakeAdvisor(consensus, regression, trapScore, confidence) {
+      const cfg = state.stakeConfig;
+      if (!cfg || cfg.capital <= 0) return '';
+      
+      const diff = calculateMatchDifficulty(consensus, regression, trapScore, confidence, false);
+      const adv = getStakeAdvice(diff);
+      
+      // Colori per difficoltà
+      const diffColors = { 1: '#ef4444', 2: '#f59e0b', 3: '#10b981' };
+      const diffIcons = { 1: '🔴', 2: '🟡', 3: '🟢' };
+      const diffBg = { 1: 'rgba(239,68,68,0.08)', 2: 'rgba(245,158,11,0.08)', 3: 'rgba(16,185,129,0.08)' };
+      const c = diffColors[diff];
+      
+      // Calcola anche multipla
+      const diffMulti = calculateMatchDifficulty(consensus, regression, trapScore, confidence, true);
+      const advMulti = getStakeAdvice(diffMulti);
+      
+      return `
+        <div style="background:${diffBg[diff]};border:1.5px solid ${c}30;border-radius:12px;padding:16px;margin-bottom:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:1.3rem;">💰</span>
+              <div>
+                <div style="font-size:0.85rem;font-weight:800;color:white;">Stake Advisor</div>
+                <div style="font-size:0.6rem;color:var(--text-dark);">Capitale: €${cfg.capital.toFixed(0)} · Fractional Staking</div>
+              </div>
+            </div>
+            <div style="background:${c}20;border:1px solid ${c}40;border-radius:20px;padding:4px 12px;">
+              <span style="font-size:0.75rem;font-weight:800;color:${c};">${diffIcons[diff]} ${adv.label}</span>
+            </div>
+          </div>
+          
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <div style="flex:1;background:rgba(0,0,0,0.15);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:0.55rem;color:var(--text-dark);text-transform:uppercase;letter-spacing:0.5px;">Singola</div>
+              <div style="font-size:1.4rem;font-weight:900;color:${c};margin:4px 0;">€${adv.stake.toFixed(2)}</div>
+              <div style="font-size:0.6rem;color:var(--text-gray);">${adv.pct}% del capitale</div>
+            </div>
+            <div style="flex:1;background:rgba(0,0,0,0.15);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:0.55rem;color:var(--text-dark);text-transform:uppercase;letter-spacing:0.5px;">In Multipla</div>
+              <div style="font-size:1.4rem;font-weight:900;color:${diffColors[diffMulti]};margin:4px 0;">€${advMulti.stake.toFixed(2)}</div>
+              <div style="font-size:0.6rem;color:var(--text-gray);">${advMulti.pct}% del capitale</div>
+            </div>
+          </div>
+          
+          <div style="display:flex;gap:4px;">
+            ${[1,2,3].map(d => {
+              const a = getStakeAdvice(d);
+              const active = d === diff;
+              return '<div style="flex:1;text-align:center;padding:6px;border-radius:8px;background:' + (active ? diffColors[d] + '20' : 'rgba(0,0,0,0.1)') + ';border:1px solid ' + (active ? diffColors[d] + '40' : 'transparent') + ';">' +
+                '<div style="font-size:0.55rem;color:' + (active ? diffColors[d] : 'var(--text-dark)') + ';font-weight:' + (active ? '800' : '400') + ';">' + a.label + '</div>' +
+                '<div style="font-size:0.65rem;color:' + (active ? 'white' : 'var(--text-gray)') + ';font-weight:700;">' + a.pct + '% · €' + a.stake.toFixed(0) + '</div></div>';
+            }).join('')}
+          </div>
+        </div>`;
+    }
+    
+    window.updateStakeCapital = updateStakeCapital;
+    window.updateStakeLevel = updateStakeLevel;
 
     // === TRADER PICKS ===
     // Calcola i migliori picks per il trader con strategia
@@ -9569,6 +9710,50 @@ async function analyzeMatch(match) {
           </div>
           
           <div class="settings-section">
+            <div class="settings-section-title">💰 Bankroll Manager</div>
+            <div style="font-size:0.65rem;color:var(--text-dark);margin-bottom:10px;">Fractional Staking Plan — stake in % del capitale</div>
+            <div class="settings-row">
+              <span class="settings-label">Capitale (€)</span>
+              <input type="number" value="${state.stakeConfig.capital}" min="10" step="10"
+                onchange="updateStakeCapital(this.value)"
+                style="width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:white;font-size:0.8rem;text-align:right;" />
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">🔴 Difficile (Stake 1)</span>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input type="number" value="${state.stakeConfig.levels[1]}" min="1" max="50" step="1"
+                  onchange="updateStakeLevel(1, this.value)"
+                  style="width:50px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:4px 6px;color:white;font-size:0.8rem;text-align:right;" />
+                <span style="font-size:0.7rem;color:var(--text-dark);">%</span>
+              </div>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">🟡 Media (Stake 2)</span>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input type="number" value="${state.stakeConfig.levels[2]}" min="1" max="50" step="1"
+                  onchange="updateStakeLevel(2, this.value)"
+                  style="width:50px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:4px 6px;color:white;font-size:0.8rem;text-align:right;" />
+                <span style="font-size:0.7rem;color:var(--text-dark);">%</span>
+              </div>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">🟢 Facile (Stake 3)</span>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input type="number" value="${state.stakeConfig.levels[3]}" min="1" max="50" step="1"
+                  onchange="updateStakeLevel(3, this.value)"
+                  style="width:50px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:4px 6px;color:white;font-size:0.8rem;text-align:right;" />
+                <span style="font-size:0.7rem;color:var(--text-dark);">%</span>
+              </div>
+            </div>
+            <div style="margin-top:8px;padding:8px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);border-radius:8px;font-size:0.6rem;color:var(--text-gray);line-height:1.5;">
+              Con capitale €${state.stakeConfig.capital.toFixed(0)}:<br>
+              🔴 Difficile = €${(state.stakeConfig.capital * state.stakeConfig.levels[1] / 100).toFixed(2)} · 
+              🟡 Media = €${(state.stakeConfig.capital * state.stakeConfig.levels[2] / 100).toFixed(2)} · 
+              🟢 Facile = €${(state.stakeConfig.capital * state.stakeConfig.levels[3] / 100).toFixed(2)}
+            </div>
+          </div>
+          
+          <div class="settings-section">
             <div class="settings-section-title">&#x1F4CA; Win Rate per Segno</div>
             ${renderWinRateByPick(stats)}
           </div>
@@ -11857,6 +12042,13 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
           ${state.regressionScore ? safeRender(() => renderRegressionPanel(state.regressionScore), '', 'RegressionScore') : '<div style="padding:14px;color:var(--text-dark);font-size:0.72rem;text-align:center;">⏳ Regression in elaborazione...</div>'}
         </div>
       </div>
+
+      <!-- === STAKE ADVISOR === -->
+      ${(() => {
+        const trapScore = state.analysis ? (typeof calculateTrapScore === 'function' ? calculateTrapScore(state.selectedMatch, state.analysis).score : null) : null;
+        const ai = state.analysis ? generateAIAdvice(state.selectedMatch, state.analysis) : null;
+        return safeRender(() => renderStakeAdvisor(state.consensus, state.regressionScore, trapScore, ai?.confidence), '', 'StakeAdvisor');
+      })()}
 
       <!-- === v7: ODDS LAB === -->
       <div class="section-accordion">
