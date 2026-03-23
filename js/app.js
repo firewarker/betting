@@ -1,0 +1,13043 @@
+// ===================================================
+    // BETTINGPRO v7 - CON ML AVANZATO, ODDS LAB, VALUE ENGINE, CONSENSUS
+    // ===================================================
+    
+    // ============================================
+    // CONFIG
+    // ============================================
+    const CONFIG = {
+      API_FOOTBALL: {
+        key: 'aeb2864a3d4dbb8395fa53c83a876a93',
+        baseURL: 'https://v3.football.api-sports.io'
+      },
+      FOOTYSTATS: {
+        key: 'bec59b6f83404b0bd79c40076be71f6f3abec62afdacf5eeba296f2357993f3e',
+        baseURL: 'https://api.footystats.org'
+      },
+      FIREBASE: {
+        url: 'https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app',
+        apiKey: 'AIzaSyDYmw4z8H1F3FoOBkVNjbQrs-GTnpHwSD4',
+        authDomain: 'bettingpro2-9f1d9.firebaseapp.com',
+        databaseURL: 'https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app',
+        projectId: 'bettingpro2-9f1d9',
+        storageBucket: 'bettingpro2-9f1d9.firebasestorage.app',
+        messagingSenderId: '858898850393',
+        appId: '1:858898850393:web:78b6ba896c29921e85c748'
+      }
+    };
+
+    // ============================================
+    // AUTHENTICATION STATE
+    // ============================================
+    let authState = {
+      isLoggedIn: false,
+      user: null,
+      email: null,
+      showLoginModal: false,
+      loginError: null,
+      isLoading: false
+    };
+
+    // User ID - usa email se loggato, altrimenti ID casuale locale
+    const getUserId = () => {
+      // Se loggato, usa l'email hashata come ID
+      if (authState.isLoggedIn && authState.email) {
+        return 'auth_' + btoa(authState.email).replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
+      }
+      // Altrimenti usa ID locale (per utenti non registrati)
+      let id = localStorage.getItem('bettingpro_uid');
+      if (!id) {
+        id = 'local_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('bettingpro_uid', id);
+      }
+      return id;
+    };
+    
+    // USER_ID sarà aggiornato dopo il login
+    let USER_ID = getUserId();
+    
+    // ============================================
+    // FIREBASE AUTHENTICATION FUNCTIONS
+    // ============================================
+    
+    // Login con Email/Password usando Firebase REST API
+    async function firebaseLogin(email, password) {
+      authState.isLoading = true;
+      authState.loginError = null;
+      render();
+      
+      try {
+        const response = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${CONFIG.FIREBASE.apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email,
+              password: password,
+              returnSecureToken: true
+            })
+          }
+        );
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error.message);
+        }
+        
+        // Login riuscito
+        authState.isLoggedIn = true;
+        authState.user = data;
+        authState.email = data.email;
+        authState.showLoginModal = false;
+        authState.loginError = null;
+        
+        // Aggiorna USER_ID
+        USER_ID = getUserId();
+        
+        // Salva stato login
+        localStorage.setItem('bettingpro_auth', JSON.stringify({
+          email: data.email,
+          idToken: data.idToken,
+          refreshToken: data.refreshToken,
+          expiresAt: Date.now() + (parseInt(data.expiresIn) * 1000)
+        }));
+        
+        console.log('✅ Login riuscito:', data.email);
+        
+        // Ricarica i dati da Firebase con il nuovo USER_ID
+        await loadAllDataFromFirebase();
+        
+      } catch (error) {
+        console.error('❌ Login fallito:', error);
+        authState.loginError = translateFirebaseError(error.message);
+      } finally {
+        authState.isLoading = false;
+        render();
+      }
+    }
+    
+    // Registrazione nuovo utente
+    async function firebaseRegister(email, password) {
+      authState.isLoading = true;
+      authState.loginError = null;
+      render();
+      
+      try {
+        const response = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${CONFIG.FIREBASE.apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: email,
+              password: password,
+              returnSecureToken: true
+            })
+          }
+        );
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error.message);
+        }
+        
+        // Registrazione riuscita - effettua login automatico
+        authState.isLoggedIn = true;
+        authState.user = data;
+        authState.email = data.email;
+        authState.showLoginModal = false;
+        
+        USER_ID = getUserId();
+        
+        localStorage.setItem('bettingpro_auth', JSON.stringify({
+          email: data.email,
+          idToken: data.idToken,
+          refreshToken: data.refreshToken,
+          expiresAt: Date.now() + (parseInt(data.expiresIn) * 1000)
+        }));
+        
+        console.log('✅ Registrazione riuscita:', data.email);
+        
+        // Migra dati locali al nuovo account cloud
+        await migrateLocalDataToCloud();
+        
+      } catch (error) {
+        console.error('❌ Registrazione fallita:', error);
+        authState.loginError = translateFirebaseError(error.message);
+      } finally {
+        authState.isLoading = false;
+        render();
+      }
+    }
+    
+    // Logout
+    function firebaseLogout() {
+      authState.isLoggedIn = false;
+      authState.user = null;
+      authState.email = null;
+      localStorage.removeItem('bettingpro_auth');
+      
+      // Torna all'ID locale
+      USER_ID = getUserId();
+      
+      console.log('&#x1F44B; Logout effettuato');
+      render();
+    }
+    
+    // Ripristina sessione salvata
+    async function restoreAuthSession() {
+      const savedAuth = localStorage.getItem('bettingpro_auth');
+      if (!savedAuth) return false;
+      
+      try {
+        const auth = JSON.parse(savedAuth);
+        
+        // Verifica se il token è scaduto
+        if (auth.expiresAt < Date.now()) {
+          // Prova a rinnovare il token
+          const response = await fetch(
+            `https://securetoken.googleapis.com/v1/token?key=${CONFIG.FIREBASE.apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                grant_type: 'refresh_token',
+                refresh_token: auth.refreshToken
+              })
+            }
+          );
+          
+          const data = await response.json();
+          
+          if (data.error) {
+            throw new Error('Token refresh failed');
+          }
+          
+          // Aggiorna token
+          auth.idToken = data.id_token;
+          auth.refreshToken = data.refresh_token;
+          auth.expiresAt = Date.now() + (parseInt(data.expires_in) * 1000);
+          
+          localStorage.setItem('bettingpro_auth', JSON.stringify(auth));
+        }
+        
+        authState.isLoggedIn = true;
+        authState.email = auth.email;
+        USER_ID = getUserId();
+        
+        console.log('&#x1F504; Sessione ripristinata:', auth.email);
+        return true;
+        
+      } catch (error) {
+        console.warn('⚠️ Ripristino sessione fallito:', error);
+        localStorage.removeItem('bettingpro_auth');
+        return false;
+      }
+    }
+    
+    // Migra dati locali al cloud dopo registrazione
+    async function migrateLocalDataToCloud() {
+      console.log('&#x1F4E4; Migrazione dati locali al cloud...');
+      
+      // Salva tutti i dati esistenti con il nuovo USER_ID
+      if (state.trackedBets.length > 0) {
+        await saveToFirebase('trackedBets', state.trackedBets);
+      }
+      if (Object.keys(state.mlThresholds).length > 0) {
+        await saveToFirebase('mlThresholds', state.mlThresholds);
+      }
+      if (Object.keys(state.mlStats).length > 0) {
+        await saveToFirebase('mlStats', state.mlStats);
+      }
+      if (state.performanceHistory.length > 0) {
+        await saveToFirebase('performanceHistory', state.performanceHistory);
+      }
+      if (state.mlTrainingData && state.mlTrainingData.length > 0) {
+        await saveToFirebase('mlTrainingData', state.mlTrainingData);
+        await saveToFirebase('mlEngine', state.mlEngine);
+      }
+      
+      console.log('✅ Migrazione completata');
+    }
+    
+    // Carica tutti i dati da Firebase
+    async function loadAllDataFromFirebase() {
+      console.log('&#x1F4E5; Caricamento dati da Firebase...');
+      
+      try {
+        const [tracked, ml, mlStats, perf, predHist, mlEngineData, mlTrainData] = await Promise.all([
+          loadFromFirebase('trackedBets'),
+          loadFromFirebase('mlThresholds'),
+          loadFromFirebase('mlStats'),
+          loadFromFirebase('performanceHistory'),
+          loadFromFirebase('predictionHistory'),
+          loadFromFirebase('mlEngine'),
+          loadFromFirebase('mlTrainingData')
+        ]);
+        
+        if (tracked) state.trackedBets = tracked;
+        if (ml) state.mlThresholds = ml;
+        if (mlStats) state.mlStats = mlStats;
+        if (perf) state.performanceHistory = perf;
+        if (predHist) {
+          // Merge: Firebase ha la fonte di verità, localStorage è fallback
+          state.predictionHistory = { ...state.predictionHistory, ...predHist };
+          console.log('✅ Storico variazioni sincronizzato da Firebase:', Object.keys(predHist).length, 'partite');
+        }
+        // VERO ML ENGINE
+        if (mlEngineData) { state.mlEngine = mlEngineData; localStorage.setItem('bp2_ml_engine', JSON.stringify(mlEngineData)); }
+        if (mlTrainData) { state.mlTrainingData = mlTrainData; localStorage.setItem('bp2_ml_training', JSON.stringify(mlTrainData)); }
+        
+        console.log('✅ Dati caricati da Firebase');
+      } catch (error) {
+        console.warn('⚠️ Errore caricamento dati:', error);
+      }
+    }
+    
+    // Traduci errori Firebase in italiano
+    function translateFirebaseError(error) {
+      const errors = {
+        'EMAIL_NOT_FOUND': 'Email non trovata',
+        'INVALID_PASSWORD': 'Password errata',
+        'INVALID_EMAIL': 'Email non valida',
+        'WEAK_PASSWORD': 'Password troppo debole (minimo 6 caratteri)',
+        'EMAIL_EXISTS': 'Email già registrata',
+        'TOO_MANY_ATTEMPTS_TRY_LATER': 'Troppi tentativi. Riprova più tardi',
+        'INVALID_LOGIN_CREDENTIALS': 'Credenziali non valide'
+      };
+      return errors[error] || error;
+    }
+    
+    // Mostra/nascondi modal login
+    function toggleLoginModal() {
+      authState.showLoginModal = !authState.showLoginModal;
+      authState.loginError = null;
+      render();
+    }
+
+    // ============================================
+    // FIREBASE CONFIGURATION (REST API - più affidabile)
+    // ============================================
+    let firebaseEnabled = true;
+    
+    // Funzioni Firebase per salvare/caricare dati utente via REST API
+    // Sanitizza chiavi ricorsivamente per Firebase
+    // Firebase proibisce nelle CHIAVI: . # $ [ ] /
+    function sanitizeFirebaseKeys(obj) {
+      if (Array.isArray(obj)) return obj.map(v => sanitizeFirebaseKeys(v));
+      if (obj !== null && typeof obj === 'object') {
+        const out = {};
+        for (const [k, v] of Object.entries(obj)) {
+          // Sostituisce caratteri vietati nelle chiavi con equivalenti sicuri
+          const safeKey = k.replace(/\./g, '_dot_')
+                           .replace(/#/g, '_hash_')
+                           .replace(/\$/g, '_dol_')
+                           .replace(/\[/g, '_ob_')
+                           .replace(/\]/g, '_cb_')
+                           .replace(/\//g, '_sl_');
+          out[safeKey] = sanitizeFirebaseKeys(v);
+        }
+        return out;
+      }
+      return obj;
+    }
+
+    async function saveToFirebase(path, data) {
+      try {
+        // Sanifica valori (NaN, Infinity, funzioni) + chiavi proibite da Firebase
+        const clean = JSON.parse(JSON.stringify(data, (key, value) => {
+          if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) return 0;
+          if (typeof value === 'function') return undefined;
+          return value;
+        }));
+        const sanitizedData = sanitizeFirebaseKeys(clean);
+        
+        const response = await fetch(`${CONFIG.FIREBASE.url}/users/${USER_ID}/${path}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sanitizedData)
+        });
+        if (response.ok) {
+          console.log(`✅ Salvato su Firebase: ${path}`);
+          return true;
+        }
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      } catch (e) {
+        console.warn(`❌ Errore salvataggio Firebase (${path}):`, e.message);
+        return false;
+      }
+    }
+    
+    // De-sanitizza chiavi: _dot_ → . etc.
+    function desanitizeFirebaseKeys(obj) {
+      if (Array.isArray(obj)) return obj.map(v => desanitizeFirebaseKeys(v));
+      if (obj !== null && typeof obj === 'object') {
+        const out = {};
+        for (const [k, v] of Object.entries(obj)) {
+          const origKey = k.replace(/_dot_/g, '.')
+                           .replace(/_hash_/g, '#')
+                           .replace(/_dol_/g, '$')
+                           .replace(/_ob_/g, '[')
+                           .replace(/_cb_/g, ']')
+                           .replace(/_sl_/g, '/');
+          out[origKey] = desanitizeFirebaseKeys(v);
+        }
+        return out;
+      }
+      return obj;
+    }
+
+    async function loadFromFirebase(path) {
+      try {
+        const response = await fetch(`${CONFIG.FIREBASE.url}/users/${USER_ID}/${path}.json`);
+        if (response.ok) {
+          const raw = await response.json();
+          if (raw) {
+            console.log(`✅ Caricato da Firebase: ${path}`);
+            return desanitizeFirebaseKeys(raw);
+          }
+          return raw;
+        }
+        throw new Error(`HTTP ${response.status}`);
+      } catch (e) {
+        console.warn(`❌ Errore caricamento Firebase (${path}):`, e.message);
+        return null;
+      }
+    }
+    
+    console.log('✅ Firebase REST API configurato');
+    console.log(`&#x1F464; User ID: ${USER_ID}`);
+
+    // ============================================================
+    // CACHE ANALISI ORACLE AI — Firebase
+    // Ogni analisi viene salvata con chiave matchId+data
+    // Scade automaticamente dopo 23 ore (prima della partita del giorno dopo)
+    // ============================================================
+
+    function getAICacheKey(matchId) {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      return 'aiCache/' + String(matchId) + '_' + today.replace(/-/g, '');
+    }
+
+    async function getCachedAIAnalysis(matchId) {
+      try {
+        const key = getAICacheKey(matchId);
+        const data = await loadFromFirebase(key);
+        if (!data) return null;
+
+        // Verifica scadenza (23 ore)
+        const savedAt = data._savedAt || 0;
+        const ageHours = (Date.now() - savedAt) / (1000 * 60 * 60);
+        if (ageHours > 23) {
+          console.log('Cache AI scaduta per match', matchId);
+          return null;
+        }
+
+        console.log('✅ Cache AI trovata per match', matchId, '— età:', ageHours.toFixed(1), 'h');
+        return data.result;
+      } catch(e) {
+        console.warn('Errore lettura cache AI:', e.message);
+        return null;
+      }
+    }
+
+    async function saveAIAnalysisToCache(matchId, result) {
+      try {
+        const key = getAICacheKey(matchId);
+        const payload = {
+          _savedAt: Date.now(),
+          _matchId: matchId,
+          result: result
+        };
+        await saveToFirebase(key, payload);
+        console.log('✅ Analisi AI salvata in cache Firebase per match', matchId);
+      } catch(e) {
+        console.warn('Errore salvataggio cache AI:', e.message);
+      }
+    }
+
+    async function clearAICache(matchId) {
+      try {
+        const key = getAICacheKey(matchId);
+        await fetch(CONFIG.FIREBASE.url + '/users/' + USER_ID + '/' + key + '.json', { method: 'DELETE' });
+        console.log('🗑 Cache AI eliminata per match', matchId);
+      } catch(e) {
+        console.warn('Errore eliminazione cache:', e.message);
+      }
+    }
+
+
+    // ============================================================
+    // RELIABILITY LAYER v2.0
+    // Logger, helpers sicuri, error boundary, cache, retry, validazione
+    // ============================================================
+
+    // --- Logger strutturato ---
+    const Logger = {
+      errors: [],
+      log(section, error, level = 'error') {
+        const entry = { section, msg: error?.message || String(error), time: new Date().toISOString(), level };
+        this.errors.unshift(entry);
+        if (this.errors.length > 50) this.errors.pop();
+        if (level === 'error') console.error('[' + section + ']', error);
+        else console.warn('[' + section + ']', error);
+      },
+      clear() { this.errors = []; },
+      recent(n = 10) { return this.errors.slice(0, n); }
+    };
+
+    // --- Helper sicuri ---
+    const safeFixed = (val, dec = 1, fb = 'N/D') => {
+      const n = parseFloat(val);
+      return (!isNaN(n) && isFinite(n)) ? n.toFixed(dec) : fb;
+    };
+    const safeGet = (obj, path, fb = null) => {
+      try { return path.split('.').reduce((o, k) => o?.[k], obj) ?? fb; }
+      catch(e) { return fb; }
+    };
+    const safeProb = (val, fb = 0) => {
+      const n = parseFloat(val);
+      return (!isNaN(n) && isFinite(n)) ? Math.min(100, Math.max(0, n)) : fb;
+    };
+    const safeArr = (val, fb = []) => Array.isArray(val) ? val : fb;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    // --- Error Boundary per sezioni render ---
+    function safeRender(fn, fb = '', ctx = '') {
+      try {
+        const r = fn();
+        return r != null ? r : fb;
+      } catch(e) {
+        Logger.log(ctx || fn.name || 'render', e);
+        return fb;
+      }
+    }
+
+    // --- Validazione dati analisi ---
+    function validateAnalysisData(d) {
+      if (!d) return null;
+      try {
+        d.xG = d.xG || {};
+        d.xG.home  = isNaN(parseFloat(d.xG.home))  ? 1.2 : Math.max(0.1, parseFloat(d.xG.home));
+        d.xG.away  = isNaN(parseFloat(d.xG.away))  ? 1.0 : Math.max(0.1, parseFloat(d.xG.away));
+        d.xG.total = d.xG.home + d.xG.away;
+        if (!Array.isArray(d.exactScores) || d.exactScores.length === 0)
+          d.exactScores = [{ h: 1, a: 1, prob: 10, p: 10 }];
+        d.exactScores = d.exactScores.map(s => ({
+          h:    parseInt(s.h)    >= 0 ? parseInt(s.h)    : 1,
+          a:    parseInt(s.a)    >= 0 ? parseInt(s.a)    : 0,
+          prob: safeProb(s.prob, 5),
+          p:    safeProb(s.p || s.prob, 5),
+        }));
+        d.h2h = d.h2h || {};
+        d.h2h.matches  = parseInt(d.h2h.matches)  || 0;
+        d.h2h.homeWins = parseInt(d.h2h.homeWins) || 0;
+        d.h2h.draws    = parseInt(d.h2h.draws)    || 0;
+        d.h2h.awayWins = parseInt(d.h2h.awayWins) || 0;
+        d.h2h.avgGoals = d.h2h.avgGoals || '2.5';
+        d.p1X2  = d.p1X2  || { home: 33.33, draw: 33.33, away: 33.33 };
+        d.pOU   = d.pOU   || { 1.5: {over:65,under:35}, 2.5:{over:50,under:50}, 3.5:{over:30,under:70}, 4.5:{over:15,under:85} };
+        d.pBTTS = typeof d.pBTTS === 'number' ? d.pBTTS : 50;
+        d.homeForm = d.homeForm || 'N/A';
+        d.awayForm = d.awayForm || 'N/A';
+        d.predictions   = safeArr(d.predictions);
+        d.homeInjuries  = safeArr(d.homeInjuries);
+        d.awayInjuries  = safeArr(d.awayInjuries);
+        d.multigoalHome = safeArr(d.multigoalHome, [{range:'1-2',prob:40}]);
+        d.multigoalAway = safeArr(d.multigoalAway, [{range:'0-1',prob:50}]);
+        return d;
+      } catch(e) {
+        Logger.log('validateAnalysisData', e);
+        return d;
+      }
+    }
+
+    // --- Cache analisi (30 minuti) ---
+    const analysisCache = new Map();
+    const CACHE_TTL = 30 * 60 * 1000;
+    function getCachedAnalysis(matchId) {
+      const e = analysisCache.get(matchId);
+      if (!e) return null;
+      if (Date.now() - e.ts > CACHE_TTL) { analysisCache.delete(matchId); return null; }
+      console.log('\u2705 Cache hit:', matchId);
+      return e.data;
+    }
+    function setCachedAnalysis(matchId, data) {
+      analysisCache.set(matchId, { data, ts: Date.now() });
+      if (analysisCache.size > 20) analysisCache.delete(analysisCache.keys().next().value);
+    }
+
+    // --- Fetch con retry + backoff esponenziale ---
+    async function fetchWithRetry(url, options = {}, cfg = {}) {
+      const { retries = 3, baseDelay = 800, timeout = 15000, label = '' } = cfg;
+      let lastErr;
+      for (let i = 1; i <= retries; i++) {
+        const ctrl = new AbortController();
+        const tid  = setTimeout(() => ctrl.abort(), timeout);
+        try {
+          const res = await fetch(url, { ...options, signal: ctrl.signal });
+          clearTimeout(tid);
+          if (res.ok) return res;
+          if (res.status === 429) {
+            const wait = baseDelay * Math.pow(3, i);
+            console.warn('[' + label + '] Rate limit, attendo ' + wait + 'ms');
+            await sleep(wait); continue;
+          }
+          throw new Error('HTTP ' + res.status);
+        } catch(e) {
+          clearTimeout(tid);
+          lastErr = e;
+          if (i < retries) {
+            const d = baseDelay * Math.pow(2, i - 1);
+            console.warn('[' + label + '] Tentativo ' + i + '/' + retries + ' fallito, retry in ' + d + 'ms');
+            await sleep(d);
+          }
+        }
+      }
+      throw lastErr || new Error(label + ': tutti i tentativi falliti');
+    }
+
+    let state = {
+      view: 'leagues', // 'leagues', 'matches', 'analysis', 'performance'
+      selectedDate: 0, // 0=oggi, -1=ieri, 1=domani, 2=dopodomani
+      leagues: [],
+      matches: [],
+      selectedLeague: null,
+      selectedMatch: null,
+      analysis: null,
+      loading: false,
+      api: { 
+        football: localStorage.getItem('api_football_status') || 'offline', 
+        footystats: localStorage.getItem('api_footystats_status') || 'offline'
+      },
+      fsData: new Map(),
+      slip: [], // Schedina
+      slipModal: false,
+      // Picks del giorno
+      dailyPicks: { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], matchAdvices: [] },
+      quickFind: null, // 'home1'|'away2'|'gg'|'over25'|'over15'|'under25'
+      leagueFilter: 'all', // 'all'|'favorites'|'top5'|'italia'|'inghilterra'|'spagna'|'germania'|'francia'
+      favoriteLeagues: JSON.parse(localStorage.getItem('bp2_fav_leagues') || '[]'),
+      schedinaModal: false,
+      // Money Management - Sistema Obiettivo
+      money: {
+        bankroll: parseFloat(localStorage.getItem('bp2_bankroll')) || 100,
+        target: parseFloat(localStorage.getItem('bp2_target')) || 500,
+        totalBets: parseInt(localStorage.getItem('bp2_totalbets')) || 10,
+        currentBet: parseInt(localStorage.getItem('bp2_currentbet')) || 1,
+        currentOdds: parseFloat(localStorage.getItem('bp2_odds')) || 1.80,
+        history: JSON.parse(localStorage.getItem('bp2_history') || '[]')
+      },
+      // LIVE Betting (deprecato - mantengo variabili per compatibilità)
+      consigliMode: false,
+      liveMode: false,
+      liveMatches: [],
+      liveAlerts: [],
+      liveMatchPicks: {},
+      liveLoading: false,
+      liveInterval: null,
+      liveBackgroundInterval: null,
+      countdownInterval: null,
+      liveCountdown: 60,
+      // Tracking Pronostici
+      trackedBets: [],
+      // Machine Learning Stats - NUOVO
+      mlStats: JSON.parse(localStorage.getItem('bp2_ml_stats') || '{}'),
+      // Machine Learning Thresholds - AMPLIATO con più mercati
+      mlThresholds: JSON.parse(localStorage.getItem('bp2_ml_thresholds') || JSON.stringify({
+        '1': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'X': { threshold: 28, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        '2': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'GG': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'NG': { threshold: 50, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'Over 2.5': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'Under 2.5': { threshold: 55, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'Over 1.5': { threshold: 65, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'Over 3.5': { threshold: 60, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        '1X': { threshold: 70, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] },
+        'X2': { threshold: 70, accuracy: 0, totalPredictions: 0, correctPredictions: 0, streak: 0, lastResults: [] }
+      })),
+      // Performance Charts Data
+      performanceHistory: JSON.parse(localStorage.getItem('bp2_performance_history') || '[]'),
+      // === VERO ML ENGINE (solo GG/Over — NON tocca 1X2) ===
+      mlEngine: JSON.parse(localStorage.getItem('bp2_ml_engine') || JSON.stringify({
+        gg: { weights: null, bias: 0, samples: 0, accuracy: 0, lastTrain: null },
+        over25: { weights: null, bias: 0, samples: 0, accuracy: 0, lastTrain: null },
+        over15: { weights: null, bias: 0, samples: 0, accuracy: 0, lastTrain: null }
+      })),
+      mlTrainingData: JSON.parse(localStorage.getItem('bp2_ml_training') || '[]'),
+      // NUOVO: Cache Classifica e Infortunati
+      standingsCache: new Map(),
+      injuriesCache: new Map(),
+      // NUOVO: Impostazioni soglie configurabili (queste sono le soglie MANUALI, separate dal ML)
+      settings: JSON.parse(localStorage.getItem('bp2_settings') || JSON.stringify({
+        thresholds: {
+          '1': 50,
+          'X': 28,
+          '2': 50,
+          'GG': 55,
+          'Over 2.5': 50,
+          'Over 1.5': 65
+        },
+        showInjuries: true,
+        showStandings: true,
+        autoRefresh: true,
+        useMLThresholds: true // NUOVO: usa soglie ML invece di manuali
+      })),
+      settingsOpen: false,
+
+  smartFilters: {
+    active: '1',
+    results: []
+  },
+      statsView: false,
+      // TRADER Section
+      traderPicks: {
+        raddoppio: [],
+        singole: []
+      },
+      superAnalysis: null,    // Super Algoritmo result (locale)
+      superAIAnalysis: null,  // Analisi AI Claude con news
+      superAnalysisRunning: false,
+      aiFromCache: false,     // true se analisi AI caricata da cache Firebase
+      superAIRunning: false,
+      // STORICO VARIAZIONI PRONOSTICI
+      predictionHistory: JSON.parse(localStorage.getItem('bp2_prediction_history') || '{}'),
+      // === NUOVI MODULI v7 ===
+      // Odds Lab - Multi-bookmaker
+      oddsLab: null,
+      // Value Bet Engine
+      valueBets: null,
+      // Regression Score
+      regressionScore: null,
+      // Consensus Engine
+      consensus: null
+    };
+
+    // === FUNZIONI STORICO VARIAZIONI ===
+    
+    function savePredictionToHistory(matchId, matchName, prediction, source = 'full') {
+      const key = String(matchId);
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+      const fullTimestamp = now.getTime();
+      
+      if (!state.predictionHistory[key]) {
+        state.predictionHistory[key] = {
+          matchName: matchName,
+          date: getDateString(state.selectedDate),
+          predictions: []
+        };
+      }
+      
+      const history = state.predictionHistory[key].predictions;
+      // Confronta solo con l'ultima predizione DELLO STESSO TIPO
+      const sameSourcePreds = history.filter(h => h.source === source);
+      const lastPred = sameSourcePreds.length > 0 ? sameSourcePreds[sameSourcePreds.length - 1] : null;
+      
+      let changeType = 'first';
+      if (lastPred) {
+        const pickChanged = lastPred.pick !== prediction.pick;
+        const probDiff = Math.abs(prediction.prob - lastPred.prob);
+        
+        if (pickChanged) {
+          changeType = 'major';
+        } else if (probDiff >= 10) {
+          changeType = 'significant';
+        } else if (probDiff >= 3) {
+          changeType = 'minor';
+        } else {
+          return; // Nessun cambiamento rilevante (< 3%)
+        }
+      }
+      
+      history.push({
+        time: timestamp,
+        fullTime: fullTimestamp,
+        pick: prediction.pick,
+        prob: prediction.prob,
+        changeType: changeType,
+        source: source // 'quick' = auto-record, 'full' = analisi completa
+      });
+      
+      if (history.length > 15) {
+        state.predictionHistory[key].predictions = history.slice(-15);
+      }
+      
+      savePredictionHistory();
+      console.log(`📜 Storico [${source}]:`, matchName, changeType, prediction.pick, prediction.prob + '%');
+    }
+    
+    function savePredictionHistory() {
+      try {
+        // 1. Mantieni solo ultime 48h (2 giorni)
+        const twoDaysAgo = new Date();
+        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        const cutoffDate = twoDaysAgo.toISOString().split('T')[0];
+        const today = getDateString(0);
+
+        Object.keys(state.predictionHistory).forEach(key => {
+          const entry = state.predictionHistory[key];
+          if (entry && entry.date && entry.date < cutoffDate) {
+            delete state.predictionHistory[key];
+          }
+        });
+
+        // 2. Limita a max 8 predizioni per partita
+        Object.keys(state.predictionHistory).forEach(key => {
+          const preds = state.predictionHistory[key]?.predictions;
+          if (preds && preds.length > 8) {
+            state.predictionHistory[key].predictions = preds.slice(-8);
+          }
+        });
+
+        // 3. Limita a max 300 partite — rimuovi le PIÙ VECCHIE per data (non per key order!)
+        const allEntries = Object.keys(state.predictionHistory).map(key => ({
+          key,
+          date: state.predictionHistory[key]?.date || '2000-01-01',
+          lastUpdate: (state.predictionHistory[key]?.predictions || []).reduce((max, p) => Math.max(max, p.fullTime || 0), 0)
+        }));
+        
+        if (allEntries.length > 300) {
+          // Ordina: più vecchie prima (per data, poi per ultimo aggiornamento)
+          allEntries.sort((a, b) => {
+            if (a.date !== b.date) return a.date.localeCompare(b.date);
+            return a.lastUpdate - b.lastUpdate;
+          });
+          // Rimuovi le più vecchie, tieni le 300 più recenti
+          const toRemove = allEntries.slice(0, allEntries.length - 300);
+          toRemove.forEach(e => delete state.predictionHistory[e.key]);
+          console.log('🗑️ Storico: rimossi', toRemove.length, 'entries vecchie, restano', Object.keys(state.predictionHistory).length);
+        }
+
+        // 4. Salva su Firebase in background
+        if (typeof saveToFirebase === 'function') {
+          saveToFirebase('predictionHistory', state.predictionHistory).catch(e =>
+            console.debug('predictionHistory Firebase sync:', e.message)
+          );
+        }
+
+        // 5. Salva su localStorage
+        try {
+          localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
+        } catch(quotaErr) {
+          console.warn('localStorage quota: taglio storico...');
+          // Tieni solo oggi e ieri
+          const yesterday = getDateString(-1);
+          Object.keys(state.predictionHistory).forEach(key => {
+            const d = state.predictionHistory[key]?.date;
+            if (d && d !== today && d !== yesterday) delete state.predictionHistory[key];
+          });
+          try {
+            localStorage.setItem('bp2_prediction_history', JSON.stringify(state.predictionHistory));
+            console.log('✅ Storico ridotto e salvato');
+          } catch(e2) {
+            state.predictionHistory = {};
+            localStorage.removeItem('bp2_prediction_history');
+            console.warn('⚠️ Storico azzerato per quota localStorage');
+          }
+        }
+      } catch(e) { console.warn('Errore salvataggio storico:', e); }
+    }
+    
+    function getPredictionHistory(matchId) {
+      if (!state.predictionHistory) state.predictionHistory = {};
+      const entry = state.predictionHistory[String(matchId)];
+      if (!entry || !entry.predictions || !Array.isArray(entry.predictions)) return [];
+      return entry.predictions;
+    }
+    
+    function getHistoryStats(matchId) {
+      const history = getPredictionHistory(matchId);
+      if (history.length === 0) return null;
+      
+      return {
+        totalChanges: history.length - 1,
+        majorChanges: history.filter(h => h.changeType === 'major').length,
+        significantChanges: history.filter(h => h.changeType === 'significant').length,
+        pickChanged: history.length > 1 ? history[0].pick !== history[history.length - 1].pick : false
+      };
+    }
+    
+    function renderHistorySection(matchId) {
+      const history = getPredictionHistory(matchId);
+      
+      // Caso: Nessuna analisi
+      if (!history || !Array.isArray(history) || history.length === 0) {
+        return '<div class="history-section">' +
+          '<div class="history-header">' +
+            '<div class="history-icon">📜</div>' +
+            '<div class="history-title">' +
+              '<h3>Storico Variazioni</h3>' +
+              '<p>Monitora i cambiamenti del pronostico</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="history-empty">' +
+            '📊 <strong>Nessuna registrazione ancora</strong><br>' +
+            '<span style="font-size:0.75rem;color:var(--text-dark);">Il pronostico verrà registrato automaticamente.</span>' +
+          '</div>' +
+        '</div>';
+      }
+      
+      // Sanitize: assicura che prob sia un numero e pick sia una stringa
+      history.forEach(function(h) { 
+        if (typeof h.prob !== 'number' || isNaN(h.prob)) h.prob = 0; 
+        if (!h.pick) h.pick = 'N/D';
+        if (!h.time) h.time = '--:--';
+        if (!h.source) h.source = 'full';
+      });
+      
+      // Caso: Solo 1 registrazione
+      if (history.length === 1) {
+        const entry = history[0];
+        const srcIcon = entry.source === 'full' ? '🔬' : '⚡';
+        return '<div class="history-section">' +
+          '<div class="history-header">' +
+            '<div class="history-icon">📜</div>' +
+            '<div class="history-title"><h3>Storico Variazioni</h3><p>Monitora i cambiamenti del pronostico</p></div>' +
+          '</div>' +
+          '<div style="padding:14px;background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.12);border-radius:10px;margin:10px 0;">' +
+            '<div style="font-size:0.72rem;color:var(--text-dark);">' + srcIcon + ' Registrato alle ' + entry.time + '</div>' +
+            '<div style="font-size:0.95rem;font-weight:700;color:white;margin-top:4px;">' + entry.pick + ' — ' + entry.prob.toFixed(0) + '%</div>' +
+            '<div style="font-size:0.65rem;color:var(--text-dark);margin-top:8px;">⏳ Riapri la partita più tardi per vedere se il pronostico è rimasto stabile.</div>' +
+          '</div>' +
+        '</div>';
+      }
+      
+      // === 2+ REGISTRAZIONI: CONFRONTO ===
+      const first = history[0];
+      const last = history[history.length - 1];
+      const pickChanged = first.pick !== last.pick;
+      const probDiff = last.prob - first.prob;
+      const probDiffAbs = Math.abs(probDiff);
+      
+      // Stabilità: basata su TUTTE le registrazioni
+      let stabilityScore = 100;
+      const pickChanges = history.filter((h,i) => i > 0 && h.pick !== history[i-1].pick).length;
+      const maxSwing = Math.max(...history.map((h,i) => i > 0 ? Math.abs(h.prob - history[i-1].prob) : 0));
+      
+      if (pickChanged) stabilityScore -= 30;
+      if (pickChanges >= 2) stabilityScore -= 20;
+      stabilityScore -= Math.min(30, probDiffAbs);
+      stabilityScore -= Math.min(15, maxSwing * 2);
+      stabilityScore = Math.max(0, Math.round(stabilityScore));
+      
+      let stabilityLabel, stabilityColor, stabilityIcon, stabilityAdvice;
+      
+      // Logica intelligente: un cambio pick non è sempre negativo
+      const lastProb = last.prob;
+      const lastIsStrong = lastProb >= 65;
+      const lastIsDifferentSource = first.source !== last.source; // quick→full = raffinamento
+      const flipFlop = pickChanges >= 2; // il pick è cambiato 2+ volte = indecisione vera
+      
+      if (stabilityScore >= 85) {
+        stabilityLabel = 'MOLTO STABILE'; stabilityColor = '#10b981'; stabilityIcon = '🟢';
+        stabilityAdvice = '✅ Pronostico solido — i dati convergono, alta fiducia';
+      } else if (stabilityScore >= 65) {
+        stabilityLabel = 'STABILE'; stabilityColor = '#00d4ff'; stabilityIcon = '🔵';
+        stabilityAdvice = '✅ Pronostico confermato con piccole variazioni';
+      } else if (stabilityScore >= 40) {
+        stabilityLabel = 'VARIABILE'; stabilityColor = '#fbbf24'; stabilityIcon = '🟡';
+        if (pickChanged && lastIsStrong) {
+          stabilityAdvice = '🔄 Pick cambiato ma l\'ultimo è forte (' + lastProb.toFixed(0) + '%) — il modello ha raffinato la previsione';
+        } else {
+          stabilityAdvice = '⚠️ Pronostico oscillante — valuta con cautela';
+        }
+      } else {
+        stabilityLabel = 'INSTABILE'; stabilityColor = '#ef4444'; stabilityIcon = '🔴';
+        if (flipFlop) {
+          stabilityAdvice = '🚫 Il pronostico continua a cambiare — dati contraddittori, meglio evitare';
+        } else if (pickChanged && lastIsStrong) {
+          stabilityAdvice = '🔄 Pick cambiato ma l\'ultimo ha alta probabilità (' + lastProb.toFixed(0) + '%) — possibile raffinamento con più dati';
+          stabilityColor = '#fbbf24'; stabilityIcon = '🟡'; // Upgrade a variabile
+        } else if (pickChanged && !lastIsStrong) {
+          stabilityAdvice = '⚠️ Pick cambiato e probabilità bassa — poca fiducia in questa partita';
+        } else {
+          stabilityAdvice = '⚠️ Forte variazione di probabilità — valuta l\'ultimo valore';
+        }
+      }
+      
+      // Differenza testo
+      let diffText = '';
+      if (probDiff > 0) diffText = '<span style="color:var(--accent-green);">+' + probDiff.toFixed(0) + '%</span>';
+      else if (probDiff < 0) diffText = '<span style="color:var(--accent-red);">' + probDiff.toFixed(0) + '%</span>';
+      else diffText = '<span style="color:var(--text-gray);">±0%</span>';
+      
+      const firstIcon = first.source === 'full' ? '🔬' : '⚡';
+      const lastIcon = last.source === 'full' ? '🔬' : '⚡';
+      
+      let compareHtml = '<div class="history-compare">' +
+        '<div class="history-compare-title" style="display:flex;justify-content:space-between;align-items:center;">📊 CONFRONTO' +
+          '<span style="font-size:0.65rem;font-weight:800;color:' + stabilityColor + ';background:' + stabilityColor + '15;padding:3px 8px;border-radius:6px;">' + stabilityIcon + ' ' + stabilityLabel + ' (' + stabilityScore + '/100)</span>' +
+        '</div>' +
+        '<div class="history-compare-grid">' +
+          '<div class="history-compare-box first">' +
+            '<div class="history-compare-label">PRIMA</div>' +
+            '<div class="history-compare-time">' + firstIcon + ' ' + first.time + '</div>' +
+            '<div class="history-compare-pick">' + first.pick + '</div>' +
+            '<div class="history-compare-prob">' + first.prob.toFixed(0) + '%</div>' +
+          '</div>' +
+          '<div class="history-compare-arrow ' + (pickChanged ? 'changed' : 'stable') + '">' + (pickChanged ? '⚠️' : '→') + '</div>' +
+          '<div class="history-compare-box current">' +
+            '<div class="history-compare-label">ORA</div>' +
+            '<div class="history-compare-time">' + lastIcon + ' ' + last.time + '</div>' +
+            '<div class="history-compare-pick">' + last.pick + '</div>' +
+            '<div class="history-compare-prob">' + last.prob.toFixed(0) + '%</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="history-compare-verdict ' + (stabilityScore < 40 ? 'changed' : 'stable') + '">' +
+          stabilityAdvice +
+          '<div class="history-compare-diff">Differenza: ' + diffText + (pickChanged ? ' — <strong style="color:#ef4444;">Pick cambiato!</strong>' : '') + '</div>' +
+        '</div>' +
+      '</div>';
+      
+      // === CRONOLOGIA ===
+      let historyHtml = '<div style="font-size:0.75rem;color:var(--text-dark);margin-bottom:10px;font-weight:600;">📜 CRONOLOGIA</div>';
+      history.forEach(function(item, index) {
+        const isLast = index === history.length - 1;
+        const itemClass = isLast ? 'current' : (item.changeType === 'major' ? 'significant' : '');
+        const srcIcon = item.source === 'full' ? '🔬' : item.source === 'quick' ? '⚡' : '📊';
+        
+        let changeLabel = '', changeClass = '';
+        if (item.changeType === 'first') { changeLabel = '1°'; changeClass = 'first'; }
+        else if (item.changeType === 'minor') { changeLabel = '↕'; changeClass = 'minor'; }
+        else if (item.changeType === 'significant') { changeLabel = '⚠️'; changeClass = 'significant'; }
+        else if (item.changeType === 'major') { changeLabel = '🔄'; changeClass = 'major'; }
+        
+        historyHtml += '<div class="history-item ' + itemClass + '">' +
+          '<span class="history-time">' + srcIcon + ' ' + item.time + '</span>' +
+          '<div class="history-pick">' +
+            '<span class="history-pick-value">' + item.pick + '</span>' +
+            '<span class="history-pick-prob">' + item.prob.toFixed(0) + '%</span>' +
+          '</div>' +
+          '<span class="history-change ' + changeClass + '">' + changeLabel + '</span>' +
+        '</div>';
+      });
+      
+      // Legenda compatta
+      const legendHtml = '<div style="font-size:0.55rem;color:var(--text-dark);margin-top:8px;text-align:center;opacity:0.6;">' +
+        '🔬 Analisi completa &nbsp; ⚡ Analisi rapida' +
+      '</div>';
+      
+      return '<div class="history-section">' +
+        '<div class="history-header">' +
+          '<div class="history-icon">📜</div>' +
+          '<div class="history-title"><h3>Storico Variazioni</h3><p>Monitora i cambiamenti del pronostico</p></div>' +
+        '</div>' +
+        compareHtml +
+        '<div class="history-timeline">' + historyHtml + '</div>' +
+        legendHtml +
+      '</div>';
+    }
+
+    // === UTILITIES ===
+    const esc = t => String(t || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    const clamp = (min, v, max) => Math.max(min, Math.min(max, v));
+    const formatTime = d => d ? new Date(d).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '--:--';
+    const formatDate = d => d ? new Date(d).toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'}) : '--/--';
+    const formatDateFull = d => d ? new Date(d).toLocaleDateString('it-IT', {weekday:'short', day:'2-digit', month:'short'}) : '';
+    const getInitials = n => n ? n.split(' ').map(w => w[0]).join('').slice(0,3).toUpperCase() : '??';
+    
+    function getDateString(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      return d.toISOString().split('T')[0];
+    }
+    
+    function getDateLabel(offset) {
+      if (offset === -1) return 'Ieri';
+      if (offset === 0) return 'Oggi';
+      if (offset === 1) return 'Domani';
+      if (offset === 2) return 'Dopodomani';
+      return '';
+    }
+
+    // Poisson (con validazione anti-NaN)
+    const factorial = n => { 
+      if (n > 170) return Infinity; // Evita overflow
+      let r = 1; 
+      for (let i = 2; i <= n; i++) r *= i; 
+      return r; 
+    };
+    const poisson = (l, k) => {
+      // Validazione input
+      if (isNaN(l) || isNaN(k) || l < 0 || k < 0) return 0;
+      if (l <= 0) return (k === 0 ? 1 : 0);
+      
+      const result = (Math.pow(l, k) * Math.exp(-l)) / factorial(k);
+      
+      // Validazione output
+      if (isNaN(result) || !isFinite(result)) return 0;
+      return result;
+    };
+
+    // === SMART FILTERS - Filtri intelligenti con prob combinata AI + Statistica ===
+    function calculateSmartFilters(filterType) {
+      if (state.matches.length === 0) return [];
+      const results = [];
+
+      state.matches.forEach(match => {
+        if (['1H','2H','HT','ET','P','LIVE'].includes(match.status)) return;
+
+        // xG variabili basati su campionato (stima)
+        let homeXG = 1.50, awayXG = 1.15;
+        
+        // Boost per campionati offensivi noti
+        const offensiveLeagues = [39, 140, 135, 78, 61, 88, 94]; // PL, LaLiga, SerieA, Bundesliga, L1, Eredivisie, Primeira
+        if (offensiveLeagues.includes(match.league.id)) {
+          homeXG = 1.60;
+          awayXG = 1.25;
+        }
+        
+        // FootyStats data
+        const fsKeys = [
+          `${match.home.name.toLowerCase()}${match.away.name.toLowerCase()}`,
+          `${match.home.name.toLowerCase().replace(/\s/g, '')}${match.away.name.toLowerCase().replace(/\s/g, '')}`
+        ];
+        let fsMatch = null;
+        for (const k of fsKeys) {
+          if (state.fsData.has(k)) {
+            fsMatch = state.fsData.get(k);
+            break;
+          }
+        }
+
+        if (fsMatch) {
+          if (fsMatch.homexg) homeXG = fsMatch.homexg;
+          else if (fsMatch.homeppg) homeXG = fsMatch.homeppg * 0.85;
+          else if (fsMatch.avggoalshome) homeXG = fsMatch.avggoalshome;
+
+          if (fsMatch.awayxg) awayXG = fsMatch.awayxg;
+          else if (fsMatch.awayppg) awayXG = fsMatch.awayppg * 0.75;
+          else if (fsMatch.avggoalsaway) awayXG = fsMatch.avggoalsaway;
+        }
+
+        // Home advantage (realistico: studi mostrano ~+6% casa, ~-5% trasferta)
+        homeXG *= 1.06;
+        awayXG *= 0.95;
+        
+        // Validazione anti-NaN
+        if (isNaN(homeXG) || homeXG < 0) homeXG = 1.2;
+        if (isNaN(awayXG) || awayXG < 0) awayXG = 1.0;
+        
+        homeXG = clamp(0.4, homeXG, 3.5);
+        awayXG = clamp(0.25, awayXG, 3.0);
+
+        const p1X2 = quickCalc1X2(homeXG, awayXG);
+        const pGG = quickCalcBTTS(homeXG, awayXG);
+        const pNG = 100 - pGG; // No Goal = 100% - GG
+        const pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
+        const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
+        const pUnder25 = 100 - pOver25; // Under = 100% - Over
+
+        let prob = 0, pick = '';
+
+        if (filterType === '1') {
+          prob = p1X2.home;
+          pick = '1';
+        } else if (filterType === 'X') {
+          prob = p1X2.draw;
+          pick = 'X';
+        } else if (filterType === '2') {
+          prob = p1X2.away;
+          pick = '2';
+        } else if (filterType === 'GG') {
+          prob = pGG;
+          pick = 'GG';
+        } else if (filterType === 'NG') {
+          prob = pNG;
+          pick = 'NG';
+        } else if (filterType === 'Over 2.5') {
+          prob = pOver25;
+          pick = 'O 2.5';
+        } else if (filterType === 'Under 2.5') {
+          prob = pUnder25;
+          pick = 'U 2.5';
+        } else if (filterType === 'Over 1.5') {
+          prob = pOver15;
+          pick = 'O 1.5';
+        }
+
+        // Aggiungi TUTTE le partite (nessuna soglia)
+        results.push({
+          match,
+          pick,
+          prob: prob.toFixed(1),
+          time: formatTime(match.date),
+          league: `${match.league.country} - ${match.league.name}`
+        });
+      });
+
+      // Ordina per probabilità decrescente e prendi le prime 40
+      return results.sort((a, b) => parseFloat(b.prob) - parseFloat(a.prob)).slice(0, 40);
+    }
+
+    function setSmartFilter(type) {
+      state.smartFilters.active = type;
+      state.smartFilters.results = calculateSmartFilters(type);
+      render();
+    }
+    
+    // Seleziona una partita dal filtro e avvia l'analisi
+    function selectMatch(matchOrId) {
+      // Accetta sia l'oggetto match che l'ID numerico
+      const match = (typeof matchOrId === 'object' && matchOrId !== null)
+        ? matchOrId
+        : state.matches.find(m => m.id === matchOrId);
+      if (match) {
+        analyzeMatch(match);
+      } else {
+        console.warn('Partita non trovata:', matchOrId);
+      }
+    }
+
+    // === DAILY PICKS - Analisi rapida di tutte le partite ===
+    
+    // Campionati TOP con dati affidabili (IDs API-Football)
+    const TOP_LEAGUES = [
+      // Italia
+      135, 136, // Serie A, Serie B
+      // Inghilterra
+      39, 40, 41, // Premier, Championship, League One
+      // Spagna
+      140, 141, // La Liga, Segunda
+      // Germania
+      78, 79, // Bundesliga, 2. Bundesliga
+      // Francia
+      61, 62, // Ligue 1, Ligue 2
+      // Altri top
+      88,  // Eredivisie (Olanda)
+      94,  // Primeira Liga (Portogallo)
+      144, // Jupiler Pro (Belgio)
+      203, // Super Lig (Turchia)
+      // Coppe europee
+      2, 3, 848, // Champions, Europa League, Conference
+    ];
+    
+    // ============================================
+    // ML THRESHOLD HELPER - Ottiene la soglia adattiva
+    // ============================================
+    function getMLThreshold(market) {
+      // Se useMLThresholds è attivo E abbiamo dati ML per questo mercato
+      if (state.settings.useMLThresholds && state.mlThresholds[market]) {
+        const ml = state.mlThresholds[market];
+        
+        // Se abbiamo almeno 10 predizioni, usa la soglia calibrata
+        if (ml.totalPredictions >= 10) {
+          return ml.threshold;
+        }
+      }
+      
+      // Altrimenti usa le soglie di default
+      const defaults = {
+        '1': 55, '2': 55, 'X': 28,
+        'GG': 55, 'NG': 50,
+        'Over 2.5': 55, 'Under 2.5': 55,
+        'Over 1.5': 65, 'Over 3.5': 60,
+        '1X': 70, 'X2': 70
+      };
+      return defaults[market] || 50;
+    }
+    
+    // Ottiene la confidence basata su storico ML
+    function getMLConfidence(market, prob) {
+      const ml = state.mlThresholds[market];
+      if (!ml || ml.totalPredictions < 10) return 'medium';
+      
+      const accuracy = parseFloat(ml.accuracy);
+      const streak = ml.streak || 0;
+      
+      // Alta confidence se:
+      // - Probabilità molto sopra la soglia
+      // - Buona accuracy storica
+      // - Streak positivo recente
+      if (prob >= ml.threshold + 15 && accuracy >= 60 && streak >= 2) {
+        return 'high';
+      } else if (prob >= ml.threshold + 5 && accuracy >= 50) {
+        return 'medium';
+      } else if (accuracy < 45 || streak <= -3) {
+        return 'low';
+      }
+      return 'medium';
+    }
+    
+    // =====================================================================
+    // === AUTO-RECORD: Registra previsioni per TUTTE le partite ===
+    // === Così lo storico si popola senza aprire ogni partita ===
+    // =====================================================================
+    function autoRecordAllPredictions() {
+      const advices = state.dailyPicks?.matchAdvices || [];
+      if (advices.length === 0) return;
+      
+      let recorded = 0;
+      const today = getDateString(state.selectedDate);
+      
+      // Salva in BATCH — senza chiamare savePredictionHistory ogni volta
+      advices.forEach(a => {
+        if (a.pick && a.prob && a.matchId && a.matchName) {
+          const key = String(a.matchId);
+          const now = new Date();
+          const timestamp = now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+          const fullTimestamp = now.getTime();
+          
+          if (!state.predictionHistory[key]) {
+            state.predictionHistory[key] = {
+              matchName: a.matchName,
+              date: today,
+              predictions: []
+            };
+          }
+          
+          const history = state.predictionHistory[key].predictions;
+          // Confronta solo con l'ultima predizione QUICK (non full)
+          const quickPreds = history.filter(h => h.source === 'quick');
+          const lastPred = quickPreds.length > 0 ? quickPreds[quickPreds.length - 1] : null;
+          
+          let changeType = 'first';
+          if (lastPred) {
+            const pickChanged = lastPred.pick !== a.pick;
+            const probDiff = Math.abs(a.prob - lastPred.prob);
+            
+            if (pickChanged) changeType = 'major';
+            else if (probDiff >= 10) changeType = 'significant';
+            else if (probDiff >= 3) changeType = 'minor';
+            else return; // Nessun cambiamento rilevante
+          }
+          
+          history.push({
+            time: timestamp,
+            fullTime: fullTimestamp,
+            pick: a.pick,
+            prob: a.prob,
+            changeType: changeType,
+            source: 'quick' // Auto-record = dati rapidi
+          });
+          
+          // Max 15 registrazioni per partita
+          if (history.length > 15) {
+            state.predictionHistory[key].predictions = history.slice(-15);
+          }
+          
+          recorded++;
+        }
+      });
+      
+      // SALVATAGGIO UNICO alla fine del batch
+      if (recorded > 0) {
+        savePredictionHistoryBatch();
+        console.log(`📜 Auto-record: ${recorded} previsioni registrate nello storico`);
+      }
+    }
+    
+    // Salvataggio batch — limiti più generosi per il daily
+    function savePredictionHistoryBatch() {
+      try {
+        // 1. Pulizia: rimuovi partite vecchie (più di 3 giorni)
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+        const cutoffDate = threeDaysAgo.toISOString().split('T')[0];
+        
+        Object.keys(state.predictionHistory).forEach(key => {
+          const entry = state.predictionHistory[key];
+          if (entry && entry.date && entry.date < cutoffDate) {
+            delete state.predictionHistory[key];
+          }
+        });
+        
+        // 2. Max 5 predizioni per partita
+        Object.keys(state.predictionHistory).forEach(key => {
+          const preds = state.predictionHistory[key]?.predictions;
+          if (preds && preds.length > 5) {
+            state.predictionHistory[key].predictions = preds.slice(-5);
+          }
+        });
+        
+        // 3. Firebase: max 400 partite — ordina per DATA (non per key!)
+        const allEntries = Object.keys(state.predictionHistory).map(key => ({
+          key,
+          date: state.predictionHistory[key]?.date || '2000-01-01'
+        }));
+        if (allEntries.length > 400) {
+          allEntries.sort((a, b) => a.date.localeCompare(b.date));
+          allEntries.slice(0, allEntries.length - 400).forEach(e => delete state.predictionHistory[e.key]);
+        }
+        
+        // 4. Salva su Firebase
+        if (typeof saveToFirebase === 'function') {
+          saveToFirebase('predictionHistory', state.predictionHistory).catch(e =>
+            console.debug('predictionHistory Firebase sync:', e.message)
+          );
+        }
+        
+        // 5. localStorage: max 250 partite — ordina per DATA
+        try {
+          const localCopy = { ...state.predictionHistory };
+          const localEntries = Object.keys(localCopy).map(key => ({
+            key,
+            date: localCopy[key]?.date || '2000-01-01'
+          }));
+          if (localEntries.length > 250) {
+            localEntries.sort((a, b) => a.date.localeCompare(b.date));
+            localEntries.slice(0, localEntries.length - 250).forEach(e => delete localCopy[e.key]);
+          }
+          localStorage.setItem('bp2_prediction_history', JSON.stringify(localCopy));
+        } catch(quotaErr) {
+          console.warn('localStorage quota: taglio storico...');
+          // Tieni solo oggi e ieri
+          const today = getDateString(0);
+          const yesterday = getDateString(-1);
+          const reduced = {};
+          Object.keys(state.predictionHistory).forEach(k => {
+            const d = state.predictionHistory[k]?.date;
+            if (d === today || d === yesterday) reduced[k] = state.predictionHistory[k];
+          });
+          try {
+            localStorage.setItem('bp2_prediction_history', JSON.stringify(reduced));
+          } catch(e2) {
+            localStorage.removeItem('bp2_prediction_history');
+          }
+        }
+      } catch(e) { console.warn('Errore savePredictionHistoryBatch:', e); }
+    }
+    
+    // Timer per auto-aggiornamento storico ogni 2 ore
+    let _autoRecordTimer = null;
+    let _resultRefreshTimer = null;
+    function startAutoRecordTimer() {
+      if (_autoRecordTimer) clearInterval(_autoRecordTimer);
+      // Ogni 2 ore ricalcola picks e registra variazioni
+      _autoRecordTimer = setInterval(() => {
+        console.log('🔄 Auto-record: Aggiornamento periodico storico...');
+        calculateDailyPicks();
+        calculateTraderPicks();
+        autoRecordAllPredictions();
+      }, 2 * 60 * 60 * 1000); // 2 ore
+      console.log('⏰ Auto-record timer avviato (ogni 2 ore)');
+      
+      // Auto-refresh risultati ogni 30 min per aggiornare ✅/❌ nelle sezioni Home
+      if (_resultRefreshTimer) clearInterval(_resultRefreshTimer);
+      _resultRefreshTimer = setInterval(() => {
+        refreshMatchResults();
+      }, 30 * 60 * 1000); // 30 minuti (1 sola chiamata API per ciclo)
+      console.log('⏰ Result refresh avviato (ogni 30 min)');
+    }
+    
+    // Aggiorna risultati partite finite in state.matches
+    // Così checkPickResult/renderPickResultBadge mostrano ✅/❌
+    async function refreshMatchResults() {
+      if (!state.matches || state.matches.length === 0) return;
+      // Solo se ci sono partite che dovrebbero essere finite ma non hanno gol
+      const now = Date.now();
+      const stale = state.matches.some(m => {
+        if (['FT','AET','PEN'].includes(m.status) && m.goals?.home != null) return false;
+        return now - new Date(m.date).getTime() > 100 * 60 * 1000; // >100 min dal kick-off
+      });
+      if (!stale) return; // tutte già aggiornate, skip
+      
+      try {
+        const dateStr = getDateString(state.selectedDate);
+        const data = await callAPIFootball('/fixtures', { date: dateStr, timezone: 'Europe/Rome' });
+        if (!data?.response || !Array.isArray(data.response)) return;
+        
+        let updated = 0;
+        data.response.forEach(f => {
+          const ex = state.matches.find(m => m.id === f.fixture.id);
+          if (ex) {
+            const wasFinished = ['FT','AET','PEN'].includes(ex.status);
+            ex.status = f.fixture.status.short;
+            ex.elapsed = f.fixture.status.elapsed;
+            ex.goals = f.goals;
+            if (!wasFinished && ['FT','AET','PEN'].includes(ex.status)) updated++;
+          }
+        });
+        if (updated > 0) {
+          console.log(`✅ ${updated} risultati aggiornati → ✅/❌ visibili`);
+          render();
+        }
+      } catch(e) { console.debug('Result refresh skip:', e.message); }
+    }
+    
+    function calculateDailyPicks() {
+      if (!state.matches || state.matches.length === 0) {
+        console.log('⚠️ calculateDailyPicks: Nessuna partita disponibile');
+        return;
+      }
+      
+      console.log(`&#x1F504; calculateDailyPicks: Analisi di ${state.matches.length} partite...`);
+      console.log(`&#x1F916; ML Attivo: ${state.settings.useMLThresholds ? 'SÌ' : 'NO'}`);
+      
+      const picks = { raddoppi: [], gg: [], over25: [], pareggi: [], over1T: [], vittorieCasa: [], vittorieOspite: [], matchAdvices: [] };
+      const safeBets = []; // Per costruire i raddoppi
+      
+      // Raccogli i consigli AI per tutte le partite
+      const allAdvices = [];
+      let processedCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
+      
+      state.matches.forEach(match => {
+        try {
+          // Skip partite già iniziate o finite o senza dati validi
+          if (!match || !match.home || !match.away) {
+            skippedCount++;
+            return;
+          }
+          // Skip solo partite LIVE (in corso) — le finite restano per mostrare ✅/❌
+          if (['1H','2H','HT','ET','P','LIVE'].includes(match.status)) {
+            skippedCount++;
+            return;
+          }
+          
+          processedCount++;
+        
+        // Calcolo rapido basato su FootyStats se disponibile
+        let fsMatch = null;
+        const fsKeys = [
+          `${match.home.name.toLowerCase()}_${match.away.name.toLowerCase()}`,
+          match.home.name.toLowerCase().replace(/\s+/g, '') + '_' + match.away.name.toLowerCase().replace(/\s+/g, '')
+        ];
+        for (const k of fsKeys) {
+          if (state.fsData.has(k)) { fsMatch = state.fsData.get(k); break; }
+        }
+        
+        // Stima xG base
+        let homeXG = 1.55, awayXG = 1.25;
+        let homeFormMultiplier = 1.0, awayFormMultiplier = 1.0;
+        let dataQuality = 'low'; // low, medium, high
+        
+        if (fsMatch) {
+          if (fsMatch.home_xg) {
+            homeXG = fsMatch.home_xg;
+            dataQuality = 'high';
+          } else if (fsMatch.home_ppg) {
+            homeXG = fsMatch.home_ppg * 0.8;
+            dataQuality = 'medium';
+          } else if (fsMatch.avg_goals_home) {
+            homeXG = fsMatch.avg_goals_home;
+            dataQuality = 'medium';
+          }
+          
+          if (fsMatch.away_xg) {
+            awayXG = fsMatch.away_xg;
+          } else if (fsMatch.away_ppg) {
+            awayXG = fsMatch.away_ppg * 0.7;
+          } else if (fsMatch.avg_goals_away) {
+            awayXG = fsMatch.avg_goals_away;
+          }
+          
+          // PATTERN CASA/TRASFERTA AVANZATO
+          // Analizza performance specifica casa vs trasferta
+          if (fsMatch.home_ppg && fsMatch.away_ppg) {
+            // Se casa ha ppg alto in casa → boost
+            if (fsMatch.home_ppg >= 2.0) homeFormMultiplier = 1.12;
+            else if (fsMatch.home_ppg >= 1.5) homeFormMultiplier = 1.06;
+            else if (fsMatch.home_ppg <= 0.8) homeFormMultiplier = 0.90;
+            
+            // Se ospite ha ppg alto in trasferta → boost
+            if (fsMatch.away_ppg >= 1.8) awayFormMultiplier = 1.10;
+            else if (fsMatch.away_ppg >= 1.2) awayFormMultiplier = 1.04;
+            else if (fsMatch.away_ppg <= 0.6) awayFormMultiplier = 0.88;
+          }
+        }
+        
+        // Applica moltiplicatori forma
+        homeXG *= homeFormMultiplier;
+        awayXG *= awayFormMultiplier;
+        
+        // Home advantage (realistico: studi mostrano ~+6% casa, ~-5% trasferta)
+        homeXG *= 1.06;
+        awayXG *= 0.95;
+        
+        // Validazione anti-NaN
+        if (isNaN(homeXG) || homeXG < 0) homeXG = 1.2;
+        if (isNaN(awayXG) || awayXG < 0) awayXG = 1.0;
+        
+        homeXG = clamp(0.3, homeXG, 3.5);
+        awayXG = clamp(0.2, awayXG, 3.0);
+        
+        const totXG = homeXG + awayXG;
+        
+        // Calcola probabilità
+        const p1X2 = quickCalc1X2(homeXG, awayXG);
+        
+        // Costruisci proxy dati difensivi da fsMatch (per migliorare GG/Over)
+        let proxyHome = null, proxyAway = null;
+        if (fsMatch) {
+          proxyHome = {
+            goalsFor: homeXG, goalsAgainst: fsMatch.away_xg || fsMatch.away_ppg * 0.8 || 1.2,
+            cleanSheetPct: fsMatch.home_cs_percentage || fsMatch.home_clean_sheet_pct || 25,
+            failedToScorePct: fsMatch.home_fts_percentage || 25
+          };
+          proxyAway = {
+            goalsFor: awayXG, goalsAgainst: fsMatch.home_xg || fsMatch.home_ppg * 0.8 || 1.2,
+            cleanSheetPct: fsMatch.away_cs_percentage || fsMatch.away_clean_sheet_pct || 25,
+            failedToScorePct: fsMatch.away_fts_percentage || 25
+          };
+        }
+        
+        const pOver15 = quickCalcOverEnhanced(homeXG, awayXG, 1.5, proxyHome, proxyAway);
+        const pOver25 = quickCalcOverEnhanced(homeXG, awayXG, 2.5, proxyHome, proxyAway);
+        const pOver35 = quickCalcOverEnhanced(homeXG, awayXG, 3.5, proxyHome, proxyAway);
+        const pUnder25 = 100 - pOver25;
+        const pBTTS = quickCalcBTTS(homeXG, awayXG, proxyHome, proxyAway);
+        
+        const matchInfo = {
+          match,
+          matchName: `${match.home.name} vs ${match.away.name}`,
+          shortName: `${match.home.name.substring(0,12)} - ${match.away.name.substring(0,12)}`,
+          league: `${match.league.country} - ${match.league.name}`,
+          time: formatTime(match.date),
+          xgTotal: totXG.toFixed(2),
+          totXG: totXG.toFixed(2),
+          homeXG: homeXG.toFixed(2),
+          awayXG: awayXG.toFixed(2)
+        };
+        
+        // === GENERA CONSIGLIO AI REALE (identico alla pagina dettaglio) ===
+        try {
+          const miniAnalysis = {
+            xG: { home: homeXG, away: awayXG, total: totXG },
+            p1X2,
+            pOU: calcOU(homeXG, awayXG),
+            pBTTS,
+            exactScores: calcExactScores(homeXG, awayXG).slice(0, 6),
+            quality: dataQuality === 'high' ? 'enhanced' : 'base'
+          };
+          const aiAdvice = generateAIAdvice(match, miniAnalysis);
+          if (aiAdvice && aiAdvice.pick) {
+            picks.matchAdvices.push({
+              match,
+              matchId: match.id,
+              matchName: matchInfo.matchName,
+              homeName: match.home.name,
+              awayName: match.away.name,
+              homeLogo: match.home.logo || '',
+              awayLogo: match.away.logo || '',
+              league: matchInfo.league,
+              leagueLogo: match.league.logo || '',
+              leagueId: match.league?.id || 0,
+              time: matchInfo.time,
+              pick: aiAdvice.pick,
+              prob: aiAdvice.prob,
+              confidence: aiAdvice.confidence,
+              reasons: aiAdvice.reasons || [],
+              alternatives: aiAdvice.alternatives || [],
+              dataQuality,
+              xgHome: homeXG.toFixed(2),
+              xgAway: awayXG.toFixed(2),
+              xgTotal: totXG.toFixed(2),
+              p1X2: p1X2,
+              pBTTS: pBTTS,
+              pOver25: pOver25,
+              homeFormMult: homeFormMultiplier,
+              awayFormMult: awayFormMultiplier
+            });
+          }
+        } catch (advErr) {
+          console.warn('Advice generation failed for', match.home?.name, advErr.message);
+        }
+        
+        // === GENERA CONSIGLIO AI RAPIDO (simile a generateAIAdvice) ===
+        const homeStrong = homeXG > 1.8;
+        const awayWeak = awayXG < 0.8;
+        const awayStrong = awayXG > 1.5;
+        const homeWeak = homeXG < 1.0;
+        const veryHighScoring = totXG >= 3.2;
+        const highScoring = totXG >= 2.7;
+        const lowScoring = totXG < 2.2;
+        const balanced = Math.abs(homeXG - awayXG) < 0.5;
+        const ggLikely = pBTTS >= 52 && homeXG > 0.85 && awayXG > 0.8;
+        
+        // Multigoal per squadra (per calcolo X intelligente)
+        const mgHome = quickCalcOver(homeXG, 0, 0.5); // Prob che casa segni almeno 1
+        const mgAway = quickCalcOver(awayXG, 0, 0.5); // Prob che ospite segni almeno 1
+        
+        let aiPick = '';
+        let aiProb = 0;
+        let confidence = 'low';
+        
+        // === SOGLIE ML ADATTIVE ===
+        const th1 = getMLThreshold('1');
+        const th2 = getMLThreshold('2');
+        const thX = getMLThreshold('X');
+        const thGG = getMLThreshold('GG');
+        const thOver25 = getMLThreshold('Over 2.5');
+        const thOver15 = getMLThreshold('Over 1.5');
+        const th1X = getMLThreshold('1X');
+        
+        // Logica di selezione CON SOGLIE ML ADATTIVE
+        // PRIORITÀ: 1X2 SEMPRE PRIMA se prob forte (preserva il 93% sui "1")
+        // GG e Over SOLO quando non c'è un buon pick 1X2
+        
+        const has1Strong = p1X2.home >= th1 + 8;  // Casa forte (anche senza homeStrong condition)
+        const has2Strong = p1X2.away >= th2 + 5;  // Ospite forte
+        const has1XStrong = (p1X2.home + p1X2.draw) >= th1X + 10;
+        
+        // === LIVELLO 1: Vittorie nette (priorità massima) ===
+        if (homeStrong && awayWeak && p1X2.home >= th1 + 13) {
+          aiPick = '1 (Vittoria Casa)';
+          aiProb = p1X2.home;
+          confidence = getMLConfidence('1', p1X2.home);
+        }
+        else if (awayStrong && homeWeak && p1X2.away >= th2 + 8) {
+          aiPick = '2 (Vittoria Ospite)';
+          aiProb = p1X2.away;
+          confidence = getMLConfidence('2', p1X2.away);
+        }
+        // === LIVELLO 2: Vittorie probabili (anche senza condizione strong/weak) ===
+        else if (p1X2.home >= th1 + 15) {
+          // Casa molto probabile indipendentemente da strong/weak
+          aiPick = '1 (Vittoria Casa)';
+          aiProb = p1X2.home;
+          confidence = getMLConfidence('1', p1X2.home);
+        }
+        else if (p1X2.away >= th2 + 12) {
+          aiPick = '2 (Vittoria Ospite)';
+          aiProb = p1X2.away;
+          confidence = getMLConfidence('2', p1X2.away);
+        }
+        // === LIVELLO 3: 1X forte ===
+        else if (has1XStrong && p1X2.home >= 45) {
+          aiPick = '1X (Casa o Pareggio)';
+          aiProb = p1X2.home + p1X2.draw;
+          confidence = getMLConfidence('1X', aiProb);
+        }
+        // === LIVELLO 4: GG e Over (SOLO se nessun 1X2 forte) ===
+        else if (veryHighScoring && pOver25 >= thOver25 + 10 && !has1Strong) {
+          aiPick = 'Over 2.5';
+          aiProb = pOver25;
+          confidence = getMLConfidence('Over 2.5', pOver25);
+        }
+        else if (ggLikely && pBTTS >= thGG + 5 && !has1Strong && !has2Strong) {
+          aiPick = 'GG (Entrambe Segnano)';
+          aiProb = pBTTS;
+          confidence = getMLConfidence('GG', pBTTS);
+        }
+        else if (highScoring && pOver25 >= thOver25 + 15 && !has1Strong) {
+          aiPick = 'Over 2.5';
+          aiProb = pOver25;
+          confidence = getMLConfidence('Over 2.5', pOver25);
+        }
+        else if (pOver15 >= thOver15 + 17 && !has1Strong) {
+          aiPick = 'Over 1.5';
+          aiProb = pOver15;
+          confidence = getMLConfidence('Over 1.5', pOver15);
+        }
+        // === LIVELLO 5: Fallback 1X2 meno forte ===
+        else if (has1Strong) {
+          aiPick = '1 (Vittoria Casa)';
+          aiProb = p1X2.home;
+          confidence = getMLConfidence('1', p1X2.home);
+        }
+        else if (has2Strong) {
+          aiPick = '2 (Vittoria Ospite)';
+          aiProb = p1X2.away;
+          confidence = getMLConfidence('2', p1X2.away);
+        }
+        // === LIVELLO 6: Pareggio e Over 1.5 residuale ===
+        else if (balanced && p1X2.draw >= thX + 2 && mgHome < 68 && mgAway < 68 && pUnder25 >= 58) {
+          aiPick = 'X (Pareggio)';
+          aiProb = p1X2.draw;
+          confidence = getMLConfidence('X', p1X2.draw);
+        }
+        else if (pOver15 >= thOver15 + 10) {
+          aiPick = 'Over 1.5';
+          aiProb = pOver15;
+          confidence = 'medium';
+        }
+        
+        // CALCOLO CONFIDENCE FINALE basato su qualità dati + probabilità
+        if (dataQuality === 'high' && aiProb >= 75) confidence = 'high';
+        else if (dataQuality === 'high' && aiProb >= 65) {
+          if (confidence === 'low') confidence = 'medium';
+        }
+        else if (dataQuality === 'low' && confidence === 'high') confidence = 'medium';
+        
+        // Skip pick se probabilità troppo bassa (usa soglia ML minima)
+        const minThreshold = Math.min(th1, th2, thX, thGG, thOver25) - 5;
+        if (!aiPick || aiProb < minThreshold) return;
+        
+        // Salva il consiglio AI
+        allAdvices.push({
+          ...matchInfo,
+          aiPick,
+          aiProb,
+          confidence,
+          dataQuality,
+          p1X2,
+          pOver25,
+          pBTTS
+        });
+        
+        // === COSTRUISCI RADDOPPI (solo campionati top) ===
+        const isTopLeague = TOP_LEAGUES.includes(match.league.id);
+        if (isTopLeague) {
+          const p1X = p1X2.home + p1X2.draw;
+          const pX2 = p1X2.draw + p1X2.away;
+          
+          if (p1X >= 72) safeBets.push({ ...matchInfo, bet: '1X', prob: p1X, odds: (100 / p1X).toFixed(2) });
+          if (pX2 >= 72) safeBets.push({ ...matchInfo, bet: 'X2', prob: pX2, odds: (100 / pX2).toFixed(2) });
+          if (pOver15 >= 75) safeBets.push({ ...matchInfo, bet: 'Over 1.5', prob: pOver15, odds: (100 / pOver15).toFixed(2) });
+          if (p1X2.home >= 65) safeBets.push({ ...matchInfo, bet: '1', prob: p1X2.home, odds: (100 / p1X2.home).toFixed(2) });
+          if (p1X2.away >= 60) safeBets.push({ ...matchInfo, bet: '2', prob: p1X2.away, odds: (100 / p1X2.away).toFixed(2) });
+        }
+        } catch (err) {
+          errorCount++;
+          console.warn('Errore analisi partita (primo ciclo):', match?.home?.name, 'vs', match?.away?.name, err.message);
+        }
+      });
+      
+      // === RAGGRUPPA TUTTE LE PROBABILITÀ (NON SOLO IL CONSIGLIO PRINCIPALE) ===
+      // Questa logica prende TUTTE le probabilità dalla sezione "PRONOSTICI AI"
+      // e le raggruppa per categoria (1, X, 2, GG, Over 2.5)
+      allAdvices.forEach(advice => {
+        const { p1X2, pOver25, pBTTS, matchInfo, match, confidence, dataQuality } = advice;
+        
+        // Aggiungi 1 (Vittoria Casa) se probabilità >= 50%
+        if (p1X2.home >= 50) {
+          picks.vittorieCasa.push({
+            ...matchInfo,
+            match,
+            bet: '1',
+            prob: p1X2.home,
+            confidence: p1X2.home >= 70 ? 'high' : (p1X2.home >= 60 ? 'medium' : 'low'),
+            dataQuality
+          });
+        }
+        
+        // === LOGICA AVANZATA PER X (PAREGGIO) ===
+        // Condizioni per un buon pareggio:
+        // 1. Probabilità X alta (>= 25%)
+        // 2. Partita equilibrata (differenza 1X2 bassa)
+        // 3. Risultato esatto 0-0 o 1-1 probabile
+        // 4. Under consigliato (xG totale basso)
+        // 5. Multigol squadre bassi (entrambe faticano a segnare)
+        
+        // Usa le variabili da matchInfo (non da scope esterno)
+        const totXGVal = parseFloat(matchInfo?.totXG || matchInfo?.xgTotal || 2.5);
+        const homeXGVal = parseFloat(matchInfo?.homeXG || 1.3);
+        const awayXGVal = parseFloat(matchInfo?.awayXG || 1.2);
+        
+        // Calcola "equilibrio" - differenza tra le 3 probabilità
+        const maxProb = Math.max(p1X2.home, p1X2.draw, p1X2.away);
+        const minProb = Math.min(p1X2.home, p1X2.draw, p1X2.away);
+        const isBalanced = (maxProb - minProb) < 15; // Partita molto equilibrata
+        
+        // Calcola probabilità 0-0 e 1-1 (risultati esatti da pareggio)
+        const p00 = poisson(homeXGVal, 0) * poisson(awayXGVal, 0) * 100;
+        const p11 = poisson(homeXGVal, 1) * poisson(awayXGVal, 1) * 100;
+        const pDrawScores = p00 + p11; // Probabilità combinata 0-0 o 1-1
+        
+        // Calcola multigol squadre (prob di segnare 0 gol)
+        const pHome0 = poisson(homeXGVal, 0) * 100;
+        const pAway0 = poisson(awayXGVal, 0) * 100;
+        const lowScoringMatch = pHome0 > 25 || pAway0 > 25; // Almeno una squadra ha alta prob di 0 gol
+        
+        // Under 2.5 consigliato?
+        const pUnder25Calc = 100 - pOver25;
+        const underSuggested = pUnder25Calc > 50;
+        
+        // SCORE X: Somma ponderata dei fattori
+        let xScore = 0;
+        
+        // Base: probabilità X
+        xScore += p1X2.draw * 2; // Peso 2x
+        
+        // Equilibrio 1X2
+        if (isBalanced) xScore += 15;
+        else if ((maxProb - minProb) < 20) xScore += 10;
+        
+        // Risultati esatti pareggio (0-0, 1-1)
+        if (pDrawScores >= 18) xScore += 20; // 0-0 o 1-1 molto probabili
+        else if (pDrawScores >= 12) xScore += 12;
+        else if (pDrawScores >= 8) xScore += 6;
+        
+        // Under consigliato
+        if (underSuggested && totXGVal < 2.2) xScore += 15;
+        else if (underSuggested) xScore += 8;
+        
+        // Basso xG totale
+        if (totXGVal < 1.8) xScore += 12;
+        else if (totXGVal < 2.2) xScore += 6;
+        
+        // Multigol bassi (squadre non segnano)
+        if (lowScoringMatch) xScore += 10;
+        
+        // DECISIONE: Aggiungi X solo se score >= 55 (soglia stringente per pareggi)
+        if (xScore >= 55 && p1X2.draw >= 23) {
+          picks.pareggi.push({
+            ...matchInfo,
+            match,
+            bet: 'X',
+            prob: p1X2.draw,
+            confidence: xScore >= 75 ? 'high' : (xScore >= 65 ? 'medium' : 'low'),
+            dataQuality,
+            xScore: xScore.toFixed(0), // Score per debug
+            pDrawScores: pDrawScores.toFixed(1), // Prob 0-0 + 1-1
+            under: underSuggested
+          });
+        }
+        
+        // Aggiungi 2 (Vittoria Ospite) se probabilità >= 45% (in trasferta è più difficile)
+        if (p1X2.away >= 45) {
+          picks.vittorieOspite.push({
+            ...matchInfo,
+            match,
+            bet: '2',
+            prob: p1X2.away,
+            confidence: p1X2.away >= 65 ? 'high' : (p1X2.away >= 55 ? 'medium' : 'low'),
+            dataQuality
+          });
+        }
+        
+        // Aggiungi GG se probabilità >= 52%
+        // VERO ML: aggiusta prob GG con modello appreso (solo GG, non tocca 1X2)
+        const mlAdjGG = getMLAdjustment('GG', match.id);
+        const pBTTS_ML = clamp(15, pBTTS + mlAdjGG, 90);
+        if (pBTTS_ML >= 52) {
+          picks.gg.push({
+            ...matchInfo,
+            match,
+            bet: 'GG',
+            prob: pBTTS_ML,
+            probBase: pBTTS, // prob originale senza ML
+            mlAdj: mlAdjGG,
+            confidence: pBTTS_ML >= 70 ? 'high' : (pBTTS_ML >= 60 ? 'medium' : 'low'),
+            dataQuality
+          });
+        }
+        
+        // Aggiungi Over 2.5 se probabilità >= 50%
+        const mlAdjO25 = getMLAdjustment('Over 2.5', match.id);
+        const pOver25_ML = clamp(10, pOver25 + mlAdjO25, 92);
+        if (pOver25_ML >= 50) {
+          picks.over25.push({
+            ...matchInfo,
+            match,
+            bet: 'Over 2.5',
+            prob: pOver25_ML,
+            probBase: pOver25,
+            mlAdj: mlAdjO25,
+            confidence: pOver25_ML >= 70 ? 'high' : (pOver25_ML >= 60 ? 'medium' : 'low'),
+            dataQuality
+          });
+        }
+      });
+      
+      console.log(`&#x1F4CA; calculateDailyPicks: Processate ${processedCount}, Skipped ${skippedCount}, Errori ${errorCount}`);
+      
+      // === ORDINA E PRENDI I TOP 20 PER OGNI CATEGORIA ===
+      // Ordina per confidence (high > medium) e poi per probabilità
+      const sortByConfidence = (a, b) => {
+        const confScore = { high: 3, medium: 2, low: 1 };
+        if (confScore[a.confidence] !== confScore[b.confidence]) {
+          return confScore[b.confidence] - confScore[a.confidence];
+        }
+        return b.prob - a.prob;
+      };
+      
+      picks.gg = picks.gg.sort(sortByConfidence).slice(0, 20);
+      picks.over25 = picks.over25.sort(sortByConfidence).slice(0, 20);
+      picks.vittorieCasa = picks.vittorieCasa.sort(sortByConfidence).slice(0, 20);
+      picks.vittorieOspite = picks.vittorieOspite.sort(sortByConfidence).slice(0, 20);
+      picks.pareggi = picks.pareggi.sort(sortByConfidence).slice(0, 20);
+      
+      // Ordina matchAdvices per probabilità decrescente
+      picks.matchAdvices.sort((a, b) => b.prob - a.prob);
+      
+      // === COSTRUISCI RADDOPPI ===
+      picks.raddoppi = buildRaddoppi(safeBets);
+      
+      state.dailyPicks = picks;
+      console.log('&#x1F3AF; Daily picks (AI):', Object.keys(picks).map(k => `${k}: ${picks[k].length}`).join(', '));
+      
+      // Salva picks in localStorage per persistenza (anche dopo che le partite finiscono)
+      try {
+        var dateKey = getDateString(state.selectedDate);
+        var toSave = {};
+        ['gg','ng','over25','vittorieCasa','vittorieOspite','pareggi'].forEach(function(cat) {
+          if (picks[cat] && picks[cat].length) {
+            toSave[cat] = picks[cat].map(function(p) {
+              return { matchId: p.match?.id || p.matchId, matchName: p.matchName || ((p.match?.home?.name||'') + ' vs ' + (p.match?.away?.name||'')), homeName: p.match?.home?.name || p.homeName, awayName: p.match?.away?.name || p.awayName, league: p.league, time: p.time, bet: p.bet, prob: p.prob, confidence: p.confidence };
+            });
+          }
+        });
+        var savedPicks = JSON.parse(localStorage.getItem('bp2_daily_picks_cache') || '{}');
+        savedPicks[dateKey] = toSave;
+        var keys = Object.keys(savedPicks).sort();
+        while (keys.length > 3) delete savedPicks[keys.shift()];
+        localStorage.setItem('bp2_daily_picks_cache', JSON.stringify(savedPicks));
+      } catch(e) {}
+    }
+    
+    // Costruisce combinazioni per raddoppi (quota target ~2.00)
+    function buildRaddoppi(safeBets) {
+      if (safeBets.length < 2) return [];
+      
+      const raddoppi = [];
+      const targetOdds = 2.0;
+      const tolerance = 0.25; // quota tra 1.75 e 2.25
+      
+      // Ordina per probabilità decrescente
+      safeBets.sort((a, b) => b.prob - a.prob);
+      
+      // Prova combinazioni di 2, 3, 4 partite
+      for (let size = 2; size <= Math.min(4, safeBets.length); size++) {
+        const combos = getCombinations(safeBets, size);
+        
+        for (const combo of combos) {
+          // Verifica che non ci siano partite duplicate
+          const matchIds = combo.map(c => c.match.id);
+          if (new Set(matchIds).size !== matchIds.length) continue;
+          
+          // Calcola quota totale e probabilità combinata
+          const totalOdds = combo.reduce((acc, c) => acc * parseFloat(c.odds), 1);
+          const totalProb = combo.reduce((acc, c) => acc * (c.prob / 100), 1) * 100;
+          
+          // Se la quota è vicina a 2.00
+          if (totalOdds >= targetOdds - tolerance && totalOdds <= targetOdds + tolerance) {
+            raddoppi.push({
+              bets: combo,
+              totalOdds: totalOdds.toFixed(2),
+              totalProb: totalProb.toFixed(1),
+              size: combo.length
+            });
+          }
+        }
+      }
+      
+      // Ordina per probabilità combinata e prendi i migliori 6
+      return raddoppi
+        .sort((a, b) => parseFloat(b.totalProb) - parseFloat(a.totalProb))
+        .slice(0, 6);
+    }
+    
+    // Genera combinazioni di k elementi da un array
+    function getCombinations(arr, k) {
+      if (k === 1) return arr.map(x => [x]);
+      if (k === arr.length) return [arr];
+      if (k > arr.length) return [];
+      
+      const result = [];
+      const n = arr.length;
+      
+      // Limita per performance
+      const maxCombos = 500;
+      let count = 0;
+      
+      function combine(start, combo) {
+        if (count >= maxCombos) return;
+        if (combo.length === k) {
+          result.push([...combo]);
+          count++;
+          return;
+        }
+        for (let i = start; i < n && count < maxCombos; i++) {
+          combo.push(arr[i]);
+          combine(i + 1, combo);
+          combo.pop();
+        }
+      }
+      
+      combine(0, []);
+      return result;
+    }
+    
+    // Calcoli rapidi per picks (senza Dixon-Coles per velocità)
+    function quickCalc1X2(lH, lA) {
+      // Validazione input
+      if (isNaN(lH) || isNaN(lA) || lH < 0 || lA < 0) {
+        return { home: 33.33, draw: 33.33, away: 33.33 };
+      }
+      
+      let pH = 0, pD = 0, pA = 0;
+      for (let i = 0; i <= 5; i++) {
+        for (let j = 0; j <= 5; j++) {
+          const p = poisson(lH, i) * poisson(lA, j);
+          if (isNaN(p)) continue;
+          if (i > j) pH += p; else if (i === j) pD += p; else pA += p;
+        }
+      }
+      const t = pH + pD + pA;
+      if (t === 0 || isNaN(t)) return { home: 33.33, draw: 33.33, away: 33.33 };
+      return { home: (pH/t)*100, draw: (pD/t)*100, away: (pA/t)*100 };
+    }
+    
+    function quickCalcOver(lH, lA, line) {
+      // Validazione input
+      if (isNaN(lH) || isNaN(lA) || lH < 0 || lA < 0) return 50;
+      
+      let pUnder = 0;
+      for (let i = 0; i <= 5; i++) {
+        for (let j = 0; j <= 5; j++) {
+          if (i + j <= Math.floor(line)) {
+            const p = poisson(lH, i) * poisson(lA, j);
+            if (!isNaN(p)) pUnder += p;
+          }
+        }
+      }
+      const over = (1 - pUnder) * 100;
+      if (isNaN(over)) return 50;
+      return clamp(10, over, 90);
+    }
+    
+    function quickCalcBTTS(lH, lA, homeData, awayData) {
+      // Validazione input
+      if (isNaN(lH) || isNaN(lA) || lH < 0 || lA < 0) return 50;
+      
+      // Base Poisson: P(home ≥ 1) × P(away ≥ 1) — senza home advantage bias
+      // Per BTTS usiamo xG "neutri" (annulliamo il bias 1X2)
+      const neutralH = lH / 1.06 * 1.00; // rimuovi home boost
+      const neutralA = lA / 0.95 * 1.00; // rimuovi away penalty
+      const poissonBTTS = (1 - poisson(neutralH, 0)) * (1 - poisson(neutralA, 0)) * 100;
+      
+      if (isNaN(poissonBTTS)) return 50;
+      
+      // Se abbiamo dati difensivi, correggi con clean sheet e goals conceded
+      let adjustment = 0;
+      if (homeData && awayData) {
+        // Clean sheet avversario basso → più facile segnare → BTTS sale
+        const homeCSopp = awayData.cleanSheetPct || 25;
+        const awayCSopp = homeData.cleanSheetPct || 25;
+        // Clean sheet alto = difesa forte = meno BTTS
+        if (homeCSopp < 15) adjustment += 6;      // Difesa ospite colabrodo
+        else if (homeCSopp < 25) adjustment += 3;
+        else if (homeCSopp > 45) adjustment -= 6;  // Difesa ospite fortissima
+        else if (homeCSopp > 35) adjustment -= 3;
+        
+        if (awayCSopp < 15) adjustment += 6;
+        else if (awayCSopp < 25) adjustment += 3;
+        else if (awayCSopp > 45) adjustment -= 6;
+        else if (awayCSopp > 35) adjustment -= 3;
+        
+        // Failed to score alto → squadra non segna → BTTS scende
+        const homeFTS = homeData.failedToScorePct || 25;
+        const awayFTS = awayData.failedToScorePct || 25;
+        if (homeFTS > 40) adjustment -= 5;
+        else if (homeFTS < 15) adjustment += 3;
+        if (awayFTS > 40) adjustment -= 5;
+        else if (awayFTS < 15) adjustment += 3;
+        
+        // Goals Against alto (difesa prende tanti gol) → BTTS sale
+        const homeGA = homeData.goalsAgainst || 1.2;
+        const awayGA = awayData.goalsAgainst || 1.2;
+        if (homeGA >= 1.6) adjustment += 4; // Casa prende tanti gol → ospite segna
+        if (awayGA >= 1.6) adjustment += 4; // Ospite prende tanti gol → casa segna
+        if (homeGA <= 0.7) adjustment -= 3;
+        if (awayGA <= 0.7) adjustment -= 3;
+      }
+      
+      const result = poissonBTTS + adjustment;
+      return clamp(12, result, 88);
+    }
+    
+    // Over/Under migliorato con fattore contagiosità
+    function quickCalcOverEnhanced(lH, lA, line, homeData, awayData) {
+      // Base Poisson
+      const baseOver = quickCalcOver(lH, lA, line);
+      
+      let adjustment = 0;
+      if (homeData && awayData) {
+        const totXG = lH + lA;
+        
+        // Fattore contagiosità gol: partite con xG alto tendono ad avere più gol del previsto
+        // Poisson sottostima le code perché assume indipendenza
+        if (totXG >= 3.0 && line === 2.5) adjustment += 5;
+        if (totXG >= 3.5 && line === 2.5) adjustment += 4;
+        if (totXG >= 3.0 && line === 3.5) adjustment += 4;
+        
+        // Entrambe difese deboli → partita aperta → più gol
+        const homeGA = homeData.goalsAgainst || 1.2;
+        const awayGA = awayData.goalsAgainst || 1.2;
+        if (homeGA >= 1.4 && awayGA >= 1.4 && line >= 2.5) adjustment += 5;
+        if (homeGA >= 1.6 && awayGA >= 1.6 && line >= 2.5) adjustment += 4;
+        
+        // Entrambe attacchi forti → più gol
+        const homeGF = homeData.goalsFor || 1.3;
+        const awayGF = awayData.goalsFor || 1.1;
+        if (homeGF >= 1.6 && awayGF >= 1.2 && line >= 2.5) adjustment += 3;
+        
+        // Clean sheet basse da entrambe le parti → probabilmente tanti gol
+        const homeCS = homeData.cleanSheetPct || 25;
+        const awayCS = awayData.cleanSheetPct || 25;
+        if (homeCS < 20 && awayCS < 20 && line >= 2.5) adjustment += 5;
+      }
+      
+      return clamp(8, baseOver + adjustment, 92);
+    }
+    
+    // === ANALIZZATE DALL'AMICO — Smart pick selection ===
+    // Analizza TUTTE le partite e restituisce solo le migliori
+    // Score 0-100: probabilità + confidence + dati + xG gap + favorito + tipo pick + forma + campionato
+    // ZERO impatto sull'algoritmo — legge solo matchAdvices già calcolati
+    
+    function calculateAmicoScore(a) {
+      var score = 0, details = [];
+      var prob = a.prob || 0;
+      var conf = a.confidence || 'low';
+      var dq = a.dataQuality || 'low';
+      var p = a.p1X2 || { home: 33, draw: 33, away: 33 };
+      var xgH = parseFloat(a.xgHome || 1.3), xgA = parseFloat(a.xgAway || 1.1);
+      var xgGap = Math.abs(xgH - xgA);
+      var maxP = Math.max(p.home, p.away);
+      var pick = (a.pick || '').toLowerCase();
+      
+      // Stima quota implicita dal pick
+      var impliedOdds = prob > 0 ? 100 / prob : 5;
+      
+      // 1. Probabilità (0-25) — importante ma non dominante
+      if (prob >= 75) { score += 25; }
+      else if (prob >= 65) { score += 22; }
+      else if (prob >= 58) { score += 18; }
+      else if (prob >= 50) { score += 12; }
+      else { score += 5; }
+      
+      // 2. VALORE SCOMMESSA (0-20) — NUOVO: premia pick con quota giocabile
+      // Una quota @1.50-2.50 è la zona ideale (prob 40-67%)
+      if (impliedOdds >= 1.70 && impliedOdds <= 2.80) { score += 20; details.push('Quota ideale ~@' + impliedOdds.toFixed(2)); }
+      else if (impliedOdds >= 1.45 && impliedOdds <= 3.50) { score += 14; details.push('Quota buona ~@' + impliedOdds.toFixed(2)); }
+      else if (impliedOdds >= 1.30 && impliedOdds <= 4.00) { score += 8; }
+      else if (impliedOdds < 1.30) { score += 2; details.push('Quota troppo bassa @' + impliedOdds.toFixed(2)); }
+      else { score += 4; }
+      
+      // 3. Confidence AI (0-10)
+      if (conf === 'high') { score += 10; details.push('Alta fiducia'); }
+      else if (conf === 'medium') { score += 6; }
+      else { score += 2; }
+      
+      // 4. Qualità dati (0-8)
+      if (dq === 'high') { score += 8; details.push('Dati premium'); }
+      else if (dq === 'medium') { score += 5; }
+      else { score += 2; }
+      
+      // 5. Dominanza xG (0-10)
+      if (xgGap >= 0.8) { score += 10; details.push('xG dominante'); }
+      else if (xgGap >= 0.5) { score += 7; }
+      else if (xgGap >= 0.25) { score += 3; }
+      
+      // 6. Favorito chiaro (0-10)
+      if (maxP >= 65) { score += 10; details.push('Favorito netto'); }
+      else if (maxP >= 55) { score += 6; }
+      else if (maxP >= 48) { score += 2; }
+      
+      // 7. Tipo pick — premia mercati con buon rapporto prob/quota
+      if ((pick.startsWith('1') && !pick.includes('1x')) || (pick.startsWith('2') && !pick.includes('2x'))) {
+        if (prob >= 60) { score += 8; details.push('Segno secco forte'); }
+        else { score += 4; }
+      }
+      else if (pick.includes('1x') || pick.includes('x2')) { score += 6; details.push('Doppia Chance'); }
+      else if (pick.includes('over 2.5')) { score += 5; }
+      else if (pick.includes('over 1.5')) { 
+        // Over 1.5 è sicuro ma ha quota bassa — va bene solo come ancora multipla
+        score += 2; details.push('Over 1.5 (ancora multipla)');
+      }
+      else if (pick.includes('gg')) { score += 4; }
+      else if (pick === 'x' || pick.includes('pareggio')) { score -= 3; }
+      
+      // 8. Gap forma
+      if (a.homeFormMult && a.awayFormMult) {
+        if (Math.abs(a.homeFormMult - a.awayFormMult) >= 0.15) { score += 4; details.push('Forma diversa'); }
+      }
+      
+      // 9. Campionato top
+      if ([39,135,140,78,61,71,88,94,128,253,2,3,848].includes(a.leagueId)) { score += 4; }
+      
+      score = Math.max(0, Math.min(100, score));
+      
+      var tier, tierLabel, tierColor, tierIcon;
+      if (score >= 62) { tier = 'gold'; tierLabel = 'ORO'; tierColor = '#fbbf24'; tierIcon = '🥇'; }
+      else if (score >= 45) { tier = 'silver'; tierLabel = 'ARGENTO'; tierColor = '#94a3b8'; tierIcon = '🥈'; }
+      else if (score >= 28) { tier = 'bronze'; tierLabel = 'BRONZO'; tierColor = '#cd7f32'; tierIcon = '🥉'; }
+      else { tier = 'skip'; tierLabel = 'SKIP'; tierColor = '#ef4444'; tierIcon = '⛔'; }
+      
+      return { score: score, tier: tier, tierLabel: tierLabel, tierColor: tierColor, tierIcon: tierIcon, details: details, pick: a.pick, prob: prob, matchName: a.matchName, matchId: a.matchId, homeName: a.homeName, awayName: a.awayName, league: a.league, time: a.time, confidence: conf, impliedOdds: impliedOdds };
+    }
+    
+    function getAmicoPicks() {
+      var advices = state.dailyPicks?.matchAdvices || [];
+      if (!advices.length) {
+        // Se non ci sono picks freschi, carica da localStorage (partite già finite)
+        try {
+          var saved = JSON.parse(localStorage.getItem('bp2_amico_picks') || '{}');
+          var today = new Date();
+          today.setDate(today.getDate() + (state.selectedDate || 0));
+          var dateKey = today.toISOString().split('T')[0];
+          if (saved[dateKey] && saved[dateKey].length > 0) return saved[dateKey];
+        } catch(e) {}
+        return [];
+      }
+      var scored = [];
+      advices.forEach(function(a) { try { var s = calculateAmicoScore(a); if (s && s.tier !== 'skip') scored.push(s); } catch(e) {} });
+      scored.sort(function(a, b) { return b.score - a.score; });
+      var result = scored.slice(0, 15);
+      
+      // Salva in localStorage per persistenza
+      try {
+        var saved = JSON.parse(localStorage.getItem('bp2_amico_picks') || '{}');
+        var today = new Date();
+        today.setDate(today.getDate() + (state.selectedDate || 0));
+        var dateKey = today.toISOString().split('T')[0];
+        saved[dateKey] = result;
+        // Tieni solo ultimi 3 giorni
+        var keys = Object.keys(saved).sort();
+        while (keys.length > 3) { delete saved[keys.shift()]; }
+        localStorage.setItem('bp2_amico_picks', JSON.stringify(saved));
+      } catch(e) {}
+      
+      return result;
+    }
+    
+    function renderAmicoPicks() {
+      var picks = getAmicoPicks();
+      if (!picks.length) return '';
+      
+      var gold = picks.filter(function(p) { return p.tier === 'gold'; });
+      var silver = picks.filter(function(p) { return p.tier === 'silver'; });
+      var bronze = picks.filter(function(p) { return p.tier === 'bronze'; });
+      
+      var html = '<div class="panel" style="margin-bottom:16px;">';
+      html += '<div class="panel-title" style="margin-bottom:4px;">🎯 Analizzate dall\'Amico</div>';
+      
+      // Stats OK/KO
+      var okCount = 0, koCount = 0, pendCount = 0;
+      picks.forEach(function(p) { var r = checkPickResult(p.matchId, p.pick); if (r) { if (r.won) okCount++; else koCount++; } else { pendCount++; } });
+      var totalChecked = okCount + koCount;
+      var hitRate = totalChecked > 0 ? (okCount / totalChecked * 100).toFixed(0) : '—';
+      
+      if (totalChecked > 0) {
+        html += '<div style="display:flex;gap:8px;margin-bottom:10px;">';
+        html += '<div style="flex:1;text-align:center;padding:6px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.15);border-radius:8px;"><span style="font-size:0.9rem;font-weight:900;color:#10b981;">' + okCount + '</span><span style="font-size:0.55rem;color:var(--text-dark);"> ✅</span></div>';
+        html += '<div style="flex:1;text-align:center;padding:6px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:8px;"><span style="font-size:0.9rem;font-weight:900;color:#ef4444;">' + koCount + '</span><span style="font-size:0.55rem;color:var(--text-dark);"> ❌</span></div>';
+        html += '<div style="flex:1;text-align:center;padding:6px;background:rgba(' + (parseInt(hitRate) >= 60 ? '16,185,129' : '239,68,68') + ',0.06);border:1px solid rgba(' + (parseInt(hitRate) >= 60 ? '16,185,129' : '239,68,68') + ',0.15);border-radius:8px;"><span style="font-size:0.9rem;font-weight:900;color:' + (parseInt(hitRate) >= 60 ? '#10b981' : '#ef4444') + ';">' + hitRate + '%</span><span style="font-size:0.55rem;color:var(--text-dark);"> HR</span></div>';
+        if (pendCount > 0) html += '<div style="flex:1;text-align:center;padding:6px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;"><span style="font-size:0.9rem;font-weight:900;color:var(--text-gray);">' + pendCount + '</span><span style="font-size:0.55rem;color:var(--text-dark);"> ⏳</span></div>';
+        html += '</div>';
+      }
+      
+      html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-bottom:12px;">Top ' + picks.length + ' partite — filtrate per probabilità, dati e dominanza</div>';
+      
+      // Suggerimento strategia
+      var sug = '';
+      if (gold.length >= 3) sug = '💡 Oggi ' + gold.length + ' ORO! Multipla da 2-3 ORO (quota ~@' + gold.slice(0,3).reduce(function(q,p){return q*(p.impliedOdds||1.5)},1).toFixed(2) + '). Il resto singole.';
+      else if (gold.length >= 1) sug = '💡 ' + gold.length + ' pick ORO. Singole sulle ORO oppure 1 ORO + 1-2 ARGENTO in multipla.';
+      else if (silver.length >= 3) sug = '⚠️ Nessun ORO oggi. Multipla cautela da 2 ARGENTO max. No schedine lunghe.';
+      else sug = '🚫 Giornata debole. Valuta di NON giocare o solo singole sulle migliori.';
+      html += '<div style="padding:10px 12px;background:rgba(251,191,36,0.05);border:1px solid rgba(251,191,36,0.15);border-radius:10px;font-size:0.68rem;color:var(--text-gray);margin-bottom:14px;">' + sug + '</div>';
+      
+      function renderTier(tp, name, color, icon) {
+        if (!tp.length) return '';
+        var t = '<div style="margin-bottom:14px;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;"><span style="font-size:0.9rem;">' + icon + '</span><span style="font-size:0.72rem;font-weight:800;color:' + color + ';">' + name + '</span><span style="font-size:0.6rem;color:var(--text-dark);">(' + tp.length + ')</span></div>';
+        t += '<div style="display:flex;flex-direction:column;gap:6px;">';
+        tp.forEach(function(p) {
+          t += '<div onclick="{ const m=state.matches.find(x=>x.id===' + p.matchId + '); if(m)analyzeMatch(m); }" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-card);border:1.5px solid ' + color + '20;border-radius:10px;transition:.15s;" onmouseover="this.style.borderColor=\'' + color + '\'" onmouseout="this.style.borderColor=\'' + color + '20\'">';
+          t += '<div style="flex-shrink:0;width:38px;height:38px;border-radius:50%;background:' + color + '15;border:1.5px solid ' + color + '40;display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:900;color:' + color + ';">' + p.score + '</div>';
+          t += '<div style="flex:1;min-width:0;"><div style="font-size:0.72rem;font-weight:800;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(p.homeName) + ' - ' + esc(p.awayName) + '</div><div style="font-size:0.58rem;color:var(--text-dark);margin-top:1px;">' + esc(p.league) + ' · ' + p.time + ' ' + renderPickResultBadge(p.matchId, p.pick) + '</div></div>';
+          t += '<div style="flex-shrink:0;text-align:right;"><div style="font-size:0.75rem;font-weight:900;color:' + color + ';">' + esc(p.pick.split('(')[0].trim()) + '</div><div style="font-size:0.68rem;font-weight:700;color:var(--text-gray);">' + p.prob.toFixed(0) + '% <span style="font-size:0.55rem;color:var(--text-dark);">~@' + (p.impliedOdds ? p.impliedOdds.toFixed(2) : '?') + '</span></div></div>';
+          t += '</div>';
+        });
+        t += '</div></div>';
+        return t;
+      }
+      
+      html += renderTier(gold, 'ORO — Massima fiducia', '#fbbf24', '🥇');
+      html += renderTier(silver, 'ARGENTO — Buone opportunità', '#94a3b8', '🥈');
+      html += renderTier(bronze, 'BRONZO — Solo singole', '#cd7f32', '🥉');
+      html += '</div>';
+      return html;
+    }
+    
+    window.toggleAmicoPicks = function() { var el = document.getElementById('amicoPicksContainer'); if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none'; };
+
+    // === PICK RESULT TRACKER — Mostra ✅/❌ sulle partite finite ===
+    // Legge state.matches per i risultati — ZERO chiamate API extra
+    function checkPickResult(matchId, pick) {
+      try {
+        var m = state.matches.find(function(x) { return x.id === matchId; });
+        if (!m) return null; // partita non trovata
+        if (!['FT','AET','PEN'].includes(m.status)) return null; // non finita
+        
+        var hg = m.goals?.home, ag = m.goals?.away;
+        if (hg == null || ag == null) return null;
+        
+        var totalGoals = hg + ag;
+        var p = (pick || '').toLowerCase().trim();
+        var won = false;
+        
+        // Over/Under
+        if (p.includes('over 3.5') && totalGoals >= 4) won = true;
+        else if (p.includes('over 2.5') && totalGoals >= 3) won = true;
+        else if (p.includes('over 1.5') && totalGoals >= 2) won = true;
+        else if (p.includes('over 0.5') && totalGoals >= 1) won = true;
+        else if (p.includes('under 1.5') && totalGoals < 2) won = true;
+        else if (p.includes('under 2.5') && totalGoals < 3) won = true;
+        else if (p.includes('under 3.5') && totalGoals < 4) won = true;
+        // GG/NG
+        else if ((p === 'gg' || p.includes('entrambe segnano') || p.includes('goal/goal')) && hg > 0 && ag > 0) won = true;
+        else if ((p === 'ng' || p.includes('no gol') || p.includes('nessuna')) && (hg === 0 || ag === 0)) won = true;
+        // Doppie chance
+        else if ((p === '1x' || p.startsWith('1x ') || p.includes('casa o pareggio')) && hg >= ag) won = true;
+        else if ((p === 'x2' || p.startsWith('x2 ') || p.includes('pareggio o ospite')) && hg <= ag) won = true;
+        // 1X2
+        else if ((p === '1' || p.includes('vittoria casa') || (p.startsWith('1 ') && !p.startsWith('1x'))) && hg > ag) won = true;
+        else if ((p === 'x' || p === 'pareggio' || p.includes('pareggio)')) && hg === ag) won = true;
+        else if ((p === '2' || p.includes('vittoria ospite') || (p.startsWith('2 ') && !p.startsWith('2x'))) && hg < ag) won = true;
+        // Multigol
+        else if (p.includes('multigol 1-3') && totalGoals >= 1 && totalGoals <= 3) won = true;
+        else if (p.includes('multigol 2-4') && totalGoals >= 2 && totalGoals <= 4) won = true;
+        
+        return { won: won, score: hg + '-' + ag };
+      } catch(e) { return null; }
+    }
+    
+    function renderPickResultBadge(matchId, pick) {
+      var r = checkPickResult(matchId, pick);
+      if (!r) return ''; // non finita o non trovata
+      if (r.won) return '<span style="font-size:0.6rem;background:rgba(16,185,129,0.15);color:#10b981;padding:2px 6px;border-radius:6px;font-weight:800;">✅ ' + r.score + '</span>';
+      return '<span style="font-size:0.6rem;background:rgba(239,68,68,0.15);color:#ef4444;padding:2px 6px;border-radius:6px;font-weight:800;">❌ ' + r.score + '</span>';
+    }
+
+    // === TRADER PICKS ===
+    // Calcola i migliori picks per il trader con strategia
+    function calculateTraderPicks() {
+      if (state.matches.length === 0) return;
+      
+      const MIN_PROB_RADDOPPIO = 72;
+      const MIN_PROB_SINGOLA = 60;
+      
+      const raddoppioPicks = [];
+      const singolePicks = [];
+      
+      // Win rate storici dai tuoi dati (per warning)
+      const HISTORICAL_WINRATES = {
+        'Under': 100, 'GG': 100, '1': 91.7, '2': 88.9, '1X': 88.9, 'X': 88.9,
+        'Over 1.5': 80, 'Over 2.5': 69
+      };
+      
+      state.matches.forEach(match => {
+        if (['1H','2H','HT','ET','P','LIVE'].includes(match.status)) return;
+        
+        // Stima xG - aumentati per generare picks
+        let homeXG = 1.55, awayXG = 1.25;
+        const fsKey = `${match.home.name.toLowerCase()}_${match.away.name.toLowerCase()}`.replace(/\s+/g, '');
+        const fsMatch = state.fsData.get(fsKey);
+        
+        if (fsMatch) {
+          if (fsMatch.home_xg > 0) homeXG = fsMatch.home_xg;
+          else if (fsMatch.home_ppg > 0) homeXG = fsMatch.home_ppg * 0.85;
+          if (fsMatch.away_xg > 0) awayXG = fsMatch.away_xg;
+          else if (fsMatch.away_ppg > 0) awayXG = fsMatch.away_ppg * 0.75;
+        }
+        
+        homeXG *= 1.10;
+        awayXG *= 0.92;
+        homeXG = clamp(0.4, homeXG, 3.2);
+        awayXG = clamp(0.25, awayXG, 2.8);
+        
+        const p1X2 = quickCalc1X2(homeXG, awayXG);
+        const pOver15 = quickCalcOver(homeXG, awayXG, 1.5);
+        const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
+        const pUnder25 = 100 - pOver25;
+        const pBTTS = quickCalcBTTS(homeXG, awayXG);
+        
+        // Trova il miglior pronostico
+        const bets = [
+          { market: '1', value: '1 Casa', prob: p1X2.home, winRate: HISTORICAL_WINRATES['1'] },
+          { market: '1X', value: '1X', prob: p1X2.home + p1X2.draw, winRate: HISTORICAL_WINRATES['1X'] },
+          { market: 'X2', value: 'X2', prob: p1X2.draw + p1X2.away, winRate: HISTORICAL_WINRATES['X'] },
+          { market: '2', value: '2 Ospite', prob: p1X2.away, winRate: HISTORICAL_WINRATES['2'] },
+          { market: 'Over 1.5', value: 'Over 1.5', prob: pOver15, winRate: HISTORICAL_WINRATES['Over 1.5'] },
+          { market: 'Under 2.5', value: 'Under 2.5', prob: pUnder25, winRate: HISTORICAL_WINRATES['Under'] },
+          { market: 'GG', value: 'GG', prob: pBTTS, winRate: HISTORICAL_WINRATES['GG'] },
+          { market: 'NG', value: 'No Gol', prob: 100 - pBTTS, winRate: 100 - HISTORICAL_WINRATES['GG'] }
+        ];
+        
+        const bestBet = bets.reduce((best, b) => b.prob > best.prob ? b : best, bets[0]);
+        
+        const pick = {
+          match,
+          bet: bestBet,
+          xG: { home: homeXG, away: awayXG, total: homeXG + awayXG },
+          time: formatTime(match.date),
+          league: `${match.league.country} - ${match.league.name}`
+        };
+        
+        if (bestBet.prob >= MIN_PROB_RADDOPPIO) {
+          raddoppioPicks.push(pick);
+        } else if (bestBet.prob >= MIN_PROB_SINGOLA) {
+          singolePicks.push(pick);
+        }
+      });
+      
+      // Ordina e seleziona i migliori
+      state.traderPicks.raddoppio = raddoppioPicks.sort((a, b) => b.bet.prob - a.bet.prob).slice(0, 4);
+      state.traderPicks.singole = singolePicks.sort((a, b) => b.bet.prob - a.bet.prob).slice(0, 6);
+      
+      console.log('&#x1F4B0; Trader picks:', 
+        `Raddoppio: ${state.traderPicks.raddoppio.length}`,
+        `Singole: ${state.traderPicks.singole.length}`);
+    }
+
+    // === MONEY MANAGEMENT ===
+    // === MONEY MANAGEMENT - SISTEMA OBIETTIVO ===
+    
+    function saveMoney() {
+      localStorage.setItem('bp2_bankroll', state.money.bankroll);
+      localStorage.setItem('bp2_target', state.money.target);
+      localStorage.setItem('bp2_totalbets', state.money.totalBets);
+      localStorage.setItem('bp2_currentbet', state.money.currentBet);
+      localStorage.setItem('bp2_odds', state.money.currentOdds);
+      localStorage.setItem('bp2_history', JSON.stringify(state.money.history.slice(-30)));
+    }
+    
+    // Calcola quanto puntare per raggiungere l'obiettivo
+    function calculateStake() {
+      const { bankroll, target, totalBets, currentBet, currentOdds } = state.money;
+      const remainingBets = totalBets - currentBet + 1;
+      
+      if (remainingBets <= 0 || bankroll <= 0 || currentOdds <= 1) {
+        return { stake: 0, error: 'Parametri non validi' };
+      }
+      
+      if (bankroll >= target) {
+        return { stake: 0, reached: true };
+      }
+      
+      // Calcola il moltiplicatore necessario per giocata
+      const totalMultiplier = target / bankroll;
+      const perBetMultiplier = Math.pow(totalMultiplier, 1 / remainingBets);
+      
+      // Calcola la puntata necessaria
+      // Se vinco: bankroll + stake × (odds - 1) = bankroll × perBetMultiplier
+      const stake = bankroll * (perBetMultiplier - 1) / (currentOdds - 1);
+      
+      // Limiti di sicurezza
+      if (stake > bankroll * 0.95) {
+        return { stake: Math.round(bankroll * 0.95 * 100) / 100, warning: '⚠️ Rischio MOLTO alto!' };
+      }
+      
+      if (stake < 0.5) {
+        return { stake: 0.5, warning: 'Puntata minima €0.50' };
+      }
+      
+      return {
+        stake: Math.round(stake * 100) / 100,
+        perBetMultiplier: perBetMultiplier.toFixed(3),
+        potentialWin: Math.round(stake * (currentOdds - 1) * 100) / 100,
+        newBankroll: Math.round((bankroll + stake * (currentOdds - 1)) * 100) / 100
+      };
+    }
+    
+    function recordBetResult(won) {
+      const calc = calculateStake();
+      const stake = calc.stake || 0;
+      
+      state.money.history.push({
+        bet: state.money.currentBet,
+        date: new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}),
+        odds: state.money.currentOdds,
+        stake: stake,
+        won: won,
+        bankrollBefore: state.money.bankroll
+      });
+      
+      if (won) {
+        state.money.bankroll += stake * (state.money.currentOdds - 1);
+      } else {
+        state.money.bankroll -= stake;
+      }
+      
+      state.money.bankroll = Math.max(0, Math.round(state.money.bankroll * 100) / 100);
+      state.money.currentBet++;
+      
+      saveMoney();
+      render();
+    }
+    
+    function resetMoney() {
+      state.money.currentBet = 1;
+      state.money.history = [];
+      saveMoney();
+      render();
+    }
+    
+    function getMoneyStats() {
+      const { bankroll, target, totalBets, currentBet, currentOdds, history } = state.money;
+      const calc = calculateStake();
+      const wins = history.filter(h => h.won).length;
+      const losses = history.filter(h => !h.won).length;
+      const progress = Math.min(100, (bankroll / target) * 100);
+      
+      return {
+        bankroll,
+        target,
+        totalBets,
+        currentBet,
+        currentOdds,
+        remainingBets: Math.max(0, totalBets - currentBet + 1),
+        progress,
+        stake: calc.stake || 0,
+        warning: calc.warning,
+        error: calc.error,
+        reached: calc.reached,
+        potentialWin: calc.potentialWin || 0,
+        newBankroll: calc.newBankroll || bankroll,
+        perBetMultiplier: calc.perBetMultiplier || '-',
+        wins,
+        losses,
+        winRate: (wins + losses) > 0 ? ((wins / (wins + losses)) * 100).toFixed(0) : '-'
+      };
+    }
+
+    // === SCHEDINA (localStorage only) ===
+    function loadSlipFromLocalStorage() {
+      // Usa solo localStorage
+      try {
+        const saved = localStorage.getItem('bp2_slip');
+        if (saved) {
+          state.slip = JSON.parse(saved);
+          console.log('&#x1F4CB; Schedina caricata:', state.slip.length, 'pronostici');
+        }
+      } catch (e) {
+        console.warn('localStorage load error:', e);
+      }
+    }
+
+    function saveSlipToLocalStorage() {
+      // Usa solo localStorage
+      try {
+        localStorage.setItem('bp2_slip', JSON.stringify(state.slip));
+      } catch (e) {
+        console.warn('localStorage save error:', e);
+      }
+    }
+
+    function addToSlip(match, market, value, prob) {
+      const key = `${match.id}_${market}`;
+      const exists = state.slip.find(s => s.key === key);
+      if (exists) {
+        state.slip = state.slip.filter(s => s.key !== key);
+      } else {
+        state.slip.push({
+          key,
+          matchId: match.id,
+          matchName: `${match.home.name} vs ${match.away.name}`,
+          matchDate: match.date,
+          market,
+          value,
+          prob
+        });
+      }
+      saveSlipToLocalStorage();
+      render();
+    }
+
+    function removeFromSlip(key) {
+      state.slip = state.slip.filter(s => s.key !== key);
+      saveSlipToLocalStorage();
+      render();
+    }
+
+    function clearSlip() {
+      state.slip = [];
+      saveSlipToLocalStorage();
+      render();
+    }
+
+    function isInSlip(matchId, market) {
+      return state.slip.some(s => s.key === `${matchId}_${market}`);
+    }
+
+    // === RISULTATO REALE — Fetch & Verifica ===
+    const RESULT_CACHE_KEY = 'bp2_match_results';
+    function getResultCache() {
+      try { return JSON.parse(localStorage.getItem(RESULT_CACHE_KEY) || '{}'); } catch(e) { return {}; }
+    }
+    function saveResultCache(cache) {
+      try {
+        // Mantieni solo gli ultimi 200 risultati
+        const keys = Object.keys(cache);
+        if (keys.length > 200) {
+          keys.sort((a,b) => (cache[a].fetchedAt||0) - (cache[b].fetchedAt||0));
+          keys.slice(0, keys.length - 200).forEach(k => delete cache[k]);
+        }
+        localStorage.setItem(RESULT_CACHE_KEY, JSON.stringify(cache));
+      } catch(e) {}
+    }
+
+    async function fetchMatchResult(matchId, force) {
+      if (!matchId) return null;
+      const cache = getResultCache();
+      const key = String(matchId);
+
+      // Cache hit (non forzato): risultato valido per 10 min, FT permanente
+      if (!force && cache[key]) {
+        const age = Date.now() - (cache[key].fetchedAt || 0);
+        if (cache[key].status === 'FT' || cache[key].status === 'AET' || cache[key].status === 'PEN') return cache[key];
+        if (age < 10 * 60 * 1000) return cache[key]; // 10 min per live/NS
+      }
+
+      try {
+        const data = await callAPIFootball('/fixtures', { id: matchId });
+        if (data?.response?.[0]) {
+          const f = data.response[0];
+          const result = {
+            matchId,
+            status: f.fixture.status.short,
+            elapsed: f.fixture.status.elapsed || 0,
+            homeGoals: f.goals.home,
+            awayGoals: f.goals.away,
+            htHome: f.score?.halftime?.home,
+            htAway: f.score?.halftime?.away,
+            ftHome: f.score?.fulltime?.home,
+            ftAway: f.score?.fulltime?.away,
+            etHome: f.score?.extratime?.home,
+            etAway: f.score?.extratime?.away,
+            penHome: f.score?.penalty?.home,
+            penAway: f.score?.penalty?.away,
+            fetchedAt: Date.now()
+          };
+          cache[key] = result;
+          saveResultCache(cache);
+          // Aggiorna anche il match in state.matches
+          const m = state.matches.find(x => x.id === matchId);
+          if (m) {
+            m.status = result.status;
+            m.goals = { home: result.homeGoals, away: result.awayGoals };
+          }
+          return result;
+        }
+      } catch(e) {
+        console.warn('fetchMatchResult error:', e.message);
+      }
+      return cache[key] || null;
+    }
+
+    function isMatchFinished(match) {
+      return ['FT','AET','PEN'].includes(match?.status);
+    }
+    function isMatchLive(match) {
+      return ['1H','2H','HT','ET','P','LIVE'].includes(match?.status);
+    }
+    function isMatchPast(match) {
+      if (!match?.date) return false;
+      const kickoff = new Date(match.date).getTime();
+      // 2 ore dopo il kickoff, probabile che sia finita
+      return Date.now() > kickoff + 2 * 60 * 60 * 1000;
+    }
+
+    function verifyPredictions(match, analysis, result) {
+      if (!result || result.homeGoals == null || result.awayGoals == null) return null;
+      const hg = result.homeGoals, ag = result.awayGoals;
+      const totalGoals = hg + ag;
+      const checks = [];
+
+      // Consiglio AI
+      const ai = generateAIAdvice(match, analysis);
+      if (ai && ai.pick) {
+        const pick = ai.pick.toLowerCase();
+        let won = null;
+        // ORDINE IMPORTANTE: 1x/x2 prima di 1/2/x, over/under specifici prima di generici
+        if (pick.includes('1x') || pick.includes('casa o pareggio')) won = hg >= ag;
+        else if (pick.includes('x2') || pick.includes('pareggio o ospite')) won = ag >= hg;
+        else if (pick.includes('over 3.5')) won = totalGoals >= 4;
+        else if (pick.includes('over 2.5')) won = totalGoals >= 3;
+        else if (pick.includes('over 1.5')) won = totalGoals >= 2;
+        else if (pick.includes('under 3.5')) won = totalGoals <= 3;
+        else if (pick.includes('under 2.5')) won = totalGoals <= 2;
+        else if (pick.includes('under 1.5')) won = totalGoals <= 1;
+        else if (pick.includes('gg') || pick.includes('entrambe') || pick.includes('btts s')) won = hg > 0 && ag > 0;
+        else if (pick.includes('ng') || pick.includes('btts n')) won = hg === 0 || ag === 0;
+        else if ((pick === '1' || pick.startsWith('1 ') || pick.includes('vittoria casa')) && !pick.includes('1.5')) won = hg > ag;
+        else if (pick === '2' || pick.startsWith('2 ') || pick.includes('vittoria ospite')) won = ag > hg;
+        else if (pick === 'x' || pick.includes('pareggio')) won = hg === ag;
+        if (won !== null) checks.push({ label: '🤖 Consiglio AI', pick: ai.pick, won, prob: ai.prob });
+      }
+
+      // Statistico
+      const stat = generateStatisticalAdvice(match, analysis);
+      if (stat && stat.pick && stat.pick !== ai?.pick) {
+        const pick = stat.pick.toLowerCase();
+        let won = null;
+        if (pick.includes('1x') || pick.includes('casa o pareggio')) won = hg >= ag;
+        else if (pick.includes('x2') || pick.includes('pareggio o ospite')) won = ag >= hg;
+        else if (pick.includes('over 3.5')) won = totalGoals >= 4;
+        else if (pick.includes('over 2.5')) won = totalGoals >= 3;
+        else if (pick.includes('over 1.5')) won = totalGoals >= 2;
+        else if (pick.includes('under 3.5')) won = totalGoals <= 3;
+        else if (pick.includes('under 2.5')) won = totalGoals <= 2;
+        else if (pick.includes('under 1.5')) won = totalGoals <= 1;
+        else if (pick.includes('gg') || pick.includes('btts s')) won = hg > 0 && ag > 0;
+        else if (pick.includes('ng') || pick.includes('btts n')) won = hg === 0 || ag === 0;
+        else if ((pick === '1' || pick.startsWith('1 ') || pick.includes('vittoria casa')) && !pick.includes('1.5')) won = hg > ag;
+        else if (pick === '2' || pick.startsWith('2 ') || pick.includes('vittoria ospite')) won = ag > hg;
+        else if (pick === 'x' || pick.includes('pareggio')) won = hg === ag;
+        if (won !== null) checks.push({ label: '📊 Statistico', pick: stat.pick, won, prob: stat.prob });
+      }
+
+      // Mercati principali
+      const d = analysis;
+      checks.push({ label: '1X2', pick: d.p1X2.home > d.p1X2.draw && d.p1X2.home > d.p1X2.away ? '1' : d.p1X2.away > d.p1X2.draw ? '2' : 'X',
+        won: (d.p1X2.home > d.p1X2.draw && d.p1X2.home > d.p1X2.away && hg > ag) || (d.p1X2.away > d.p1X2.draw && d.p1X2.away > d.p1X2.home && ag > hg) || (d.p1X2.draw >= d.p1X2.home && d.p1X2.draw >= d.p1X2.away && hg === ag),
+        prob: Math.max(d.p1X2.home, d.p1X2.draw, d.p1X2.away) });
+      checks.push({ label: 'Over 2.5', pick: d.pOU[2.5].over >= 50 ? 'Over 2.5' : 'Under 2.5',
+        won: d.pOU[2.5].over >= 50 ? totalGoals >= 3 : totalGoals <= 2,
+        prob: Math.max(d.pOU[2.5].over, d.pOU[2.5].under) });
+      checks.push({ label: 'GG/NG', pick: d.pBTTS >= 50 ? 'GG' : 'NG',
+        won: d.pBTTS >= 50 ? (hg > 0 && ag > 0) : (hg === 0 || ag === 0),
+        prob: Math.max(d.pBTTS, 100 - d.pBTTS) });
+
+      // Risultato esatto top 1
+      if (d.exactScores && d.exactScores[0]) {
+        const es = d.exactScores[0];
+        checks.push({ label: 'Esatto #1', pick: es.h + '-' + es.a,
+          won: es.h === hg && es.a === ag,
+          prob: es.p || es.prob });
+      }
+
+      const wins = checks.filter(c => c.won === true).length;
+      const losses = checks.filter(c => c.won === false).length;
+      const total = checks.length;
+
+      return { checks, wins, losses, total, accuracy: total > 0 ? ((wins / total) * 100).toFixed(0) : '0' };
+    }
+
+    function renderRealResult(match, analysis) {
+      const result = getResultCache()[String(match.id)];
+      const isLive = isMatchLive(match);
+      const isFT = isMatchFinished(match);
+
+      // Se non c'è risultato e la partita non è iniziata, non mostrare nulla
+      if (!result && !isFT && !isLive) {
+        // Se la partita è passata (>2h da kickoff), mostra pulsante per fetchare
+        if (isMatchPast(match)) {
+          return '<div style="text-align:center;margin-top:10px;">' +
+            '<button onclick="refreshMatchResult(' + match.id + ')" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:8px 16px;cursor:pointer;color:#10b981;font-size:0.78rem;font-weight:700;">' +
+            '\u{1F504} Carica Risultato Finale</button></div>';
+        }
+        return '';
+      }
+      if (!result) return '';
+
+      const hg = result.homeGoals, ag = result.awayGoals;
+      if (hg == null || ag == null) return '';
+
+      const d = analysis;
+      const predictedScore = d.exactScores && d.exactScores[0] ? d.exactScores[0].h + '-' + d.exactScores[0].a : '?-?';
+      const realScore = hg + '-' + ag;
+      const exactMatch = d.exactScores && d.exactScores[0] && d.exactScores[0].h === hg && d.exactScores[0].a === ag;
+
+      const statusLabel = result.status === 'FT' ? 'FINALE' : result.status === 'AET' ? 'DOPO SUPPLEMENTARI' : result.status === 'PEN' ? 'AI RIGORI' : result.status === 'HT' ? 'INTERVALLO' : isLive ? 'LIVE ' + (result.elapsed || '') + '\'' : result.status;
+      const isFinished = ['FT','AET','PEN'].includes(result.status);
+
+      // Verifica pronostici solo se finita
+      const verification = isFinished ? verifyPredictions(match, d, result) : null;
+
+      let html = '<div class="real-result-banner' + (verification && parseInt(verification.accuracy) < 40 ? ' lost' : '') + '">';
+      html += '<div class="real-result-header">';
+      html += '<span style="font-size:0.78rem;font-weight:800;color:white;">\u{1F3C6} Risultato ' + statusLabel + '</span>';
+      html += '<span class="real-result-badge ' + (isFinished ? 'ft' : 'live') + '">' + statusLabel + '</span>';
+      html += '</div>';
+
+      // Score reale
+      html += '<div class="real-result-score-row">';
+      html += '<div class="real-result-score">' + hg + '</div>';
+      html += '<div class="real-result-vs">-</div>';
+      html += '<div class="real-result-score">' + ag + '</div>';
+      html += '</div>';
+
+      // HT score se disponibile
+      if (result.htHome != null && result.htAway != null) {
+        html += '<div style="text-align:center;font-size:0.68rem;color:var(--text-dark);margin-bottom:6px;">Primo Tempo: ' + result.htHome + ' - ' + result.htAway + '</div>';
+      }
+
+      // Confronto col previsto
+      html += '<div class="real-result-predicted">';
+      html += '<span>Previsto: <strong>' + predictedScore + '</strong></span>';
+      html += '<span style="font-size:1rem;">' + (exactMatch ? '\u2705' : '\u274C') + '</span>';
+      html += '<span>Reale: <strong>' + realScore + '</strong></span>';
+      html += '</div>';
+
+      // Verifica pronostici (solo se finita)
+      if (verification) {
+        html += '<div class="verifica-grid">';
+        verification.checks.forEach(function(c) {
+          html += '<div class="verifica-row">';
+          html += '<span class="v-label">' + c.label + '</span>';
+          html += '<span class="v-pick">' + esc(c.pick) + (c.prob ? ' (' + (typeof c.prob === 'number' ? c.prob.toFixed(0) : c.prob) + '%)' : '') + '</span>';
+          html += '<span class="v-result ' + (c.won ? 'win' : 'lose') + '">' + (c.won ? '\u2705' : '\u274C') + '</span>';
+          html += '</div>';
+        });
+        html += '</div>';
+
+        // Riepilogo
+        html += '<div class="verifica-summary">';
+        html += '<div class="verifica-stat"><div class="verifica-stat-num" style="color:#10b981;">' + verification.wins + '</div><div class="verifica-stat-label">\u2705 Azzeccati</div></div>';
+        html += '<div class="verifica-stat"><div class="verifica-stat-num" style="color:#ef4444;">' + verification.losses + '</div><div class="verifica-stat-label">\u274C Sbagliati</div></div>';
+        html += '<div class="verifica-stat"><div class="verifica-stat-num" style="color:' + (parseInt(verification.accuracy) >= 60 ? '#10b981' : parseInt(verification.accuracy) >= 40 ? '#fbbf24' : '#ef4444') + ';">' + verification.accuracy + '%</div><div class="verifica-stat-label">Accuratezza</div></div>';
+        html += '</div>';
+      }
+
+      // Pulsante aggiorna (se live o se i dati sono vecchi)
+      if (!isFinished) {
+        html += '<div style="text-align:center;margin-top:8px;">';
+        html += '<button onclick="refreshMatchResult(' + match.id + ')" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 12px;cursor:pointer;color:var(--text-dark);font-size:0.68rem;">';
+        html += '\u{1F504} Aggiorna</button></div>';
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    async function refreshMatchResult(matchId) {
+      const btn = event?.target;
+      if (btn) { btn.disabled = true; btn.textContent = '\u23F3 Caricamento...'; }
+      const result = await fetchMatchResult(matchId, true);
+      if (btn) { btn.disabled = false; btn.textContent = '\u{1F504} Aggiorna'; }
+      if (result) render();
+    }
+    window.refreshMatchResult = refreshMatchResult;
+
+    // === API STATUS CHECK ===
+    async function checkAPIStatus() {
+      console.log('&#x1F50D; Controllo stato API...');
+      
+      // Check API-Football - chiamata diretta senza proxy
+      // L'API api-sports.io supporta CORS con la chiave corretta
+      try {
+        const testUrl = `${CONFIG.API_FOOTBALL.baseURL}/status`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        const res = await fetch(testUrl, {
+          headers: {
+            'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
+            'x-rapidapi-host': 'v3.football.api-sports.io'
+          },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (res.ok) {
+          const data = await res.json();
+          state.api.football = 'online';
+          localStorage.setItem('api_football_status', 'online');
+          console.log('✅ API-Football: ONLINE', data?.response?.requests?.current || '');
+        } else {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      } catch (e) {
+        // Non impostiamo offline subito - potrebbe funzionare comunque
+        console.warn('⚠️ API-Football status check failed:', e.message);
+        // Lasciamo lo stato precedente, verrà aggiornato alla prima chiamata reale
+      }
+      
+      // FootyStats - stato offline di default, verificato on-demand
+      console.log('⚠️ FootyStats: Verifico on-demand con prima richiesta');
+    }
+
+    // === API CALLS ===
+    async function callAPIFootball(endpoint, params = {}) {
+      const url = new URL(CONFIG.API_FOOTBALL.baseURL + endpoint);
+      Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
+      try {
+        const res = await fetchWithRetry(url.toString(), {
+          headers: {
+            'x-rapidapi-key': CONFIG.API_FOOTBALL.key,
+            'x-rapidapi-host': 'v3.football.api-sports.io'
+          }
+        }, { retries: 3, baseDelay: 600, timeout: 15000, label: 'API-Football' });
+        const data = await res.json();
+        if (state.api.football !== 'online') {
+          state.api.football = 'online';
+          localStorage.setItem('api_football_status', 'online');
+          render();
+        }
+        return data;
+      } catch (e) {
+        Logger.log('callAPIFootball:' + endpoint, e);
+        if (state.api.football !== 'offline') {
+          state.api.football = 'offline';
+          localStorage.setItem('api_football_status', 'offline');
+          render();
+        }
+        return null;
+      }
+    }
+    
+    // === CLASSIFICA E POSIZIONE ===
+    async function getStandings(leagueId, season) {
+      const cacheKey = `${leagueId}_${season}`;
+      if (state.standingsCache.has(cacheKey)) {
+        return state.standingsCache.get(cacheKey);
+      }
+      
+      try {
+        const data = await callAPIFootball('/standings', { league: leagueId, season: season || 2024 });
+        if (data?.response?.[0]?.league?.standings?.[0]) {
+          const standings = data.response[0].league.standings[0];
+          state.standingsCache.set(cacheKey, standings);
+          return standings;
+        }
+      } catch (e) {
+        console.warn('Standings error:', e);
+      }
+      return null;
+    }
+    
+    function getTeamPosition(standings, teamId) {
+      if (!standings) return null;
+      const team = standings.find(s => s.team.id === teamId);
+      if (!team) return null;
+      
+      const totalTeams = standings.length;
+      const position = team.rank;
+      
+      // Calcola motivazione
+      let motivation = 'normale';
+      let motivationText = '';
+      let motivationColor = 'gray';
+      
+      if (position <= 1) {
+        motivation = 'alta';
+        motivationText = '&#x1F3C6; Lotta Scudetto';
+        motivationColor = 'gold';
+      } else if (position <= 4) {
+        motivation = 'alta';
+        motivationText = '⭐ Zona Champions';
+        motivationColor = 'cyan';
+      } else if (position <= 6) {
+        motivation = 'media-alta';
+        motivationText = '&#x1F31F; Zona Europa';
+        motivationColor = 'blue';
+      } else if (position >= totalTeams - 2) {
+        motivation = 'altissima';
+        motivationText = '&#x1F525; Zona Retrocessione';
+        motivationColor = 'red';
+      } else if (position >= totalTeams - 5) {
+        motivation = 'alta';
+        motivationText = '⚠️ Rischio Retrocessione';
+        motivationColor = 'orange';
+      } else {
+        motivation = 'normale';
+        motivationText = '➖ Metà Classifica';
+        motivationColor = 'gray';
+      }
+      
+      return {
+        position,
+        totalTeams,
+        points: team.points,
+        form: team.form,
+        played: team.all.played,
+        won: team.all.win,
+        draw: team.all.draw,
+        lost: team.all.lose,
+        goalsFor: team.all.goals.for,
+        goalsAgainst: team.all.goals.against,
+        goalDiff: team.goalsDiff,
+        motivation,
+        motivationText,
+        motivationColor
+      };
+    }
+    
+    // === INFORTUNATI ===
+    async function getInjuries(teamId, season) {
+      const cacheKey = `injuries_${teamId}_${season}`;
+      if (state.injuriesCache.has(cacheKey)) {
+        return state.injuriesCache.get(cacheKey);
+      }
+      
+      try {
+        const data = await callAPIFootball('/injuries', { team: teamId, season: season || 2024 });
+        if (data?.response) {
+          // Filtra solo infortuni attivi (ultimi 30 giorni)
+          const now = new Date();
+          const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+          
+          const injuries = data.response.filter(inj => {
+            const injDate = new Date(inj.fixture.date);
+            return injDate >= thirtyDaysAgo;
+          }).map(inj => ({
+            player: inj.player.name,
+            type: inj.player.type || 'Infortunio',
+            reason: inj.player.reason || 'Non specificato'
+          }));
+          
+          // Rimuovi duplicati
+          const uniqueInjuries = injuries.filter((inj, idx, arr) => 
+            arr.findIndex(i => i.player === inj.player) === idx
+          );
+          
+          state.injuriesCache.set(cacheKey, uniqueInjuries);
+          return uniqueInjuries;
+        }
+      } catch (e) {
+        console.warn('Injuries error:', e);
+      }
+      return [];
+    }
+    
+    // Calcola impatto infortunati sull'attacco/difesa
+    function calculateInjuryImpact(injuries) {
+      if (!injuries || injuries.length === 0) return { attack: 1.0, defense: 1.0, text: '' };
+      
+      let attackImpact = 1.0;
+      let defenseImpact = 1.0;
+      const keyPlayers = [];
+      
+      injuries.forEach(inj => {
+        // Stima impatto base: -3% per ogni infortunato
+        attackImpact *= 0.97;
+        defenseImpact *= 0.98;
+        keyPlayers.push(inj.player);
+      });
+      
+      // Limita l'impatto massimo
+      attackImpact = Math.max(0.75, attackImpact);
+      defenseImpact = Math.max(0.80, defenseImpact);
+      
+      const text = injuries.length > 0 
+        ? `${injuries.length} assenti: ${keyPlayers.slice(0, 3).join(', ')}${injuries.length > 3 ? '...' : ''}`
+        : '';
+      
+      return { attack: attackImpact, defense: defenseImpact, text };
+    }
+    
+
+    // ============================================================
+    // FORMAZIONI UFFICIALI — API-Football /fixtures/lineups
+    // Disponibili tipicamente 1h prima del calcio d'inizio
+    // ============================================================
+    async function getLineups(fixtureId) {
+      const cacheKey = 'lineups_' + fixtureId;
+      if (state.lineupsCache && state.lineupsCache.has(cacheKey)) {
+        return state.lineupsCache.get(cacheKey);
+      }
+      try {
+        const data = await callAPIFootball('/fixtures/lineups', { fixture: fixtureId });
+        if (data?.response && data.response.length >= 2) {
+          const result = { home: data.response[0], away: data.response[1], available: true };
+          if (!state.lineupsCache) state.lineupsCache = new Map();
+          state.lineupsCache.set(cacheKey, result);
+          console.log('✅ Formazioni ufficiali caricate per fixture', fixtureId);
+          return result;
+        }
+      } catch(e) {
+        Logger.log('getLineups', e, 'warn');
+      }
+      return { home: null, away: null, available: false };
+    }
+
+    // ============================================================
+    // ANALISI FORMAZIONE — Calcola impatto reale sulla forza xG
+    // Logica: posizioni pesate per contributo attacco/difesa
+    // ============================================================
+    function analyzeLineup(lineupData) {
+      if (!lineupData) return { 
+        attackStrength: 1.0, defenseStrength: 1.0, 
+        formation: 'N/D', startingXI: [], 
+        keyPlayers: [], available: false 
+      };
+
+      const formation = lineupData.formation || 'N/D';
+      const startXI   = lineupData.startXI || [];
+
+      // Pesi per posizione: quanto incide ogni ruolo su attacco e difesa
+      // Scale 0-1: 1 = impatto totale
+      const POSITION_WEIGHTS = {
+        // ATTACCO — impatto diretto sui gol
+        'F':   { attack: 1.00, defense: 0.02 }, // Forward/Attaccante
+        'FW':  { attack: 1.00, defense: 0.02 },
+        'CF':  { attack: 1.00, defense: 0.02 },
+        'ST':  { attack: 1.00, defense: 0.02 },
+        'LW':  { attack: 0.80, defense: 0.05 },
+        'RW':  { attack: 0.80, defense: 0.05 },
+        'SS':  { attack: 0.85, defense: 0.05 }, // Second striker
+        // TREQUARTI / FANTASIA
+        'AM':  { attack: 0.70, defense: 0.10 },
+        'CAM': { attack: 0.70, defense: 0.10 },
+        'OM':  { attack: 0.65, defense: 0.12 },
+        // CENTROCAMPO
+        'M':   { attack: 0.40, defense: 0.40 },
+        'CM':  { attack: 0.40, defense: 0.40 },
+        'MF':  { attack: 0.40, defense: 0.40 },
+        'DM':  { attack: 0.20, defense: 0.60 }, // Mediano difensivo
+        'CDM': { attack: 0.20, defense: 0.60 },
+        'LM':  { attack: 0.50, defense: 0.30 },
+        'RM':  { attack: 0.50, defense: 0.30 },
+        // DIFESA
+        'D':   { attack: 0.10, defense: 0.90 },
+        'CB':  { attack: 0.08, defense: 0.95 },
+        'DC':  { attack: 0.08, defense: 0.95 },
+        'LB':  { attack: 0.25, defense: 0.75 }, // Terzino — spinge
+        'RB':  { attack: 0.25, defense: 0.75 },
+        'LWB': { attack: 0.35, defense: 0.65 }, // Wingback
+        'RWB': { attack: 0.35, defense: 0.65 },
+        // PORTIERE
+        'G':   { attack: 0.00, defense: 1.00 },
+        'GK':  { attack: 0.00, defense: 1.00 },
+      };
+
+      const DEFAULT_WEIGHT = { attack: 0.40, defense: 0.40 };
+
+      // Calcola "forza" della formazione per posizione
+      let totalAttack  = 0;
+      let totalDefense = 0;
+      let playerCount  = 0;
+      const keyPlayers = [];
+
+      startXI.forEach(player => {
+        const pos = (player.player?.pos || player.pos || 'M').toUpperCase().trim();
+        const w   = POSITION_WEIGHTS[pos] || DEFAULT_WEIGHT;
+        totalAttack  += w.attack;
+        totalDefense += w.defense;
+        playerCount++;
+        keyPlayers.push({
+          name: player.player?.name || 'N/D',
+          pos,
+          number: player.player?.number || '?'
+        });
+      });
+
+      // Normalizza: con 11 giocatori "normali" = 1.0
+      // Benchmark: squadra tipo → totalAttack ~4.5, totalDefense ~4.5
+      const BENCH_ATTACK  = 4.5;
+      const BENCH_DEFENSE = 4.5;
+      const attackStrength  = playerCount > 0 ? (totalAttack  / BENCH_ATTACK)  : 1.0;
+      const defenseStrength = playerCount > 0 ? (totalDefense / BENCH_DEFENSE) : 1.0;
+
+      // Parse formazione per identificare aggressività
+      // Es: "4-3-3" → 3 attaccanti = più offensivo; "5-4-1" → meno
+      let formationBoost = 1.0;
+      if (formation && formation.includes('-')) {
+        const parts = formation.split('-').map(Number);
+        const attackers = parts[parts.length - 1] || 2;
+        if (attackers >= 3) formationBoost = 1.04;      // 3+ attaccanti
+        else if (attackers === 1) formationBoost = 0.94; // 1 solo attaccante
+      }
+
+      return {
+        attackStrength:  clamp(0.6, attackStrength  * formationBoost, 1.4),
+        defenseStrength: clamp(0.6, defenseStrength,                  1.4),
+        formation,
+        startingXI: startXI,
+        keyPlayers: keyPlayers.slice(0, 11),
+        available: true
+      };
+    }
+
+    // ============================================================
+    // QUOTE BOOKMAKER — Prior bayesiano per correggere le probabilità
+    // API-Football /odds — bookmaker: bet365 (id=1) o primo disponibile
+    // ============================================================
+    async function getBookmakerOdds(fixtureId) {
+      const cacheKey = 'odds_' + fixtureId;
+      if (state.oddsCache && state.oddsCache.has(cacheKey)) {
+        return state.oddsCache.get(cacheKey);
+      }
+      try {
+        // Cerca prima bet365 (id=1), poi William Hill (id=2), poi primo disponibile
+        const data = await callAPIFootball('/odds', { fixture: fixtureId, bookmaker: 1 });
+        let bookmakers = data?.response?.[0]?.bookmakers || [];
+        if (!bookmakers.length) {
+          // Prova senza filtro bookmaker
+          const data2 = await callAPIFootball('/odds', { fixture: fixtureId });
+          bookmakers = data2?.response?.[0]?.bookmakers || [];
+        }
+        if (!bookmakers.length) return null;
+
+        // Cerca il mercato 1X2 (Match Winner) nel primo bookmaker disponibile
+        let oddsResult = null;
+        for (const bk of bookmakers) {
+          const market1X2 = (bk.bets || []).find(b =>
+            b.name === 'Match Winner' || b.name === '1X2' || b.name === 'Home/Draw/Away'
+          );
+          if (market1X2?.values?.length >= 3) {
+            const vals  = market1X2.values;
+            const homeO = parseFloat(vals.find(v => v.value === 'Home')?.odd || 0);
+            const drawO = parseFloat(vals.find(v => v.value === 'Draw')?.odd || 0);
+            const awayO = parseFloat(vals.find(v => v.value === 'Away')?.odd || 0);
+            if (homeO > 1 && drawO > 1 && awayO > 1) {
+              // Converti quote in probabilità (rimuovi margine bookmaker)
+              const rawHome = 1 / homeO;
+              const rawDraw = 1 / drawO;
+              const rawAway = 1 / awayO;
+              const total   = rawHome + rawDraw + rawAway;
+              oddsResult = {
+                home: (rawHome / total) * 100,
+                draw: (rawDraw / total) * 100,
+                away: (rawAway / total) * 100,
+                bookmakerName: bk.name || 'Bookmaker',
+                homeOdd: homeO, drawOdd: drawO, awayOdd: awayO
+              };
+              break;
+            }
+          }
+        }
+        if (!state.oddsCache) state.oddsCache = new Map();
+        state.oddsCache.set(cacheKey, oddsResult);
+        if (oddsResult) console.log('✅ Quote bookmaker:', oddsResult.bookmakerName, oddsResult);
+        return oddsResult;
+      } catch(e) {
+        Logger.log('getBookmakerOdds', e, 'warn');
+        return null;
+      }
+    }
+
+    // ============================================================
+    // FATTORE STANCHEZZA — Dixon-Coles esteso
+    // Calcola quanti giorni sono passati dall'ultima partita
+    // ============================================================
+    function calcFatigueMultiplier(lastMatches, teamId, matchDate) {
+      if (!lastMatches || lastMatches.length === 0) return 1.0;
+      // Cerca l'ultima partita completata (status FT)
+      const finished = lastMatches.filter(m =>
+        ['FT','AET','PEN'].includes(m.fixture?.status?.short)
+      );
+      if (!finished.length) return 1.0;
+      // La più recente
+      const last = finished.reduce((best, m) =>
+        (m.fixture?.timestamp || 0) > (best.fixture?.timestamp || 0) ? m : best, finished[0]
+      );
+      const lastDate  = new Date((last.fixture?.timestamp || 0) * 1000);
+      const thisDate  = new Date(matchDate || Date.now());
+      const daysSince = (thisDate - lastDate) / (1000 * 60 * 60 * 24);
+
+      // Tabella stanchezza calibrata su dati reali:
+      // < 3 giorni = stanchezza severa (es. Champions + Serie A)
+      // 3-4 giorni = stanchezza moderata
+      // 5-6 giorni = leggera
+      // 7+ giorni = recupero completo
+      if      (daysSince < 3)  return 0.88; // -12% xG (gambe pesanti)
+      else if (daysSince < 4)  return 0.93; // -7%
+      else if (daysSince < 5)  return 0.97; // -3%
+      else if (daysSince < 7)  return 1.00; // neutro
+      else if (daysSince < 10) return 1.02; // +2% (ben riposato)
+      else                     return 1.04; // +4% (lunga sosta)
+    }
+
+    // ============================================================
+    // DIXON-COLES COMPLETO — rho dinamico + tau corretto
+    // Il modello standard usa tau() per correggere TUTTE le celle
+    // con i=0,j=0 / i=1,j=0 / i=0,j=1 / i=1,j=1
+    // rho dinamico: aumenta in partite più "compatte" (bassa produzione)
+    // ============================================================
+    function dixonColesTau(i, j, lH, lA, rho) {
+      // Funzione tau originale Dixon-Coles (1997)
+      if      (i === 0 && j === 0) return 1 - lH * lA * rho;
+      else if (i === 1 && j === 0) return 1 + lA * rho;
+      else if (i === 0 && j === 1) return 1 + lH * rho;
+      else if (i === 1 && j === 1) return 1 - rho;
+      else                         return 1; // risultati > 1 gol: nessuna correzione
+    }
+
+    function calcDixonColesRho(homeXG, awayXG) {
+      // rho dipende dalla produzione offensiva attesa:
+      // Partite "chiuse" (xG basso) → maggiore correlazione → rho più alto
+      // Partite "aperte" (xG alto) → meno dipendenza → rho basso
+      const totalXG = homeXG + awayXG;
+      if      (totalXG < 1.5) return 0.18; // partita molto chiusa
+      else if (totalXG < 2.0) return 0.14;
+      else if (totalXG < 2.5) return 0.11;
+      else if (totalXG < 3.0) return 0.09;
+      else if (totalXG < 3.5) return 0.07;
+      else                    return 0.05; // partita molto aperta
+    }
+
+
+    // === SALVA IMPOSTAZIONI ===
+    function saveSettings() {
+      localStorage.setItem('bp2_settings', JSON.stringify(state.settings));
+    }
+    
+    function updateThreshold(type, value) {
+      state.settings.thresholds[type] = parseInt(value);
+      saveSettings();
+      setSmartFilter(state.smartFilters.active);
+      render();
+    }
+    
+    function toggleSettingsPanel() {
+      state.settingsOpen = !state.settingsOpen;
+      render();
+    }
+
+    // === FOOTYSTATS API — PRO plan: chiamata diretta supportata ===
+    async function callFootyStats(endpoint, params = {}) {
+      const url = new URL(CONFIG.FOOTYSTATS.baseURL + endpoint);
+      url.searchParams.append('key', CONFIG.FOOTYSTATS.key);
+      Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
+
+      // Con API PRO FootyStats il CORS è abilitato → chiamata diretta prima
+      // Cloudflare Worker come fallback sicuro, poi corsproxy.io come ultimo
+      // Worker URL: bettingpro-ai.lucalagan.workers.dev deve rispondere con Access-Control-Allow-Origin: *
+      // Se il Worker fallisce per CORS, usiamo proxy pubblici come fallback
+      const attempts = [
+        { url: url.toString(),                                                                                 label: 'FootyStats-Direct'  },
+        { url: 'https://bettingpro-ai.lucalagan.workers.dev/footystats?target=' + encodeURIComponent(url.toString()), label: 'FootyStats-Worker'  },
+        { url: 'https://corsproxy.io/?' + encodeURIComponent(url.toString()),                                  label: 'FootyStats-CORSio'  },
+        { url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url.toString()),                     label: 'FootyStats-AllOrigins' },
+      ];
+
+      for (const attempt of attempts) {
+        try {
+          const res = await fetchWithRetry(attempt.url, {}, {
+            retries: 2, baseDelay: 500, timeout: 12000, label: attempt.label
+          });
+          const data = await res.json();
+          if (state.api.footystats !== 'online') {
+            state.api.footystats = 'online';
+            localStorage.setItem('api_footystats_status', 'online');
+            render();
+          }
+          console.log('\u2705 FootyStats OK via', attempt.label);
+          return data;
+        } catch(e) {
+          if (attempt.label === 'FootyStats-CORSio' || attempt.label === 'FootyStats-AllOrigins') {
+            console.warn('FootyStats', attempt.label, 'fallito:', e.message);
+          } else {
+            console.debug('FootyStats', attempt.label, 'fallito (CORS atteso):', e.message);
+          }
+        }
+      }
+
+      Logger.log('callFootyStats', new Error('Tutti i tentativi falliti per ' + endpoint));
+      if (state.api.footystats !== 'offline') {
+        state.api.footystats = 'offline';
+        localStorage.setItem('api_footystats_status', 'offline');
+        render();
+      }
+      return null;
+    }
+
+        // === DATA LOADING ===
+    async function loadMatches(dateOffset = 0) {
+      state.loading = true;
+      state.selectedDate = dateOffset;
+      render();
+      
+      const dateStr = getDateString(dateOffset);
+      console.log('&#x1F4C5; Loading matches for:', dateStr);
+      
+      try {
+        console.log(`&#x1F50D; Requesting fixtures for date: ${dateStr}, timezone: Europe/Rome`);
+        const data = await callAPIFootball('/fixtures', { date: dateStr, timezone: 'Europe/Rome' });
+        
+        console.log('&#x1F4E6; API Response:', data);
+        
+        if (!data) {
+          console.error('❌ API returned null/undefined');
+          state.matches = [];
+          state.leagues = [];
+          state.error = 'API non disponibile. Controlla la tua connessione o le API key.';
+        } else if (data?.response && Array.isArray(data.response)) {
+          if (data.response.length === 0) {
+            console.log(`ℹ️ Nessuna partita per ${dateStr} (questo è normale)`);
+            state.matches = [];
+            state.leagues = [];
+            state.error = null;
+          } else {
+            const leagueMap = new Map();
+            data.response.forEach(f => {
+              const key = f.league.id;
+              if (!leagueMap.has(key)) {
+                leagueMap.set(key, {
+                  id: f.league.id,
+                  name: f.league.name,
+                  country: f.league.country,
+                  logo: f.league.logo,
+                  season: f.league.season,
+                  matchCount: 0
+                });
+              }
+              leagueMap.get(key).matchCount++;
+            });
+            
+            state.leagues = Array.from(leagueMap.values())
+              .sort((a, b) => `${a.country} ${a.name}`.localeCompare(`${b.country} ${b.name}`));
+            
+            state.matches = data.response.map(f => ({
+              id: f.fixture.id,
+              date: f.fixture.date,
+              timestamp: f.fixture.timestamp,
+              status: f.fixture.status.short,
+              elapsed: f.fixture.status.elapsed,
+              league: f.league,
+              home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo },
+              away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo },
+              goals: f.goals
+            }));
+            
+            console.log(`✅ Loaded ${state.leagues.length} leagues, ${state.matches.length} matches for ${dateStr}`);
+            state.error = null;
+          }
+        } else {
+          console.error('⚠️ Invalid API response format:', data);
+          state.matches = [];
+          state.leagues = [];
+          state.error = 'Formato risposta API non valido';
+        }
+        
+        // Load FootyStats e poi calcola picks (deve aspettare fsData)
+        callFootyStats('/todays-matches', {}).then(fsData => {
+          if (fsData?.data) {
+            fsData.data.forEach(m => {
+              if (m.home_name && m.away_name) {
+                const keys = [
+                  `${m.home_name.toLowerCase()}_${m.away_name.toLowerCase()}`,
+                  m.home_name.toLowerCase().replace(/\s+/g, '') + '_' + m.away_name.toLowerCase().replace(/\s+/g, '')
+                ];
+                keys.forEach(k => state.fsData.set(k, m));
+              }
+            });
+          }
+          
+          // Calcola i picks DOPO aver caricato FootyStats
+          calculateDailyPicks();
+          calculateTraderPicks();
+          autoRecordAllPredictions();
+          startAutoRecordTimer();
+          render(); // Re-render per aggiornare i consigli
+        }).catch(e => {
+          console.warn('FootyStats load failed:', e);
+          
+          // Calcola picks anche senza FootyStats (con dati base)
+          calculateDailyPicks();
+          calculateTraderPicks();
+          autoRecordAllPredictions();
+          startAutoRecordTimer();
+          render();
+        });
+        
+      } catch (e) {
+        console.error('Load matches error:', e);
+        state.matches = [];
+        state.leagues = [];
+      } finally {
+        state.loading = false;
+        render();
+      }
+    }
+
+    // === CORNER & CARDS CALCULATIONS ===
+    function calcCorners(homeData, awayData, fsMatch) {
+      // Base: medie tipiche per corner (varia per campionato)
+      let h = 5.2, a = 4.3;
+      
+      // Usa dati FootyStats più precisi
+      if (fsMatch) {
+        if (fsMatch.home_corners && fsMatch.home_corners > 0) h = fsMatch.home_corners;
+        else if (fsMatch.team_a_corners_avg && fsMatch.team_a_corners_avg > 0) h = fsMatch.team_a_corners_avg;
+        
+        if (fsMatch.away_corners && fsMatch.away_corners > 0) a = fsMatch.away_corners;
+        else if (fsMatch.team_b_corners_avg && fsMatch.team_b_corners_avg > 0) a = fsMatch.team_b_corners_avg;
+        
+        // Se disponibile media totale
+        if (fsMatch.corners_avg && fsMatch.corners_avg > 0) {
+          const fsTotal = fsMatch.corners_avg;
+          const ratio = h / (h + a);
+          h = fsTotal * ratio;
+          a = fsTotal * (1 - ratio);
+        }
+      }
+      
+      // MIGLIORAMENTO AVANZATO: 10+ fattori che influenzano i corner
+      
+      // 1. Stile di gioco offensivo → Più attacchi → Più corner (graduale)
+      if (homeData.goalsFor >= 2.5) h *= 1.16;
+      else if (homeData.goalsFor >= 2.0) h *= 1.12;
+      else if (homeData.goalsFor >= 1.8) h *= 1.08;
+      else if (homeData.goalsFor >= 1.5) h *= 1.04;
+      
+      if (awayData.goalsFor >= 2.2) a *= 1.14;
+      else if (awayData.goalsFor >= 1.8) a *= 1.10;
+      else if (awayData.goalsFor >= 1.5) a *= 1.06;
+      else if (awayData.goalsFor >= 1.2) a *= 1.03;
+      
+      // 2. Difese deboli → Più pressione → Più corner subiti
+      if (homeData.goalsAgainst >= 2.2) a *= 1.12;
+      else if (homeData.goalsAgainst >= 1.8) a *= 1.08;
+      if (awayData.goalsAgainst >= 2.5) h *= 1.14;
+      else if (awayData.goalsAgainst >= 2.0) h *= 1.10;
+      
+      // 3. Squadre difensive chiuse generano meno corner (bloccano prima)
+      if (homeData.goalsFor <= 0.9 && homeData.goalsAgainst <= 1.0) h *= 0.86;
+      else if (homeData.goalsFor <= 1.2 && homeData.goalsAgainst <= 1.2) h *= 0.92;
+      if (awayData.goalsFor <= 0.8 && awayData.goalsAgainst <= 0.9) a *= 0.83;
+      else if (awayData.goalsFor <= 1.0 && awayData.goalsAgainst <= 1.1) a *= 0.90;
+      
+      // 4. Possesso palla → Più possesso → Più corner
+      if (fsMatch) {
+        if (fsMatch.team_a_possession && fsMatch.team_a_possession >= 62) h *= 1.10;
+        else if (fsMatch.team_a_possession && fsMatch.team_a_possession >= 58) h *= 1.06;
+        if (fsMatch.team_b_possession && fsMatch.team_b_possession >= 58) a *= 1.08;
+        else if (fsMatch.team_b_possession && fsMatch.team_b_possession >= 55) a *= 1.05;
+      }
+      
+      // 5. Forma recente (rapporto gol fatti/subiti)
+      const homeForm = (homeData.goalsFor / Math.max(homeData.goalsAgainst, 0.5));
+      const awayForm = (awayData.goalsFor / Math.max(awayData.goalsAgainst, 0.5));
+      
+      if (homeForm >= 2.2) h *= 1.08;
+      else if (homeForm >= 1.8) h *= 1.05;
+      else if (homeForm <= 0.6) h *= 0.92;
+      
+      if (awayForm >= 2.0) a *= 1.07;
+      else if (awayForm >= 1.6) a *= 1.04;
+      else if (awayForm <= 0.5) a *= 0.90;
+      
+      // 6. Win Rate alto → Squadre dominanti fanno più corner
+      if (homeData.winRate && homeData.winRate >= 65) h *= 1.06;
+      else if (homeData.winRate && homeData.winRate >= 55) h *= 1.03;
+      if (awayData.winRate && awayData.winRate >= 60) a *= 1.05;
+      else if (awayData.winRate && awayData.winRate >= 50) a *= 1.02;
+      
+      // 7. Partite aperte e ad alto punteggio → Più attacchi → Più corner
+      const homeTotalGoals = homeData.goalsFor + homeData.goalsAgainst;
+      const awayTotalGoals = awayData.goalsFor + awayData.goalsAgainst;
+      if (homeTotalGoals >= 3.5) h *= 1.05;
+      if (awayTotalGoals >= 3.2) a *= 1.04;
+      
+      // 8. Fattore casa: squadre casalinghe attaccano di più
+      h *= 1.08;
+      
+      // 9. Squadre che segnano poco ma hanno alta media gol contro = subiscono pressione
+      if (homeData.goalsFor <= 1.2 && homeData.goalsAgainst >= 1.5) a *= 1.07;
+      if (awayData.goalsFor <= 1.0 && awayData.goalsAgainst >= 1.8) h *= 1.09;
+      
+      // 10. Bilanciamento finale: squadre molto forti vs molto deboli = dominio = più corner
+      const strengthDiff = Math.abs(homeData.goalsFor - awayData.goalsFor);
+      if (strengthDiff >= 0.8) {
+        if (homeData.goalsFor > awayData.goalsFor) h *= 1.06;
+        else a *= 1.06;
+      }
+      
+      h = clamp(2.0, h, 10.0);
+      a = clamp(1.5, a, 9.0);
+      const total = h + a;
+      
+      const probs = {};
+      
+      // MIGLIORAMENTO: Distribuzione Poisson (più accurata per eventi discreti)
+      [8.5, 9.5, 10.5, 11.5].forEach(line => {
+        let pOver = 0;
+        // Calcola probabilità con Poisson
+        for (let i = 0; i <= 20; i++) {
+          const pCorners = (Math.pow(total, i) * Math.exp(-total)) / factorial(i);
+          if (i > line) pOver += pCorners;
+        }
+        pOver *= 100;
+        
+        probs[line] = { 
+          over: clamp(15, pOver, 85), 
+          under: clamp(15, 100 - pOver, 85) 
+        };
+      });
+      
+      return { home: h, away: a, total, probs };
+    }
+    
+    function calcCards(homeData, awayData, fsMatch) {
+      // Base: media cartellini per squadra
+      let h = homeData.cards || 2.1;
+      let a = awayData.cards || 1.9;
+      
+      // Usa dati FootyStats se disponibili
+      if (fsMatch) {
+        if (fsMatch.home_cards) h = fsMatch.home_cards;
+        if (fsMatch.away_cards) a = fsMatch.away_cards;
+      }
+      
+      // MIGLIORAMENTO AVANZATO: 12+ fattori che influenzano i cartellini
+      
+      // 1. Squadre sotto pressione (subiscono gol) → Più falli disperati → Più cartellini (graduale)
+      if (homeData.goalsAgainst >= 2.5) h *= 1.18;
+      else if (homeData.goalsAgainst >= 2.0) h *= 1.14;
+      else if (homeData.goalsAgainst >= 1.5) h *= 1.10;
+      else if (homeData.goalsAgainst >= 1.2) h *= 1.05;
+      
+      if (awayData.goalsAgainst >= 2.8) a *= 1.22; // Ospite subisce molto (in trasferta è peggio)
+      else if (awayData.goalsAgainst >= 2.2) a *= 1.16;
+      else if (awayData.goalsAgainst >= 1.8) a *= 1.12;
+      else if (awayData.goalsAgainst >= 1.4) a *= 1.07;
+      
+      // 2. Squadre offensive aggressive (molti gol + molti subiti = partite intense = più falli)
+      if (homeData.goalsFor >= 2.5 && homeData.goalsAgainst >= 1.8) h *= 1.12;
+      else if (homeData.goalsFor >= 2.0 && homeData.goalsAgainst >= 1.3) h *= 1.08;
+      if (awayData.goalsFor >= 2.2 && awayData.goalsAgainst >= 2.0) a *= 1.14;
+      else if (awayData.goalsFor >= 1.8 && awayData.goalsAgainst >= 1.5) a *= 1.10;
+      
+      // 3. Squadre difensive disciplinate (pochi gol, pochi subiti = gioco controllato = meno falli)
+      if (homeData.goalsFor <= 0.8 && homeData.goalsAgainst <= 0.8) h *= 0.82;
+      else if (homeData.goalsFor <= 1.0 && homeData.goalsAgainst <= 1.0) h *= 0.88;
+      if (awayData.goalsFor <= 0.7 && awayData.goalsAgainst <= 0.7) a *= 0.80;
+      else if (awayData.goalsFor <= 0.8 && awayData.goalsAgainst <= 0.8) a *= 0.85;
+      
+      // 4. Ritmo di gioco alto → Più cartellini (graduale)
+      const homeIntensity = homeData.goalsFor + homeData.goalsAgainst;
+      const awayIntensity = awayData.goalsFor + awayData.goalsAgainst;
+      
+      if (homeIntensity >= 4.0) h *= 1.10;
+      else if (homeIntensity >= 3.5) h *= 1.06;
+      if (awayIntensity >= 3.8) a *= 1.09;
+      else if (awayIntensity >= 3.2) a *= 1.05;
+      
+      // 5. Partite equilibrate (differenza xG bassa) → Più tensione → Più cartellini
+      const balanceDiff = Math.abs(homeData.goalsFor - awayData.goalsFor);
+      if (balanceDiff <= 0.2) {
+        h *= 1.12; // Partita molto equilibrata = massima tensione
+        a *= 1.12;
+      } else if (balanceDiff <= 0.3) {
+        h *= 1.08;
+        a *= 1.08;
+      } else if (balanceDiff <= 0.5) {
+        h *= 1.04;
+        a *= 1.04;
+      }
+      
+      // 6. Fattore trasferta: squadre ospiti tendono a fare più falli
+      a *= 1.08;
+      
+      // 7. Derby / Rivalità (se entrambe hanno alti cartellini medi)
+      if (h >= 2.5 && a >= 2.3) {
+        h *= 1.14; // Partita molto tesa
+        a *= 1.14;
+      } else if (h >= 2.3 && a >= 2.1) {
+        h *= 1.10;
+        a *= 1.10;
+      }
+      
+      // 8. Importanza della partita (squadre forti = partite importanti = più tensione)
+      if (homeData.goalsFor >= 2.0 && awayData.goalsFor >= 1.8) {
+        h *= 1.06;
+        a *= 1.06;
+      } else if (homeData.goalsFor >= 1.8 && awayData.goalsFor >= 1.5) {
+        h *= 1.04;
+        a *= 1.04;
+      }
+      
+      // 9. Forma recente negativa → Più frustrazione → Più falli
+      const homeForm = (homeData.goalsFor / Math.max(homeData.goalsAgainst, 0.5));
+      const awayForm = (awayData.goalsFor / Math.max(awayData.goalsAgainst, 0.5));
+      
+      if (homeForm <= 0.5) h *= 1.08; // Casa in crisi
+      else if (homeForm <= 0.7) h *= 1.04;
+      if (awayForm <= 0.4) a *= 1.10; // Ospite in crisi
+      else if (awayForm <= 0.6) a *= 1.05;
+      
+      // 10. Win rate basso → Squadre perdenti fanno più falli per disperazione
+      if (homeData.winRate && homeData.winRate <= 25) h *= 1.08;
+      else if (homeData.winRate && homeData.winRate <= 35) h *= 1.04;
+      if (awayData.winRate && awayData.winRate <= 20) a *= 1.10;
+      else if (awayData.winRate && awayData.winRate <= 30) a *= 1.05;
+      
+      // 11. Squadre veloci (molti gol) vs squadre lente (pochi gol) = più falli per fermare contropiede
+      if (homeData.goalsFor >= 2.0 && awayData.goalsFor <= 1.0) a *= 1.06;
+      if (awayData.goalsFor >= 1.8 && homeData.goalsFor <= 1.0) h *= 1.05;
+      
+      // 12. Clean sheet basso = difese che subiscono pressione = più falli
+      if (homeData.cleanSheetPct && homeData.cleanSheetPct <= 20) h *= 1.05;
+      if (awayData.cleanSheetPct && awayData.cleanSheetPct <= 15) a *= 1.06;
+      
+      h = clamp(1.0, h, 5.5);
+      a = clamp(0.8, a, 5.0);
+      const total = h + a;
+      
+      const probs = {};
+      
+      // MIGLIORAMENTO: Distribuzione Poisson
+      [2.5, 3.5, 4.5, 5.5].forEach(line => {
+        let pOver = 0;
+        // Calcola probabilità con Poisson
+        for (let i = 0; i <= 12; i++) {
+          const pCards = (Math.pow(total, i) * Math.exp(-total)) / factorial(i);
+          if (i > line) pOver += pCards;
+        }
+        pOver *= 100;
+        
+        probs[line] = { 
+          over: clamp(18, pOver, 82), 
+          under: clamp(18, 100 - pOver, 82) 
+        };
+      });
+      
+      return { home: h, away: a, total, probs };
+    }
+
+    // === ANALYSIS ENGINE ===
+    async function analyzeMatch(match) {
+      if (!match) { Logger.log('analyzeMatch', new Error('match undefined')); return; }
+      state.selectedMatch = match;
+      state.view = 'analysis';
+      state.loading = true;
+      state.analysis = null;
+      state.superAnalysis = null;
+      state.superAIAnalysis = null;
+      // v7 resets
+      state.oddsLab = null;
+      state.valueBets = null;
+      state.regressionScore = null;
+      state.consensus = null;
+      render();
+
+      // Auto-fetch risultato se partita passata o finita
+      if (isMatchFinished(match) || isMatchPast(match) || isMatchLive(match)) {
+        fetchMatchResult(match.id).then(() => { if (state.analysis) render(); }).catch(() => {});
+      }
+
+      // Controlla cache (evita chiamate API ripetute per la stessa partita)
+      const cached = getCachedAnalysis(match.id);
+      if (cached) {
+        state.analysis = cached;
+        state.loading = false;
+        
+        // Salva anche da cache nello storico variazioni
+        try {
+          const ai = generateAIAdvice(match, cached);
+          const matchName = match.home.name + ' vs ' + match.away.name;
+          savePredictionToHistory(match.id, matchName, {
+            pick: ai.pick,
+            prob: ai.prob
+          });
+        } catch(e) { console.warn('History save from cache failed:', e); }
+        
+        render();
+        if (!state.superAnalysis) {
+          try { state.superAnalysis = runSuperAlgorithm(match, cached); render(); }
+          catch(e) { Logger.log('SuperAlgo-cache', e); }
+        }
+        // v7: Calcola moduli avanzati anche da cache
+        (async () => {
+          try {
+            const oddsLab = await fetchOddsLab(match.id);
+            state.oddsLab = oddsLab;
+            if (oddsLab) state.valueBets = calculateValueBets(cached, oddsLab);
+            state.regressionScore = calculateRegressionScore(match, cached, oddsLab);
+            const aiC = generateAIAdvice(match, cached);
+            state.consensus = buildConsensusEngine(match, cached, aiC, oddsLab, state.regressionScore, state.superAIAnalysis, state.superAnalysis);
+            render();
+          } catch(e) {
+            state.regressionScore = calculateRegressionScore(match, cached, null);
+            const aiC = generateAIAdvice(match, cached);
+            state.consensus = buildConsensusEngine(match, cached, aiC, null, state.regressionScore, null, state.superAnalysis);
+            render();
+          }
+        })();
+        return;
+      }
+      
+      let homeStats = null, awayStats = null, h2h = [], apiPred = null;
+      let homeLastMatches = [], awayLastMatches = [];
+      let standings = null, homeInjuries = [], awayInjuries = [];
+      
+      try {
+        const [hs, as] = await Promise.all([
+          callAPIFootball('/teams/statistics', { team: match.home.id, league: match.league.id, season: match.league.season || 2024 }),
+          callAPIFootball('/teams/statistics', { team: match.away.id, league: match.league.id, season: match.league.season || 2024 })
+        ]);
+        homeStats = hs?.response;
+        awayStats = as?.response;
+      } catch (e) {}
+      
+      // Ottieni ultime 5 partite per calcolare form REALE
+      try {
+        const [homeLastRes, awayLastRes] = await Promise.all([
+          callAPIFootball('/fixtures', { team: match.home.id, last: 5 }),
+          callAPIFootball('/fixtures', { team: match.away.id, last: 5 })
+        ]);
+        homeLastMatches = homeLastRes?.response || [];
+        awayLastMatches = awayLastRes?.response || [];
+      } catch (e) {}
+      
+      try {
+        const h2hRes = await callAPIFootball('/fixtures/headtohead', { h2h: `${match.home.id}-${match.away.id}`, last: 10 });
+        h2h = h2hRes?.response || [];
+      } catch (e) {}
+      
+      try {
+        const predRes = await callAPIFootball('/predictions', { fixture: match.id });
+        apiPred = predRes?.response?.[0];
+      } catch (e) {}
+      
+      // NUOVO: Ottieni classifica
+      if (state.settings.showStandings) {
+        try {
+          standings = await getStandings(match.league.id, match.league.season || 2024);
+        } catch (e) {}
+      }
+      
+      // Infortunati
+      if (state.settings.showInjuries) {
+        try {
+          const [homeInj, awayInj] = await Promise.all([
+            getInjuries(match.home.id, match.league.season || 2024),
+            getInjuries(match.away.id, match.league.season || 2024)
+          ]);
+          homeInjuries = homeInj || [];
+          awayInjuries = awayInj || [];
+        } catch (e) {}
+      }
+
+      // === FORMAZIONI UFFICIALI ===
+      // Disponibili ~1h prima del kick-off — se non ancora pronte restituisce available:false
+      let homeLineup = null, awayLineup = null, lineupsAvailable = false;
+      try {
+        const lineups = await getLineups(match.id);
+        if (lineups.available) {
+          homeLineup = analyzeLineup(lineups.home);
+          awayLineup = analyzeLineup(lineups.away);
+          lineupsAvailable = true;
+          console.log('\u2705 Formazioni analizzate:', homeLineup.formation, 'vs', awayLineup.formation);
+        }
+      } catch(e) { Logger.log('lineups-fetch', e, 'warn'); }
+
+      // === QUOTE BOOKMAKER (Bayesian Prior) ===
+      let bookmakerOdds = null;
+      try {
+        bookmakerOdds = await getBookmakerOdds(match.id);
+      } catch(e) { Logger.log('odds-fetch', e, 'warn'); }
+
+      // === FATTORE STANCHEZZA ===
+      const homeFatigue = calcFatigueMultiplier(homeLastMatches, match.home.id, match.date);
+      const awayFatigue = calcFatigueMultiplier(awayLastMatches, match.away.id, match.date);
+      if (homeFatigue !== 1.0 || awayFatigue !== 1.0) {
+        console.log('\u23F1 Stanchezza:', match.home.name, homeFatigue.toFixed(2), '|', match.away.name, awayFatigue.toFixed(2));
+      }
+      
+      let fsMatch = null;
+      const fsKeys = [
+        `${match.home.name.toLowerCase()}_${match.away.name.toLowerCase()}`,
+        match.home.name.toLowerCase().replace(/\s+/g, '') + '_' + match.away.name.toLowerCase().replace(/\s+/g, '')
+      ];
+      for (const k of fsKeys) {
+        if (state.fsData.has(k)) {
+          fsMatch = state.fsData.get(k);
+          break;
+        }
+      }
+      
+      // Calcola form reale dalle ultime partite
+      const homeForm = calculateRealForm(homeLastMatches, match.home.id);
+      const awayForm = calculateRealForm(awayLastMatches, match.away.id);
+      
+      // NUOVO: Calcola posizione e motivazione
+      const homePosition = getTeamPosition(standings, match.home.id);
+      const awayPosition = getTeamPosition(standings, match.away.id);
+      
+      // NUOVO: Calcola impatto infortunati
+      const homeInjuryImpact = calculateInjuryImpact(homeInjuries);
+      const awayInjuryImpact = calculateInjuryImpact(awayInjuries);
+      
+      const rawAnalysis = buildAnalysis(match, homeStats, awayStats, h2h, apiPred, fsMatch, homeForm, awayForm, {
+        homePosition, awayPosition, homeInjuries, awayInjuries, homeInjuryImpact, awayInjuryImpact,
+        homeLineup, awayLineup, lineupsAvailable,
+        bookmakerOdds,
+        homeFatigue, awayFatigue
+      });
+      state.analysis = validateAnalysisData(rawAnalysis);
+      // Salva in cache per riuso rapido
+      if (state.analysis) setCachedAnalysis(match.id, state.analysis);
+      
+      // SALVA NELLO STORICO VARIAZIONI
+      if (state.analysis) {
+        try {
+          const ai = generateAIAdvice(match, state.analysis);
+          const matchName = match.home.name + ' vs ' + match.away.name;
+          savePredictionToHistory(match.id, matchName, {
+            pick: ai.pick,
+            prob: ai.prob
+          });
+          console.log('📜 Storico salvato:', matchName, ai.pick, ai.prob.toFixed(0) + '%', '| Tot entries:', getPredictionHistory(match.id).length);
+        } catch(e) { 
+          console.warn('⚠️ Errore salvataggio storico:', e); 
+        }
+      }
+      
+      // === v7: CALCOLO MODULI AVANZATI (non-blocking, post-render) ===
+      if (state.analysis) {
+        // Render immediato con dati base
+        state.loading = false;
+        render();
+        
+        // Poi calcola Odds Lab in background
+        try {
+          console.log('🔬 v7: Fetching Odds Lab...');
+          const oddsLab = await fetchOddsLab(match.id);
+          state.oddsLab = oddsLab;
+          
+          // Value Bets (richiede oddsLab)
+          if (oddsLab) {
+            state.valueBets = calculateValueBets(state.analysis, oddsLab);
+            console.log('✅ v7: Value Bets calcolate,', state.valueBets?.totalValueBets || 0, 'value trovate');
+          }
+          
+          // Regression Score
+          state.regressionScore = calculateRegressionScore(match, state.analysis, oddsLab);
+          console.log('✅ v7: Regression Score:', state.regressionScore?.score, state.regressionScore?.grade);
+          
+          // Consensus Engine (richiede tutti i dati)
+          const aiForConsensus = generateAIAdvice(match, state.analysis);
+          state.consensus = buildConsensusEngine(
+            match, state.analysis, aiForConsensus, oddsLab, state.regressionScore,
+            state.superAIAnalysis, state.superAnalysis
+          );
+          console.log('✅ v7: Consensus Engine:', state.consensus?.pick, state.consensus?.confidence);
+          
+          // Re-render con dati completi
+          render();
+        } catch(e) {
+          console.warn('⚠️ v7 modules partial error:', e);
+          // Calcola comunque Regression e Consensus senza oddsLab
+          state.regressionScore = calculateRegressionScore(match, state.analysis, null);
+          const aiForConsensus = generateAIAdvice(match, state.analysis);
+          state.consensus = buildConsensusEngine(match, state.analysis, aiForConsensus, null, state.regressionScore, state.superAIAnalysis, state.superAnalysis);
+          render();
+        }
+        return; // Già renderizzato sopra
+      }
+      
+      state.loading = false;
+      render();
+    }
+    
+    // Calcola form reale dalle ultime partite
+    function calculateRealForm(matches, teamId) {
+      if (!matches || matches.length === 0) return 'DDDDD';
+      
+      let form = '';
+      matches.forEach(m => {
+        const homeGoals = m.goals?.home ?? 0;
+        const awayGoals = m.goals?.away ?? 0;
+        const isHome = m.teams?.home?.id === teamId;
+        
+        if (isHome) {
+          if (homeGoals > awayGoals) form += 'W';
+          else if (homeGoals < awayGoals) form += 'L';
+          else form += 'D';
+        } else {
+          if (awayGoals > homeGoals) form += 'W';
+          else if (awayGoals < homeGoals) form += 'L';
+          else form += 'D';
+        }
+      });
+      
+      return form || 'DDDDD';
+    }
+
+    // === ALGORITMO AVANZATO ===
+    function buildAnalysis(match, homeStats, awayStats, h2h, apiPred, fsMatch, homeForm, awayForm, extraData = {}) {
+      const homeData = extractTeamData(homeStats, 'home');
+      const awayData = extractTeamData(awayStats, 'away');
+      
+      const {
+        homePosition, awayPosition, homeInjuries, awayInjuries, homeInjuryImpact, awayInjuryImpact,
+        homeLineup, awayLineup, lineupsAvailable,
+        bookmakerOdds,
+        homeFatigue, awayFatigue
+      } = extraData;
+      
+      // xG base
+      let homeXG = calculateXG(homeData, awayData, 'home', apiPred, fsMatch);
+      let awayXG = calculateXG(awayData, homeData, 'away', apiPred, fsMatch);
+
+      // === FATTORE STANCHEZZA ===
+      // Applica PRIMA degli altri aggiustamenti (moltiplicatore globale sullo xG)
+      if (homeFatigue && homeFatigue !== 1.0) {
+        homeXG *= homeFatigue;
+        console.log('\u23F1 Stanchezza casa applicata: x' + homeFatigue.toFixed(2));
+      }
+      if (awayFatigue && awayFatigue !== 1.0) {
+        awayXG *= awayFatigue;
+        console.log('\u23F1 Stanchezza ospite applicata: x' + awayFatigue.toFixed(2));
+      }
+
+      // === FORMAZIONI UFFICIALI ===
+      // Se disponibili, aggiusta xG in base alla forza effettiva dello XI titolare
+      if (lineupsAvailable && homeLineup?.available && awayLineup?.available) {
+        // Impatto attacco: quanto la formazione schierata è offensiva
+        // Peso 30% lineup (pesi posizionali) su xG calcolato con statistiche stagionali
+        const homeAttMod  = clamp(0.75, homeLineup.attackStrength,  1.30);
+        const awayAttMod  = clamp(0.75, awayLineup.attackStrength,  1.30);
+        const homeDefMod  = clamp(0.75, homeLineup.defenseStrength, 1.30);
+        const awayDefMod  = clamp(0.75, awayLineup.defenseStrength, 1.30);
+
+        // xG casa: più forte l'attacco schierato → più gol; più forte difesa ospite → meno
+        homeXG = homeXG * 0.70 + homeXG * homeAttMod  * 0.15 + homeXG * (2 - awayDefMod) * 0.15;
+        awayXG = awayXG * 0.70 + awayXG * awayAttMod  * 0.15 + awayXG * (2 - homeDefMod) * 0.15;
+        console.log('\u2705 Lineup impact → xG casa', homeXG.toFixed(3), '| ospite', awayXG.toFixed(3),
+          '| form:', homeLineup.formation, 'vs', awayLineup.formation);
+      }
+      
+      // H2H adjustment
+      if (h2h.length >= 3) {
+        const adj = analyzeH2H(h2h, match.home.id);
+        homeXG *= adj.homeMultiplier;
+        awayXG *= adj.awayMultiplier;
+      }
+      
+      // Form adjustment (ultime 5 partite)
+      if (homeForm && awayForm) {
+        const homeWins = (homeForm.match(/W/g) || []).length;
+        const homeLosses = (homeForm.match(/L/g) || []).length;
+        const awayWins = (awayForm.match(/W/g) || []).length;
+        const awayLosses = (awayForm.match(/L/g) || []).length;
+        
+        // Aggiusta xG in base al form recente
+        if (homeWins >= 4) homeXG *= 1.08; // Ottima forma casa
+        else if (homeWins >= 3) homeXG *= 1.04;
+        else if (homeLosses >= 3) homeXG *= 0.92; // Pessima forma casa
+        
+        if (awayWins >= 4) awayXG *= 1.08; // Ottima forma ospite
+        else if (awayWins >= 3) awayXG *= 1.04;
+        else if (awayLosses >= 3) awayXG *= 0.92; // Pessima forma ospite
+      }
+      
+      // NOTA: Classifica e Infortuni sono mostrati come INFO ma NON modificano i calcoli
+      // per mantenere coerenza con i pronostici storici
+      
+      // Home advantage (realistico: studi mostrano ~+6% casa, ~-5% trasferta)
+      homeXG *= 1.06;  // +6% vantaggio casa (conservativo e realistico)
+      awayXG *= 0.95;  // -5% svantaggio trasferta (conservativo e realistico)
+      
+      // Validazione anti-NaN e valori negativi
+      if (isNaN(homeXG) || homeXG < 0) homeXG = 1.2;
+      if (isNaN(awayXG) || awayXG < 0) awayXG = 1.0;
+      
+      // Clamp ai valori realistici
+      homeXG = clamp(0.25, homeXG, 3.8);
+      awayXG = clamp(0.15, awayXG, 3.2);
+      
+      const totXG = homeXG + awayXG;
+      
+      // Probabilities
+      let p1X2 = calc1X2(homeXG, awayXG);
+      const pOU = calcOU(homeXG, awayXG);
+
+      // === BAYESIAN BLENDING CON QUOTE BOOKMAKER ===
+      // I bookmaker investono milioni in modelli predittivi: le loro prob sono molto accurate
+      // Blending: 65% modello nostro + 35% prior bookmaker (solo 1X2)
+      if (bookmakerOdds && bookmakerOdds.home > 0) {
+        const BOOK_WEIGHT = 0.30; // 30% bookmaker
+        const MODEL_WEIGHT = 1 - BOOK_WEIGHT;
+        const blended = {
+          home: p1X2.home * MODEL_WEIGHT + bookmakerOdds.home * BOOK_WEIGHT,
+          draw: p1X2.draw * MODEL_WEIGHT + bookmakerOdds.draw * BOOK_WEIGHT,
+          away: p1X2.away * MODEL_WEIGHT + bookmakerOdds.away * BOOK_WEIGHT,
+        };
+        // Rinormalizza a 100
+        const tot = blended.home + blended.draw + blended.away;
+        p1X2 = { home: (blended.home/tot)*100, draw: (blended.draw/tot)*100, away: (blended.away/tot)*100 };
+        console.log('\u2705 Bayesian blending:', bookmakerOdds.bookmakerName,
+          '| Casa:', p1X2.home.toFixed(1)+'%', '| X:', p1X2.draw.toFixed(1)+'%', '| Ospite:', p1X2.away.toFixed(1)+'%');
+      }
+      
+      // BTTS avanzato: usa Poisson + dati storici clean sheet
+      let pBTTS = calcBTTS(homeXG, awayXG);
+      
+      // Aggiusta BTTS con dati clean sheet e failed to score
+      const homeWillScore = 100 - homeData.failedToScorePct; // % che la casa segna
+      const awayWillScore = 100 - awayData.failedToScorePct; // % che l'ospite segna
+      const historicalBTTS = (homeWillScore * awayWillScore) / 100;
+      
+      // Media ponderata: 60% Poisson, 40% storico
+      pBTTS = (pBTTS * 0.60) + (historicalBTTS * 0.40);
+      pBTTS = clamp(15, pBTTS, 85);
+      
+      const exactScores = calcExactScores(homeXG, awayXG);
+      
+      // Corners & Cards
+      const corners = calcCorners(homeData, awayData, fsMatch);
+      const cards = calcCards(homeData, awayData, fsMatch);
+      
+      // Build predictions
+      const predictions = buildPredictions(match, homeXG, awayXG, p1X2, pOU, pBTTS, exactScores, corners, cards);
+      
+      // Build combos
+      const combos = buildCombos(p1X2, pOU, pBTTS);
+      
+      // H2H info
+      const h2hInfo = summarizeH2H(h2h, match.home.id);
+      
+      // Multigoal analysis (tutti i range)
+      const multigoal = calcAllMultigol(homeXG, awayXG);
+      
+      // Distribuzione temporale gol
+      const temporalDistribution = calcTemporalDistribution(homeXG, awayXG);
+      
+      // Multigoal squadra
+      const multigoalHome = [
+        { range: '0', prob: calcTeamMultigol(homeXG, 0, 0) },
+        { range: '1+', prob: calcTeamMultigol(homeXG, 1, 6) },
+        { range: '2+', prob: calcTeamMultigol(homeXG, 2, 6) },
+        { range: '3+', prob: calcTeamMultigol(homeXG, 3, 6) },
+        { range: '0-1', prob: calcTeamMultigol(homeXG, 0, 1) },
+        { range: '1-2', prob: calcTeamMultigol(homeXG, 1, 2) },
+        { range: '1-3', prob: calcTeamMultigol(homeXG, 1, 3) },
+        { range: '2-3', prob: calcTeamMultigol(homeXG, 2, 3) }
+      ];
+      const multigoalAway = [
+        { range: '0', prob: calcTeamMultigol(awayXG, 0, 0) },
+        { range: '1+', prob: calcTeamMultigol(awayXG, 1, 6) },
+        { range: '2+', prob: calcTeamMultigol(awayXG, 2, 6) },
+        { range: '3+', prob: calcTeamMultigol(awayXG, 3, 6) },
+        { range: '0-1', prob: calcTeamMultigol(awayXG, 0, 1) },
+        { range: '1-2', prob: calcTeamMultigol(awayXG, 1, 2) },
+        { range: '1-3', prob: calcTeamMultigol(awayXG, 1, 3) },
+        { range: '2-3', prob: calcTeamMultigol(awayXG, 2, 3) }
+      ];
+      
+      return {
+        match,
+        xG: { home: homeXG, away: awayXG, total: totXG },
+        p1X2, pOU, pBTTS,
+        exactScores: exactScores.slice(0, 12),
+        corners, cards,
+        h2h: h2hInfo,
+        h2hInfo,
+        predictions,
+        combos,
+        multigoal,
+        temporalDistribution,
+        multigoalHome,
+        multigoalAway,
+        homeForm: homeForm || 'N/A',
+        awayForm: awayForm || 'N/A',
+        // Dati squadre per Super Algoritmo
+        homeData,
+        awayData,
+        // NUOVO: Classifica e Infortunati
+        homePosition,
+        awayPosition,
+        homeInjuries: homeInjuries || [],
+        awayInjuries: awayInjuries || [],
+        quality: (homeStats || awayStats) ? 'enhanced' : 'base',
+        // Nuovi dati v5
+        homeLineup: homeLineup || null,
+        awayLineup: awayLineup || null,
+        lineupsAvailable: lineupsAvailable || false,
+        bookmakerOdds: bookmakerOdds || null,
+        homeFatigue: homeFatigue || 1.0,
+        awayFatigue: awayFatigue || 1.0
+      };
+    }
+
+    function extractTeamData(stats, side) {
+      if (!stats) return { 
+        goalsFor: 1.3, goalsAgainst: 1.2, form: 'DDDDD', corners: 5.0, cards: 1.8,
+        cleanSheetPct: 25, failedToScorePct: 25, played: 10, wins: 4, draws: 3, losses: 3
+      };
+      
+      const goals = stats.goals || {};
+      const fixtures = stats.fixtures || {};
+      const played = (side === 'home' ? fixtures.played?.home : fixtures.played?.away) || fixtures.played?.total || 10;
+      const wins = (side === 'home' ? fixtures.wins?.home : fixtures.wins?.away) || fixtures.wins?.total || 4;
+      const draws = (side === 'home' ? fixtures.draws?.home : fixtures.draws?.away) || fixtures.draws?.total || 3;
+      const losses = (side === 'home' ? fixtures.loses?.home : fixtures.loses?.away) || fixtures.loses?.total || 3;
+      
+      const forAvg = side === 'home' 
+        ? (goals.for?.average?.home || goals.for?.average?.total || 1.3)
+        : (goals.for?.average?.away || goals.for?.average?.total || 1.1);
+      const againstAvg = side === 'home'
+        ? (goals.against?.average?.home || goals.against?.average?.total || 1.2)
+        : (goals.against?.average?.away || goals.against?.average?.total || 1.3);
+      
+      // Clean sheet e failed to score percentuali (con protezione divisione per zero)
+      const cleanSheetPct = stats.clean_sheet && played > 0 ? 
+        ((side === 'home' ? stats.clean_sheet.home : stats.clean_sheet.away) || stats.clean_sheet.total || 0) / played * 100 : 25;
+      const failedToScorePct = stats.failed_to_score && played > 0 ?
+        ((side === 'home' ? stats.failed_to_score.home : stats.failed_to_score.away) || stats.failed_to_score.total || 0) / played * 100 : 25;
+      
+      return {
+        goalsFor: parseFloat(forAvg) || 1.3,
+        goalsAgainst: parseFloat(againstAvg) || 1.2,
+        form: stats.form || 'DDDDD',
+        corners: 5.0,
+        cards: parseFloat(stats.cards?.yellow?.total) / (played || 1) || 1.8,
+        cleanSheetPct: cleanSheetPct || 25,
+        failedToScorePct: failedToScorePct || 25,
+        played, wins, draws, losses,
+        winRate: played > 0 ? (wins / played) * 100 : 40
+      };
+    }
+
+    function calculateXG(teamData, oppData, side, apiPred, fsMatch) {
+      // Base: attacco squadra vs difesa avversaria (ponderato)
+      const attackStrength = teamData.goalsFor / 1.25; // Normalizzato su media campionato ~1.25
+      const defenseWeakness = oppData.goalsAgainst / 1.25;
+      
+      let xg = 1.25 * attackStrength * defenseWeakness; // Expected goals base
+      
+      // Fattore forma recente (peso 20%)
+      const formMultiplier = calculateFormMultiplier(teamData.form);
+      xg = xg * 0.80 + xg * formMultiplier * 0.20;
+      
+      // Fattore win rate (squadre che vincono spesso segnano di più)
+      if (teamData.winRate > 60) xg *= 1.08;
+      else if (teamData.winRate < 30) xg *= 0.90;
+      
+      // Fattore clean sheet avversario (se l'avversario fa molti clean sheet, segnerai meno)
+      if (oppData.cleanSheetPct > 40) xg *= 0.88;
+      else if (oppData.cleanSheetPct < 20) xg *= 1.10;
+      
+      // Fattore failed to score (se la squadra spesso non segna)
+      if (teamData.failedToScorePct > 35) xg *= 0.85;
+      else if (teamData.failedToScorePct < 15) xg *= 1.08;
+      
+      // API Predictions (peso 35% se disponibili - sono dati molto accurati)
+      if (apiPred?.predictions?.goals) {
+        const apiGoal = side === 'home' ? parseFloat(apiPred.predictions.goals.home) : parseFloat(apiPred.predictions.goals.away);
+        if (apiGoal > 0) xg = (xg * 0.65) + (apiGoal * 0.35);
+      }
+      
+      // FootyStats xG reali (peso 40% se disponibili - sono i più accurati)
+      if (fsMatch) {
+        const fsXg = side === 'home' ? fsMatch.home_xg : fsMatch.away_xg;
+        const fsPpg = side === 'home' ? fsMatch.home_ppg : fsMatch.away_ppg;
+        const fsAvgGoals = side === 'home' ? fsMatch.avg_goals_home : fsMatch.avg_goals_away;
+        
+        if (fsXg && fsXg > 0 && !isNaN(fsXg)) {
+          xg = (xg * 0.60) + (fsXg * 0.40);
+        } else if (fsAvgGoals && fsAvgGoals > 0 && !isNaN(fsAvgGoals)) {
+          xg = (xg * 0.65) + (fsAvgGoals * 0.35);
+        } else if (fsPpg && fsPpg > 0 && !isNaN(fsPpg)) {
+          xg = (xg * 0.75) + (fsPpg * 0.6 * 0.25); // PPG convertito in gol attesi
+        }
+      }
+      
+      // Validazione finale anti-NaN
+      if (isNaN(xg) || xg < 0) xg = 1.0;
+      
+      return xg;
+    }
+
+    function calculateFormMultiplier(form) {
+      if (!form || form.length === 0) return 1.0;
+      
+      const recent = form.slice(0, 5).split('');
+      let score = 0;
+      let totalWeight = 0;
+      
+      recent.forEach((r, i) => {
+        // Peso decrescente: partita più recente conta di più
+        const weight = Math.pow(0.8, i); // 1, 0.8, 0.64, 0.51, 0.41
+        totalWeight += weight;
+        
+        if (r === 'W') score += 1.0 * weight;      // Vittoria = 1.0
+        else if (r === 'D') score += 0.35 * weight; // Pareggio = 0.35
+        else if (r === 'L') score += 0.0 * weight;  // Sconfitta = 0
+      });
+      
+      const avgScore = totalWeight > 0 ? score / totalWeight : 0.5;
+      
+      // Converti in moltiplicatore: range 0.80 - 1.20
+      // Score 0 (tutte sconfitte) -> 0.80
+      // Score 0.5 (medio) -> 1.00
+      // Score 1 (tutte vittorie) -> 1.20
+      return 0.80 + (avgScore * 0.40);
+    }
+
+    function analyzeH2H(h2h, homeId) {
+      if (!h2h || h2h.length === 0) return { homeMultiplier: 1.0, awayMultiplier: 1.0 };
+      
+      let hg = 0, ag = 0, totalWeight = 0;
+      
+      h2h.forEach((m, index) => {
+        // Peso decrescente per partite più vecchie
+        const weight = Math.pow(0.85, index); // Partite recenti contano di più
+        totalWeight += weight;
+        
+        const homeGoals = m.goals?.home || 0;
+        const awayGoals = m.goals?.away || 0;
+        
+        if (m.teams?.home?.id === homeId) {
+          hg += homeGoals * weight;
+          ag += awayGoals * weight;
+        } else {
+          hg += awayGoals * weight;
+          ag += homeGoals * weight;
+        }
+      });
+      
+      // Normalizza per il peso totale
+      const avgHome = totalWeight > 0 ? hg / totalWeight : 1.2;
+      const avgAway = totalWeight > 0 ? ag / totalWeight : 1.0;
+      const avgTotal = (avgHome + avgAway) / 2;
+      
+      // Calcola moltiplicatori con range più ampio per H2H significativi
+      const homeMultiplier = avgTotal > 0.1 ? clamp(0.85, avgHome / avgTotal, 1.15) : 1.0;
+      const awayMultiplier = avgTotal > 0.1 ? clamp(0.85, avgAway / avgTotal, 1.15) : 1.0;
+      
+      return { homeMultiplier, awayMultiplier };
+    }
+
+    function summarizeH2H(h2h, homeId) {
+      const info = { matches: h2h.length, homeWins: 0, draws: 0, awayWins: 0, totalGoals: 0 };
+      h2h.forEach(m => {
+        const hg = m.goals?.home || 0, ag = m.goals?.away || 0;
+        info.totalGoals += hg + ag;
+        if (m.teams?.home?.id === homeId) {
+          if (hg > ag) info.homeWins++; else if (hg < ag) info.awayWins++; else info.draws++;
+        } else {
+          if (ag > hg) info.homeWins++; else if (ag < hg) info.awayWins++; else info.draws++;
+        }
+      });
+      info.avgGoals = info.matches ? (info.totalGoals / info.matches).toFixed(1) : '2.5';
+      return info;
+    }
+
+    // calc1X2 aggiornato: usa Dixon-Coles tau per coerenza con calcExactScores
+    function calc1X2(lH, lA) {
+      if (isNaN(lH) || isNaN(lA) || lH < 0 || lA < 0) {
+        return { home: 33.33, draw: 33.33, away: 33.33 };
+      }
+      const rho = calcDixonColesRho(lH, lA);
+      let pH = 0, pD = 0, pA = 0;
+      for (let i = 0; i <= 6; i++) {
+        for (let j = 0; j <= 6; j++) {
+          const rawP = poisson(lH, i) * poisson(lA, j);
+          const p    = rawP * dixonColesTau(i, j, lH, lA, rho);
+          if (isNaN(p) || p < 0) continue;
+          if (i > j) pH += p; else if (i === j) pD += p; else pA += p;
+        }
+      }
+      const t = pH + pD + pA;
+      // Protezione divisione per zero e NaN
+      if (t === 0 || isNaN(t)) return { home: 33.33, draw: 33.33, away: 33.33 };
+      return { home: (pH/t)*100, draw: (pD/t)*100, away: (pA/t)*100 };
+    }
+
+    function calcBTTS(lH, lA) {
+      // Validazione input
+      if (isNaN(lH) || isNaN(lA) || lH < 0 || lA < 0) return 50;
+      
+      const pBTTS = (1 - poisson(lH, 0)) * (1 - poisson(lA, 0)) * 100;
+      if (isNaN(pBTTS)) return 50;
+      
+      // Per BTTS non vogliamo il bias casa - entrambe devono poter segnare
+      // Il bias è già applicato agli xG, quindi aggiungiamo una correzione
+      // che "restituisce" un po' di probabilità all'ospite
+      const awayCorrected = pBTTS + 2; // +2% compensazione bias ospite
+      
+      return clamp(15, awayCorrected, 88);
+    }
+
+    function calcOU(lH, lA) {
+      // Validazione input
+      if (isNaN(lH) || isNaN(lA) || lH < 0 || lA < 0) {
+        return {
+          1.5: { over: 50, under: 50 },
+          2.5: { over: 50, under: 50 },
+          3.5: { over: 50, under: 50 },
+          4.5: { over: 50, under: 50 }
+        };
+      }
+      
+      const result = {};
+      [1.5, 2.5, 3.5, 4.5].forEach(line => {
+        let pU = 0;
+        for (let i = 0; i <= 6; i++) {
+          for (let j = 0; j <= 6; j++) {
+            if (i + j <= Math.floor(line)) {
+              const p = poisson(lH, i) * poisson(lA, j);
+              if (!isNaN(p)) pU += p; // Aggiungi solo se valido
+            }
+          }
+        }
+        const over = (1 - pU) * 100;
+        const under = pU * 100;
+        result[line] = { 
+          over: isNaN(over) ? 50 : clamp(5, over, 95), 
+          under: isNaN(under) ? 50 : clamp(5, under, 95) 
+        };
+      });
+      return result;
+    }
+
+    // Dixon-Coles COMPLETO con rho dinamico e tau corretto per tutti i risultati bassi
+    function calcExactScores(lH, lA) {
+      const scores = [];
+      const rho = calcDixonColesRho(lH, lA); // rho dinamico basato sulla produzione attesa
+
+      for (let i = 0; i <= 6; i++) {
+        for (let j = 0; j <= 6; j++) {
+          const rawP  = poisson(lH, i) * poisson(lA, j);
+          const tau   = dixonColesTau(i, j, lH, lA, rho); // correzione Dixon-Coles originale
+          const corrP = rawP * tau;
+          if (corrP > 0 && !isNaN(corrP)) scores.push({ h: i, a: j, p: corrP * 100 });
+        }
+      }
+
+      // Normalizza (la correzione tau altera lievemente la somma)
+      const total = scores.reduce((sum, s) => sum + s.p, 0);
+      if (total > 0) scores.forEach(s => { s.p = (s.p / total) * 100; s.prob = s.p; });
+
+      return scores.sort((a, b) => b.p - a.p);
+    }
+
+    function calcMultigol(lH, lA, min, max) {
+      let prob = 0;
+      for (let i = 0; i <= 6; i++) {
+        for (let j = 0; j <= 6; j++) {
+          const t = i + j;
+          if (t >= min && t <= max) prob += poisson(lH, i) * poisson(lA, j);
+        }
+      }
+      return prob * 100;
+    }
+    
+    // Calcola TUTTI i range multigoal
+    function calcAllMultigol(homeXG, awayXG) {
+      const ranges = [
+        { name: '0-1', min: 0, max: 1 },
+        { name: '0-2', min: 0, max: 2 },
+        { name: '0-3', min: 0, max: 3 },
+        { name: '1-2', min: 1, max: 2 },
+        { name: '1-3', min: 1, max: 3 },
+        { name: '1-4', min: 1, max: 4 },
+        { name: '2-3', min: 2, max: 3 },
+        { name: '2-4', min: 2, max: 4 },
+        { name: '2-5', min: 2, max: 5 },
+        { name: '3-5', min: 3, max: 5 },
+        { name: '3-6', min: 3, max: 6 }
+      ];
+      
+      return ranges.map(r => {
+        const prob = calcMultigol(homeXG, awayXG, r.min, r.max);
+        return {
+          range: r.name,
+          min: r.min,
+          max: r.max,
+          prob: prob,
+          quota: prob > 0 ? (100 / prob).toFixed(2) : '99.00'
+        };
+      }).sort((a, b) => b.prob - a.prob);
+    }
+    
+    // Calcola distribuzione gol esatti con Poisson (per visualizzazione)
+    function calcGoalDistribution(homeXG, awayXG) {
+      const dist = [];
+      const total = homeXG + awayXG;
+      for (let g = 0; g <= 6; g++) {
+        const prob = (Math.pow(total, g) * Math.exp(-total)) / factorial(g);
+        dist.push({ goals: g, prob: prob * 100 });
+      }
+      return dist;
+    }
+    
+    // Smart Multigol Pick — trova il range ottimale
+    function getSmartMultigolPick(homeXG, awayXG) {
+      const allMG = calcAllMultigol(homeXG, awayXG);
+      const totXG = homeXG + awayXG;
+      
+      // Il range ideale: probabilità >= 55%, range stretto (2 gol differenza), che copra gli xG
+      const candidates = allMG.filter(mg => {
+        const rangeWidth = mg.max - mg.min;
+        return mg.prob >= 40 && rangeWidth <= 3;
+      });
+      
+      // Score: prob alta + range stretto (2 range > 3 range) + copre xG totale
+      const scored = candidates.map(mg => {
+        const rangeWidth = mg.max - mg.min;
+        const coversXG = totXG >= mg.min && totXG <= mg.max;
+        const probScore = mg.prob * 1.0;
+        const widthBonus = rangeWidth === 1 ? 15 : rangeWidth === 2 ? 10 : 0; // Range stretto = quota alta
+        const coverBonus = coversXG ? 10 : 0;
+        return { ...mg, score: probScore + widthBonus + coverBonus };
+      });
+      
+      scored.sort((a, b) => b.score - a.score);
+      
+      if (scored.length === 0) return allMG[0]; // fallback al migliore per prob
+      
+      const best = scored[0];
+      // Livello confidenza
+      if (best.prob >= 65) best.confidence = 'alta';
+      else if (best.prob >= 50) best.confidence = 'media';
+      else best.confidence = 'bassa';
+      
+      return best;
+    }
+    
+    // Calcola distribuzione gol per tempo
+    function calcTemporalDistribution(homeXG, awayXG) {
+      // Statisticamente: ~42% gol nel 1T, ~58% nel 2T
+      const homeXG_1T = homeXG * 0.42;
+      const homeXG_2T = homeXG * 0.58;
+      const awayXG_1T = awayXG * 0.42;
+      const awayXG_2T = awayXG * 0.58;
+      
+      const totXG_1T = homeXG_1T + awayXG_1T;
+      const totXG_2T = homeXG_2T + awayXG_2T;
+      
+      // Calcola over/under per tempo
+      const over05_1T = calcMultigol(homeXG_1T, awayXG_1T, 1, 6);
+      const over15_1T = calcMultigol(homeXG_1T, awayXG_1T, 2, 6);
+      const over05_2T = calcMultigol(homeXG_2T, awayXG_2T, 1, 6);
+      const over15_2T = calcMultigol(homeXG_2T, awayXG_2T, 2, 6);
+      
+      // Tempo con più gol
+      const piuGol1T = totXG_1T > totXG_2T;
+      const probPiuGol = piuGol1T ? 
+        (totXG_1T / (totXG_1T + totXG_2T)) * 100 :
+        (totXG_2T / (totXG_1T + totXG_2T)) * 100;
+      
+      return {
+        primoTempo: {
+          xG: totXG_1T,
+          over05: over05_1T,
+          over15: over15_1T
+        },
+        secondoTempo: {
+          xG: totXG_2T,
+          over05: over05_2T,
+          over15: over15_2T
+        },
+        tempoConPiuGol: piuGol1T ? '1° Tempo' : '2° Tempo',
+        probTempoConPiuGol: probPiuGol
+      };
+    }
+
+    function calcTeamMultigol(l, min, max) {
+      let prob = 0;
+      for (let i = min; i <= max; i++) prob += poisson(l, i);
+      return prob * 100;
+    }
+
+    function buildPredictions(match, homeXG, awayXG, p1X2, pOU, pBTTS, exactScores, corners, cards) {
+      const preds = [];
+      const totXG = homeXG + awayXG;
+      
+      // xG Primo Tempo (circa 45% dei gol nel 1T)
+      const homeXG_1T = homeXG * 0.45;
+      const awayXG_1T = awayXG * 0.45;
+      
+      // 1X2
+      const max1X2 = Math.max(p1X2.home, p1X2.draw, p1X2.away);
+      let esito = p1X2.home === max1X2 ? '1' : (p1X2.away === max1X2 ? '2' : 'X');
+      preds.push({ market: 'Esito 1X2', value: esito, prob: max1X2 });
+      
+      // GG/NG
+      preds.push({ market: 'GG/NG', value: pBTTS >= 50 ? 'GG' : 'NG', prob: pBTTS >= 50 ? pBTTS : 100-pBTTS });
+      
+      // Over/Under 2.5
+      preds.push({ market: 'O/U 2.5', value: pOU[2.5].over >= 50 ? 'Over 2.5' : 'Under 2.5', prob: Math.max(pOU[2.5].over, pOU[2.5].under) });
+      
+      // Over/Under 1.5
+      preds.push({ market: 'O/U 1.5', value: pOU[1.5].over >= 50 ? 'Over 1.5' : 'Under 1.5', prob: Math.max(pOU[1.5].over, pOU[1.5].under) });
+      
+      // === OVER PRIMO TEMPO ===
+      const pOver05_1T = calcOver1T(homeXG_1T, awayXG_1T, 0.5);
+      const pOver15_1T = calcOver1T(homeXG_1T, awayXG_1T, 1.5);
+      
+      // Over 0.5 1T
+      preds.push({ market: 'O/U 0.5 1T', value: pOver05_1T >= 50 ? 'Over 0.5 1T' : 'Under 0.5 1T', prob: Math.max(pOver05_1T, 100 - pOver05_1T) });
+      
+      // Over 1.5 1T (solo se xG è alto)
+      if (totXG >= 2.5) {
+        preds.push({ market: 'O/U 1.5 1T', value: pOver15_1T >= 50 ? 'Over 1.5 1T' : 'Under 1.5 1T', prob: Math.max(pOver15_1T, 100 - pOver15_1T) });
+      }
+      
+      // Multigol
+      const mg13 = calcMultigol(homeXG, awayXG, 1, 3);
+      const mg24 = calcMultigol(homeXG, awayXG, 2, 4);
+      preds.push({ market: 'Multigol', value: totXG < 2.8 ? '1-3' : '2-4', prob: totXG < 2.8 ? mg13 : mg24 });
+      
+      // MG Casa 1-3
+      const mgH = calcTeamMultigol(homeXG, 1, 3);
+      preds.push({ market: 'MG Casa', value: '1-3', prob: mgH });
+      
+      // MG Ospite 1-3
+      const mgA = calcTeamMultigol(awayXG, 1, 3);
+      preds.push({ market: 'MG Ospite', value: '1-3', prob: mgA });
+      
+      // Miglior Multigol (sostitutivo di Corner e Cartellini)
+      const mgRanges = calcAllMultigol(homeXG, awayXG);
+      if (mgRanges.length > 0) {
+        const bestMG = mgRanges[0]; // range con prob più alta
+        preds.push({ market: 'Multigol', value: bestMG.range, prob: bestMG.prob });
+        // Secondo miglior multigol come alternativa
+        if (mgRanges.length > 1) {
+          preds.push({ market: 'Multigol Alt', value: mgRanges[1].range, prob: mgRanges[1].prob });
+        }
+      }
+      
+      // Risultato Esatto
+      preds.push({ market: 'Ris. Esatto', value: `${exactScores[0].h}-${exactScores[0].a}`, prob: exactScores[0].p });
+      
+      return preds.sort((a, b) => b.prob - a.prob);
+    }
+    
+    // Calcola Over Primo Tempo
+    function calcOver1T(homeXG_1T, awayXG_1T, line) {
+      let pUnder = 0;
+      for (let i = 0; i <= 4; i++) {
+        for (let j = 0; j <= 4; j++) {
+          if (i + j <= Math.floor(line)) {
+            pUnder += poisson(homeXG_1T, i) * poisson(awayXG_1T, j);
+          }
+        }
+      }
+      return clamp(10, (1 - pUnder) * 100, 90);
+    }
+
+    function buildCombos(p1X2, pOU, pBTTS) {
+      const combos = [];
+      
+      // 1X + Over 1.5
+      const p1X = p1X2.home + p1X2.draw;
+      const o15 = pOU[1.5].over;
+      combos.push({ value: '1X + Over 1.5', prob: (p1X * o15) / 100, odds: (100 / ((p1X * o15) / 100)).toFixed(2) });
+      
+      // 1 + Over 1.5
+      combos.push({ value: '1 + Over 1.5', prob: (p1X2.home * o15) / 100, odds: (100 / ((p1X2.home * o15) / 100)).toFixed(2) });
+      
+      // GG + Under 3.5
+      const u35 = pOU[3.5].under;
+      combos.push({ value: 'GG + Under 3.5', prob: (pBTTS * u35) / 100, odds: (100 / ((pBTTS * u35) / 100)).toFixed(2) });
+      
+      // GG + Over 2.5
+      const o25 = pOU[2.5].over;
+      combos.push({ value: 'GG + Over 2.5', prob: (pBTTS * o25) / 100, odds: (100 / ((pBTTS * o25) / 100)).toFixed(2) });
+      
+      return combos.sort((a, b) => b.prob - a.prob);
+    }
+    
+    // === STATISTICAL ADVICE - Pronostico basato SOLO sulla probabilità più alta ===
+    function generateStatisticalAdvice(match, analysis) {
+      const { predictions } = analysis;
+      const bestPrediction = predictions.reduce((best, current) => {
+        return current.prob > best.prob ? current : best;
+      }, predictions[0]);
+      let confidence = 'medium';
+      if (bestPrediction.prob >= 70) confidence = 'high';
+      else if (bestPrediction.prob < 55) confidence = 'low';
+      const alternatives = predictions
+        .filter(p => p.market !== bestPrediction.market)
+        .sort((a, b) => b.prob - a.prob)
+        .slice(0, 3)
+        .map(p => ({ pick: p.value, prob: p.prob.toFixed(0) }));
+      return {
+        pick: bestPrediction.value,
+        market: bestPrediction.market,
+        prob: bestPrediction.prob,
+        confidence,
+        alternatives
+      };
+    }
+
+    // === AI ADVICE - Genera il consiglio intelligente ===
+    function generateAIAdvice(match, analysis) {
+      const { xG, p1X2, pOU, pBTTS, exactScores } = analysis;
+      const homeXG = xG.home;
+      const awayXG = xG.away;
+      const totXG = xG.total;
+      
+      const advice = {
+        pick: '',
+        prob: 0,
+        confidence: 'medium',
+        reasons: [],
+        alternatives: []
+      };
+      
+      // Analisi della partita
+      const homeStrong = homeXG > 1.8;
+      const awayWeak = awayXG < 0.8;
+      const awayStrong = awayXG > 1.5;
+      const homeWeak = homeXG < 1.0;
+      const highScoring = totXG >= 2.7;
+      const veryHighScoring = totXG >= 3.2;
+      const lowScoring = totXG < 2.2;
+      const balanced = Math.abs(homeXG - awayXG) < 0.5;
+      const ggLikely = pBTTS >= 52 && homeXG > 0.85 && awayXG > 0.8;
+      
+      // Protezione 1X2: se una squadra ha prob forte, NON proporre GG/Over
+      const has1Strong = p1X2.home >= 58;
+      const has2Strong = p1X2.away >= 52;
+      
+      // === LOGICA DI SELEZIONE === PRIORITÀ: 1X2 PRIMA, poi GG/Over
+      
+      // CASO 1: Casa dominante (xG casa alto, ospite basso)
+      if (homeStrong && awayWeak && p1X2.home >= 68) {
+        advice.pick = '1 (Vittoria Casa)';
+        advice.prob = p1X2.home;
+        advice.confidence = p1X2.home >= 78 ? 'high' : 'medium';
+        advice.reasons.push({ text: `xG Casa ${homeXG.toFixed(2)} molto superiore`, type: 'positive' });
+        advice.reasons.push({ text: `xG Ospite solo ${awayXG.toFixed(2)}`, type: 'positive' });
+        advice.reasons.push({ text: `Probabilità ${p1X2.home.toFixed(0)}% favorevole`, type: 'positive' });
+        
+        if (highScoring) {
+          advice.alternatives.push({ pick: '1 + Over 1.5', prob: ((p1X2.home * pOU[1.5].over) / 100).toFixed(0) });
+        }
+        advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
+      }
+      // CASO 2: Trasferta dominante
+      else if (awayStrong && homeWeak && p1X2.away >= 63) {
+        advice.pick = '2 (Vittoria Ospite)';
+        advice.prob = p1X2.away;
+        advice.confidence = p1X2.away >= 73 ? 'high' : 'medium';
+        advice.reasons.push({ text: `xG Ospite ${awayXG.toFixed(2)} superiore`, type: 'positive' });
+        advice.reasons.push({ text: `xG Casa debole ${homeXG.toFixed(2)}`, type: 'positive' });
+        
+        advice.alternatives.push({ pick: 'X2', prob: (p1X2.away + p1X2.draw).toFixed(0) });
+      }
+      // CASO 2B: Casa forte anche senza strong/weak conditions
+      else if (p1X2.home >= 65) {
+        advice.pick = '1 (Vittoria Casa)';
+        advice.prob = p1X2.home;
+        advice.confidence = p1X2.home >= 75 ? 'high' : 'medium';
+        advice.reasons.push({ text: `Probabilità vittoria casa ${p1X2.home.toFixed(0)}%`, type: 'positive' });
+        advice.reasons.push({ text: `xG: ${homeXG.toFixed(2)} vs ${awayXG.toFixed(2)}`, type: 'positive' });
+        advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
+      }
+      // CASO 2C: Ospite forte anche senza conditions
+      else if (p1X2.away >= 58) {
+        advice.pick = '2 (Vittoria Ospite)';
+        advice.prob = p1X2.away;
+        advice.confidence = p1X2.away >= 68 ? 'high' : 'medium';
+        advice.reasons.push({ text: `Probabilità vittoria ospite ${p1X2.away.toFixed(0)}%`, type: 'positive' });
+        advice.alternatives.push({ pick: 'X2', prob: (p1X2.away + p1X2.draw).toFixed(0) });
+      }
+      // CASO 3: Over 2.5 (SOLO se nessuna squadra è forte in 1X2)
+      else if (veryHighScoring && pOU[2.5].over >= 65 && !has1Strong && !has2Strong) {
+        advice.pick = 'Over 2.5';
+        advice.prob = pOU[2.5].over;
+        advice.confidence = pOU[2.5].over >= 75 ? 'high' : 'medium';
+        advice.reasons.push({ text: `xG Totale ${totXG.toFixed(2)} molto alto`, type: 'positive' });
+        advice.reasons.push({ text: `Entrambe le squadre segnano regolarmente`, type: 'positive' });
+        
+        advice.alternatives.push({ pick: 'Over 1.5 1T', prob: '60+' });
+        advice.alternatives.push({ pick: 'Over 3.5', prob: pOU[3.5].over.toFixed(0) });
+        if (ggLikely) advice.alternatives.push({ pick: 'GG', prob: pBTTS.toFixed(0) });
+      }
+      // CASO 4: GG (SOLO se nessuna squadra è forte in 1X2)
+      else if (ggLikely && pBTTS >= 58 && !has1Strong && !has2Strong) {
+        advice.pick = 'GG (Entrambe Segnano)';
+        advice.prob = pBTTS;
+        advice.confidence = pBTTS >= 68 ? 'high' : 'medium';
+        advice.reasons.push({ text: `xG Casa ${homeXG.toFixed(2)} - segnerà`, type: 'positive' });
+        advice.reasons.push({ text: `xG Ospite ${awayXG.toFixed(2)} - segnerà`, type: 'positive' });
+        
+        if (highScoring) advice.alternatives.push({ pick: 'GG + Over 2.5', prob: ((pBTTS * pOU[2.5].over) / 100).toFixed(0) });
+        advice.alternatives.push({ pick: 'Over 2.5', prob: pOU[2.5].over.toFixed(0) });
+      }
+      // CASO 5: Over 1.5 sicuro
+      else if (pOU[1.5].over >= 80) {
+        advice.pick = 'Over 1.5';
+        advice.prob = pOU[1.5].over;
+        advice.confidence = 'high';
+        advice.reasons.push({ text: `Probabilità ${pOU[1.5].over.toFixed(0)}% molto alta`, type: 'positive' });
+        advice.reasons.push({ text: `xG Totale ${totXG.toFixed(2)} supporta gol`, type: 'positive' });
+        
+        advice.alternatives.push({ pick: '1X + Over 1.5', prob: (((p1X2.home + p1X2.draw) * pOU[1.5].over) / 100).toFixed(0) });
+      }
+      // CASO 6: Pareggio probabile (X) - MIGLIORATO
+      else if (balanced && p1X2.draw >= 30 && lowScoring && Math.abs(p1X2.home - p1X2.away) < 10) {
+        // Condizioni per X:
+        // - xG equilibrati (diff < 0.5)
+        // - Prob pareggio >= 30%
+        // - Partita a basso punteggio (xG tot < 2.2)
+        // - Home e Away con probabilità simili (diff < 10%)
+        advice.pick = 'X (Pareggio)';
+        advice.prob = p1X2.draw;
+        advice.confidence = p1X2.draw >= 35 ? 'medium' : 'low';
+        advice.reasons.push({ text: `Squadre molto equilibrate: xG ${homeXG.toFixed(2)} vs ${awayXG.toFixed(2)}`, type: 'positive' });
+        advice.reasons.push({ text: `Partita a basso punteggio previsto (${totXG.toFixed(2)} gol totali)`, type: 'positive' });
+        advice.reasons.push({ text: `Probabilità pareggio ${p1X2.draw.toFixed(0)}%`, type: 'positive' });
+        
+        advice.alternatives.push({ pick: 'Under 2.5', prob: pOU[2.5].under.toFixed(0) });
+        advice.alternatives.push({ pick: '12 (No Pareggio)', prob: (p1X2.home + p1X2.away).toFixed(0) });
+        if (pBTTS >= 45 && pBTTS <= 60) advice.alternatives.push({ pick: 'X + GG', prob: ((p1X2.draw * pBTTS) / 100).toFixed(0) });
+      }
+      // CASO 7: 1X sicuro (casa non perde)
+      else if ((p1X2.home + p1X2.draw) >= 80) {
+        advice.pick = '1X (Casa o Pareggio)';
+        advice.prob = p1X2.home + p1X2.draw;
+        advice.confidence = 'high';
+        advice.reasons.push({ text: `Casa forte con xG ${homeXG.toFixed(2)}`, type: 'positive' });
+        advice.reasons.push({ text: `Vittoria ospite improbabile (${p1X2.away.toFixed(0)}%)`, type: 'positive' });
+        
+        advice.alternatives.push({ pick: '1', prob: p1X2.home.toFixed(0) });
+        if (highScoring) advice.alternatives.push({ pick: '1X + Over 1.5', prob: (((p1X2.home + p1X2.draw) * pOU[1.5].over) / 100).toFixed(0) });
+      }
+      // CASO 8: Partita equilibrata (generale)
+      else if (balanced && p1X2.draw >= 28) {
+        advice.pick = 'Under 3.5';
+        advice.prob = pOU[3.5].under;
+        advice.confidence = lowScoring ? 'medium' : 'low';
+        advice.reasons.push({ text: `Partita equilibrata (xG simili)`, type: 'neutral' });
+        advice.reasons.push({ text: `Possibile pareggio (${p1X2.draw.toFixed(0)}%)`, type: 'neutral' });
+        
+        advice.alternatives.push({ pick: 'X', prob: p1X2.draw.toFixed(0) });
+        advice.alternatives.push({ pick: 'Under 2.5', prob: pOU[2.5].under.toFixed(0) });
+      }
+      // CASO 8: Default - Over 1.5 (quasi sempre valido)
+      else {
+        advice.pick = 'Over 1.5';
+        advice.prob = pOU[1.5].over;
+        advice.confidence = pOU[1.5].over >= 70 ? 'medium' : 'low';
+        advice.reasons.push({ text: `Pronostico più sicuro per questa partita`, type: 'neutral' });
+        advice.reasons.push({ text: `xG Totale ${totXG.toFixed(2)}`, type: 'neutral' });
+        
+        if (p1X2.home >= 55) advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
+      }
+      
+      // Aggiungi warning se i dati non sono affidabili
+      if (analysis.quality === 'base') {
+        advice.reasons.push({ text: 'Dati statistici limitati', type: 'negative' });
+        if (advice.confidence === 'high') advice.confidence = 'medium';
+      }
+      
+      
+      // === SBLOCCO GG E OVER (Semaforo di Convergenza sui Gol) ===
+
+      // 1. Valuta il GG (Entrambe Segnano) indipendentemente dall'1X2
+      // Se la probabilità è maggiore del 55% e non è già il pronostico principale
+      if (!advice.pick.includes("GG") && pBTTS >= 55) {
+          advice.alternatives.push({ 
+              pick: "GG", 
+              prob: pBTTS.toFixed(0) 
+          });
+          advice.reasons.push({ 
+              text: `🎯 Radar Gol: Entrambe a segno probabile al ${pBTTS.toFixed(0)}%`, 
+              type: 'positive' 
+          });
+      }
+
+      // 2. Valuta l'Over 2.5
+      if (!advice.pick.includes("Over 2.5") && pOU['2.5'].over >= 55) {
+          advice.alternatives.push({ 
+              pick: "Over 2.5", 
+              prob: pOU['2.5'].over.toFixed(0) 
+          });
+          advice.reasons.push({ 
+              text: `🔥 Radar Over: Partita da Over 2.5 stimata al ${pOU['2.5'].over.toFixed(0)}%`, 
+              type: 'positive' 
+          });
+      } 
+      // 3. Se l'Over 2.5 è rischioso ma l'Over 1.5 è blindato (> 75%)
+      else if (!advice.pick.includes("Over") && pOU['1.5'].over >= 75) {
+          advice.alternatives.push({ 
+              pick: "Over 1.5", 
+              prob: pOU['1.5'].over.toFixed(0) 
+          });
+          advice.reasons.push({ 
+              text: `🛡️ Copertura: Over 1.5 altamente probabile (${pOU['1.5'].over.toFixed(0)}%)`, 
+              type: 'positive' 
+          });
+      }
+
+      return advice;
+    }
+
+    // === SUPER ALGORITHM ===
+    // Meta-analisi che valuta ogni segnale dell'algoritmo base e produce
+    // un ranking affidabile di pronostici con score composito
+    function runSuperAlgorithm(match, analysis) {
+      const { xG, p1X2, pOU, pBTTS, exactScores, multigoal, multigoalHome, multigoalAway, temporalDistribution, h2hInfo, homeData, awayData, homeForm, awayForm } = analysis;
+      const homeXG = xG.home;
+      const awayXG = xG.away;
+      const totXG  = xG.total;
+      
+      // Helper: form score 0-5 (W=1, D=0.4, L=0)
+      const formScore = (form) => {
+        if (!form || form === 'N/A') return 2.5;
+        return form.slice(0,5).split('').reduce((s,c) => s + (c==='W'?1:c==='D'?0.4:0), 0);
+      };
+      const homeFS = formScore(homeForm);
+      const awayFS  = formScore(awayForm);
+      
+      // ML accuracy weights
+      const mlWeights = {};
+      Object.entries(state.mlThresholds||{}).forEach(([market, data]) => {
+        const acc = data.totalPredictions >= 10 ? parseFloat(data.accuracy) / 100 : 0.5;
+        mlWeights[market] = Math.min(0.92, Math.max(0.4, acc));
+      });
+      const getML = (k) => mlWeights[k] || 0.5;
+      
+      // H2H helpers
+      const h2h = h2hInfo || {};
+      const h2hAvgGoals = parseFloat(h2h.avgGoals) || totXG;
+      const h2hHomeWins = h2h.homeWins || 0;
+      const h2hAwayWins = h2h.awayWins || 0;
+      const h2hDraws    = h2h.draws || 0;
+      const h2hTotal    = h2hHomeWins + h2hAwayWins + h2hDraws || 1;
+      
+      // Stats helpers
+      const hGF = homeData?.goalsFor || 1.3;
+      const hGA = homeData?.goalsAgainst || 1.2;
+      const aGF = awayData?.goalsFor || 1.1;
+      const aGA = awayData?.goalsAgainst || 1.3;
+      const hCS  = homeData?.cleanSheetPct || 25;
+      const aCS  = awayData?.cleanSheetPct || 25;
+      const hFTS = homeData?.failedToScorePct || 25;
+      const aFTS = awayData?.failedToScorePct || 25;
+      const hWR  = homeData?.winRate || 40;
+      const aWR  = awayData?.winRate || 35;
+      
+      // Exact score sum helpers
+      const esFilter = (fn) => exactScores ? exactScores.filter(fn).reduce((s,e)=>s+e.p,0) : 0;
+      
+      const candidates = [];
+      
+      // ====================================================
+      // FUNZIONE SCORING UNIFICATA
+      // ====================================================
+      function buildCandidate(opts) {
+        const { market, value, icon, color, prob, signals, mlKey, contextMult } = opts;
+        const signalKeys  = Object.keys(signals);
+        const signalVals  = Object.values(signals);
+        const signalCount = signalVals.filter(Boolean).length;
+        const totalSignals = signalKeys.length;
+        const convergence  = signalCount / totalSignals;
+        const mlW = getML(mlKey || value);
+        
+        // SuperScore: prob × convergenza × ML × contesto
+        // Normalizzato: prob su 100 → score 0-100
+        const rawScore = (prob / 100) * convergence * (0.45 + mlW * 0.55) * (contextMult || 1.0);
+        const superScore = rawScore * 100;
+        
+        // Confidenza calibrata per mercato
+        let confidence = 'low';
+        const highThresh = opts.highThresh || { prob: 72, conv: 0.65 };
+        const medThresh  = opts.medThresh  || { prob: 55, conv: 0.50 };
+        if (prob >= highThresh.prob && convergence >= highThresh.conv) confidence = 'high';
+        else if (prob >= medThresh.prob && convergence >= medThresh.conv) confidence = 'medium';
+        
+        return { market, value, icon, color, prob, signals, signalCount, totalSignals, convergence, superScore, confidence, mlAccuracy: mlW * 100 };
+      }
+      
+      // ====================================================
+      // 1 — VITTORIA CASA
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Esito 1X2', value: '1 (Casa)', icon: '&#x1F3E0;', color: '#0284c7',
+        prob: p1X2.home, mlKey: '1',
+        contextMult: homeXG > awayXG * 1.1 ? 1.12 : homeXG < awayXG ? 0.88 : 1.0,
+        highThresh: { prob: 68, conv: 0.62 }, medThresh: { prob: 52, conv: 0.50 },
+        signals: {
+          poisson_forte:    p1X2.home >= 50,
+          xG_superiore:     homeXG > awayXG * 1.15,
+          xG_almeno_1:      homeXG >= 1.0,
+          forma_casa:       homeFS >= 3.0,
+          h2h_casa:         h2hHomeWins > h2hAwayWins,
+          win_rate_ok:      hWR >= 45,
+          ospite_attacco_debole: aGF <= 1.1,
+          ospite_FTS_alto:  aFTS >= 28,
+          temporale_casa:   temporalDistribution ? temporalDistribution.primoTempo.casa >= 35 : p1X2.home >= 50,
+          algo_alta_conf:   p1X2.home >= 60,
+        }
+      }));
+      
+      // ====================================================
+      // X — PAREGGIO
+      // ====================================================
+      {
+        const drawExact = esFilter(s => s.h === s.a);
+        const balanced  = Math.abs(homeXG - awayXG) < 0.35;
+        candidates.push(buildCandidate({
+          market: 'Esito 1X2', value: 'X (Pareggio)', icon: '&#x1F91D;', color: '#f59e0b',
+          prob: p1X2.draw, mlKey: 'X',
+          contextMult: balanced ? 1.18 : Math.abs(p1X2.home - p1X2.away) < 10 ? 1.08 : 0.82,
+          highThresh: { prob: 30, conv: 0.60 }, medThresh: { prob: 25, conv: 0.50 },
+          signals: {
+            poisson_pareggio:  p1X2.draw >= 26,
+            xG_bilanciato:     balanced,
+            bassa_prod:        totXG < 2.3,
+            pari_exact_scores: drawExact >= 14,
+            under_25:          pOU[2.5].under >= 52,
+            probs_vicine:      Math.abs(p1X2.home - p1X2.away) < 14,
+            h2h_draw:          h2hDraws / h2hTotal >= 0.28,
+            forma_simile:      Math.abs(homeFS - awayFS) < 0.8,
+          }
+        }));
+      }
+      
+      // ====================================================
+      // 2 — VITTORIA OSPITE
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Esito 1X2', value: '2 (Ospite)', icon: '&#x2708;&#xFE0F;', color: '#8b5cf6',
+        prob: p1X2.away, mlKey: '2',
+        contextMult: awayXG > homeXG * 1.1 ? 1.12 : awayXG < homeXG ? 0.88 : 1.0,
+        highThresh: { prob: 62, conv: 0.62 }, medThresh: { prob: 48, conv: 0.50 },
+        signals: {
+          poisson_forte:    p1X2.away >= 42,
+          xG_superiore:     awayXG > homeXG * 1.10,
+          xG_almeno_1:      awayXG >= 0.9,
+          forma_ospite:     awayFS >= 3.0,
+          h2h_ospite:       h2hAwayWins > h2hHomeWins,
+          win_rate_ok:      aWR >= 40,
+          casa_FTS_alto:    hFTS >= 25,
+          algo_alta_conf:   p1X2.away >= 55,
+          ospite_GF_alto:   aGF >= 1.4,
+        }
+      }));
+      
+      // ====================================================
+      // GG — ENTRAMBE SEGNANO
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'GG/NG', value: 'GG (Entrambe)', icon: '&#x26BD;', color: '#10b981',
+        prob: pBTTS, mlKey: 'GG',
+        contextMult: (homeXG >= 1.1 && awayXG >= 0.9) ? 1.08 : 0.92,
+        highThresh: { prob: 66, conv: 0.62 }, medThresh: { prob: 54, conv: 0.50 },
+        signals: {
+          poisson_gg:       pBTTS >= 52,
+          xG_casa_ok:       homeXG >= 0.9,
+          xG_ospite_ok:     awayXG >= 0.85,
+          tot_xG_alto:      totXG >= 2.3,
+          casa_CS_basso:    hCS <= 35,
+          ospite_CS_basso:  aCS <= 35,
+          casa_FTS_basso:   hFTS <= 32,
+          ospite_FTS_basso: aFTS <= 35,
+          forma_attacchi:   homeFS >= 2.5 && awayFS >= 2.5,
+          h2h_GG:           h2hAvgGoals >= 2.4,
+        }
+      }));
+      
+      // ====================================================
+      // NG — NESSUNA DELLE DUE SEGNA
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'GG/NG', value: 'NG (Nessuna)', icon: '&#x1F6AB;', color: '#64748b',
+        prob: 100 - pBTTS, mlKey: 'NG',
+        contextMult: (hCS >= 35 || aCS >= 35) ? 1.10 : 0.90,
+        highThresh: { prob: 58, conv: 0.62 }, medThresh: { prob: 45, conv: 0.48 },
+        signals: {
+          poisson_ng:       (100-pBTTS) >= 45,
+          casa_difesa:      hCS >= 32,
+          ospite_difesa:    aCS >= 32,
+          casa_FTS:         hFTS >= 30,
+          ospite_FTS:       aFTS >= 30,
+          basso_xG:         totXG < 2.0,
+          under_15:         pOU[1.5].under >= 25,
+        }
+      }));
+      
+      // ====================================================
+      // OVER 1.5
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Over/Under', value: 'Over 1.5', icon: '&#x1F4C8;', color: '#06b6d4',
+        prob: pOU[1.5].over, mlKey: 'Over 1.5',
+        contextMult: totXG >= 2.0 ? 1.06 : 0.95,
+        highThresh: { prob: 82, conv: 0.65 }, medThresh: { prob: 68, conv: 0.50 },
+        signals: {
+          poisson_o15:      pOU[1.5].over >= 68,
+          xG_tot_ok:        totXG >= 1.6,
+          entrambi_attacco: homeXG >= 0.75 && awayXG >= 0.65,
+          h2h_gol:          h2hAvgGoals >= 2.0,
+          btts_supp:        pBTTS >= 44,
+          casa_GF:          hGF >= 1.3,
+          ospite_GF:        aGF >= 1.0,
+          forma_gol:        homeFS >= 2.2 && awayFS >= 2.0,
+        }
+      }));
+      
+      // ====================================================
+      // OVER 2.5
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Over/Under', value: 'Over 2.5', icon: '&#x1F525;', color: '#f97316',
+        prob: pOU[2.5].over, mlKey: 'Over 2.5',
+        contextMult: totXG >= 2.8 ? 1.10 : totXG < 2.0 ? 0.85 : 1.0,
+        highThresh: { prob: 65, conv: 0.62 }, medThresh: { prob: 50, conv: 0.50 },
+        signals: {
+          poisson_o25:      pOU[2.5].over >= 46,
+          xG_alto:          totXG >= 2.5,
+          entrambi_attacco: homeXG >= 1.1 && awayXG >= 0.95,
+          h2h_gol:          h2hAvgGoals >= 2.5,
+          btts:             pBTTS >= 52,
+          casa_GF_alto:     hGF >= 1.6,
+          ospite_GF_alto:   aGF >= 1.3,
+          forme_offensive:  homeFS >= 3.0 || awayFS >= 3.0,
+          o25_h2h:          h2hAvgGoals >= 2.6,
+        }
+      }));
+      
+      // ====================================================
+      // UNDER 2.5
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Over/Under', value: 'Under 2.5', icon: '&#x1F6E1;', color: '#0ea5e9',
+        prob: pOU[2.5].under, mlKey: 'Under 2.5',
+        contextMult: totXG < 2.0 ? 1.12 : totXG > 2.8 ? 0.82 : 1.0,
+        highThresh: { prob: 62, conv: 0.62 }, medThresh: { prob: 50, conv: 0.48 },
+        signals: {
+          poisson_u25:     pOU[2.5].under >= 46,
+          xG_basso:        totXG < 2.2,
+          difese_forti:    hCS >= 30 || aCS >= 30,
+          ng_likely:       pBTTS <= 48,
+          exact_low:       esFilter(s => s.h+s.a <= 2) >= 42,
+          h2h_low:         h2hAvgGoals < 2.3,
+          casa_GF_basso:   hGF <= 1.4,
+          ospite_GF_basso: aGF <= 1.2,
+        }
+      }));
+      
+      // ====================================================
+      // OVER 3.5
+      // ====================================================
+      candidates.push(buildCandidate({
+        market: 'Over/Under', value: 'Over 3.5', icon: '&#x1F4A5;', color: '#ef4444',
+        prob: pOU[3.5].over, mlKey: 'Over 3.5',
+        contextMult: totXG >= 3.5 ? 1.15 : totXG < 2.5 ? 0.75 : 1.0,
+        highThresh: { prob: 50, conv: 0.65 }, medThresh: { prob: 35, conv: 0.50 },
+        signals: {
+          poisson_o35:     pOU[3.5].over >= 32,
+          xG_molto_alto:   totXG >= 3.2,
+          entrambi_forti:  homeXG >= 1.5 && awayXG >= 1.3,
+          h2h_alti:        h2hAvgGoals >= 3.0,
+          over25_alto:     pOU[2.5].over >= 62,
+          btts_over:       pBTTS >= 58 && pOU[2.5].over >= 58,
+        }
+      }));
+      
+      // ====================================================
+      // MG CASA 1-3
+      // ====================================================
+      {
+        const prob = calcTeamMultigol(homeXG, 1, 3);
+        candidates.push(buildCandidate({
+          market: 'MG Casa', value: 'MG Casa 1-3', icon: '&#x1F3E0;&#x26BD;', color: '#d97706',
+          prob, mlKey: 'MG Casa',
+          contextMult: homeXG >= 0.9 && homeXG <= 2.1 ? 1.05 : 0.95,
+          highThresh: { prob: 62, conv: 0.60 }, medThresh: { prob: 50, conv: 0.48 },
+          signals: {
+            xG_range_ottimo:   homeXG >= 0.85 && homeXG <= 2.2,
+            prob_alta:         prob >= 52,
+            casa_FTS_basso:    hFTS <= 32,
+            casa_WR_ok:        hWR >= 35,
+            ospite_def_debole: aGA >= 1.2,
+            exact_h_1_3:       esFilter(s => s.h >= 1 && s.h <= 3) >= 55,
+            forma_casa:        homeFS >= 2.5,
+          }
+        }));
+      }
+      
+      // ====================================================
+      // MG OSPITE 1-3
+      // ====================================================
+      {
+        const prob = calcTeamMultigol(awayXG, 1, 3);
+        candidates.push(buildCandidate({
+          market: 'MG Ospite', value: 'MG Ospite 1-3', icon: '&#x2708;&#xFE0F;&#x26BD;', color: '#059669',
+          prob, mlKey: 'MG Ospite',
+          contextMult: awayXG >= 0.75 && awayXG <= 2.0 ? 1.05 : 0.95,
+          highThresh: { prob: 60, conv: 0.60 }, medThresh: { prob: 48, conv: 0.48 },
+          signals: {
+            xG_range_ottimo:  awayXG >= 0.75 && awayXG <= 2.0,
+            prob_alta:        prob >= 50,
+            ospite_FTS_basso: aFTS <= 35,
+            ospite_WR_ok:     aWR >= 30,
+            casa_def_debole:  hGA >= 1.15,
+            exact_a_1_3:      esFilter(s => s.a >= 1 && s.a <= 3) >= 50,
+            forma_ospite:     awayFS >= 2.2,
+          }
+        }));
+      }
+      
+      // ====================================================
+      // 1X — DOPPIA CHANCE CASA
+      // ====================================================
+      {
+        const prob = Math.min(p1X2.home + p1X2.draw, 97);
+        candidates.push(buildCandidate({
+          market: 'Doppia Chance', value: '1X (Casa/Pari)', icon: '&#x1F512;', color: '#0284c7',
+          prob, mlKey: '1X',
+          contextMult: 0.90,  // penalty: e' doppia chance
+          highThresh: { prob: 80, conv: 0.70 }, medThresh: { prob: 68, conv: 0.55 },
+          signals: {
+            poisson_alto:   prob >= 64,
+            casa_not_weak:  homeXG >= awayXG * 0.85,
+            forma_casa:     homeFS >= 2.2,
+            under_35:       pOU[3.5].under >= 55,
+            hWR_minimo:     hWR >= 28,
+          }
+        }));
+      }
+      
+      // ====================================================
+      // X2 — DOPPIA CHANCE OSPITE
+      // ====================================================
+      {
+        const prob = Math.min(p1X2.away + p1X2.draw, 97);
+        candidates.push(buildCandidate({
+          market: 'Doppia Chance', value: 'X2 (Ospite/Pari)', icon: '&#x1F510;', color: '#8b5cf6',
+          prob, mlKey: 'X2',
+          contextMult: 0.88,
+          highThresh: { prob: 75, conv: 0.70 }, medThresh: { prob: 62, conv: 0.55 },
+          signals: {
+            poisson_alto:    prob >= 58,
+            ospite_not_weak: awayXG >= homeXG * 0.80,
+            forma_ospite:    awayFS >= 2.2,
+            under_35:        pOU[3.5].under >= 55,
+            aWR_minimo:      aWR >= 24,
+          }
+        }));
+      }
+      
+      // ====================================================
+      // ORDINA per SuperScore decrescente
+      // ====================================================
+      candidates.sort((a, b) => b.superScore - a.superScore);
+      
+      const topPick = candidates[0];
+      const avgConvergence = candidates.reduce((s,c) => s + c.convergence, 0) / candidates.length;
+      const highConfCount  = candidates.filter(c => c.confidence === 'high').length;
+      
+      return {
+        picks: candidates,
+        topPick,
+        avgConvergence,
+        highConfCount,
+        totalSignals: candidates.reduce((s,c) => s + c.signalCount, 0),
+        analysisDepth: analysis.quality === 'enhanced' ? 'Completa' : analysis.quality === 'partial' ? 'Parziale' : 'Base'
+      };
+    }
+
+    function renderSuperAnalysis(superData, match) {
+      if (!superData) {
+        return `
+          <div class="super-algo-panel">
+            <div class="super-loading">
+              <div class="super-loading-spinner"></div>
+              <div style="font-size:0.88rem; font-weight:600; color:#00d4ff; margin-bottom:4px;">&#x1F9E0; Calcolo in corso...</div>
+              <div style="font-size:0.75rem; color:rgba(148,163,184,0.6);">Analisi Poisson, xG, ML, segnali multi-fonte</div>
+            </div>
+          </div>`;
+      }
+      
+      const { picks, avgConvergence, highConfCount, analysisDepth } = superData;
+      const aiData = state.superAIAnalysis;
+      const aiLoading = state.superAIRunning;
+      
+      // Oracle verdict colors
+      let recColor = '#64748b', recBg = 'rgba(100,116,139,0.15)', recIcon = '&#x23F3;';
+      if (aiData) {
+        if (aiData.recommendation === 'GIOCA') { recColor = '#00e5a0'; recBg = 'rgba(0,229,160,0.1)'; recIcon = '&#x2705;'; }
+        else if (aiData.recommendation === 'SKIP') { recColor = '#f87171'; recBg = 'rgba(248,113,113,0.1)'; recIcon = '&#x26D4;'; }
+        else if (aiData.recommendation === 'ATTENDI') { recColor = '#fbbf24'; recBg = 'rgba(251,191,36,0.1)'; recIcon = '&#x26A0;&#xFE0F;'; }
+      }
+      
+      // AI section
+      const fromCache = state.aiFromCache || false;
+
+      let aiSection = '';
+      if (aiLoading) {
+        aiSection = `
+          <div class="super-ai-section">
+            <div class="super-ai-header">
+              <span class="super-ai-live">AI LIVE</span>
+              <span style="font-weight:700;">&#x1F30D; Oracle AI sta analizzando...</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding:16px;background:rgba(0,0,0,0.3);border-radius:12px;border:1px solid rgba(0,212,255,0.1);">
+              <div class="super-loading-spinner" style="width:20px;height:20px;border-width:2px;margin:0;flex-shrink:0;"></div>
+              <div>
+                <div style="font-size:0.84rem;color:#00d4ff;font-weight:600;margin-bottom:3px;">&#x1F4F0; Ricerca news in tempo reale...</div>
+                <div style="font-size:0.75rem;color:rgba(148,163,184,0.6);">Infortuni &#x2022; Formazioni &#x2022; Stato di forma &#x2022; Contesto tattico &#x2022; Motivazioni</div>
+              </div>
+            </div>
+          </div>`;
+      } else if (aiData && !aiData.error) {
+        const newsHtml = (aiData.keyNews || []).map(n => 
+          `<div class="oracle-news-item"><span style="color:#f59e0b;flex-shrink:0;">&#x2022;</span><span>${n}</span></div>`
+        ).join('');
+        const factorsHtml = (aiData.keyFactors || []).map(f => `<span class="super-ai-tag">${f}</span>`).join('');
+        const top3Html = (aiData.adjustedTop3 || []).map((p,i) => 
+          `<span class="super-ai-tag" style="background:rgba(0,229,160,0.08);border-color:rgba(0,229,160,0.3);color:#00e5a0;">${['&#x1F947;','&#x1F948;','&#x1F949;'][i]||'&#x2022;'} ${p}</span>`
+        ).join('');
+        
+        // Confidence bar
+        const conf = aiData.confidence || 0;
+        const confWidth = Math.min(100, Math.max(0, conf));
+        const confColor = conf >= 70 ? '#00e5a0' : conf >= 55 ? '#fbbf24' : '#f87171';
+        
+        aiSection = `
+          <div class="super-ai-section">
+            <div class="super-ai-header">
+              <span class="super-ai-live">&#x1F916; ORACLE AI</span>
+              <span style="font-weight:700;font-size:0.9rem;">Analisi Intelligente + News Live</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+                ${fromCache ? `
+                  <span style="font-size:0.68rem;background:rgba(139,92,246,0.15);color:#a78bfa;padding:2px 8px;border-radius:10px;border:1px solid rgba(139,92,246,0.3);">
+                    &#x26A1; Cache
+                  </span>
+                  <button onclick="refreshAIAnalysis()" style="font-size:0.65rem;background:rgba(0,212,255,0.1);color:#00d4ff;border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:2px 8px;cursor:pointer;">
+                    &#x1F504; Aggiorna
+                  </button>
+                ` : `
+                  <span style="font-size:0.75rem;color:${aiData.newsFound ? '#00e5a0' : '#fbbf24'};">
+                    ${aiData.newsFound ? '&#x1F4F0; News trovate' : '&#x26A0; Dati limitati'}
+                  </span>
+                `}
+              </span>
+            </div>
+            
+            ${newsHtml ? `<div style="margin-bottom:12px;">${newsHtml}</div>` : ''}
+            
+            ${aiData.teamsContext ? `<div style="font-size:0.8rem;color:rgba(148,163,184,0.75);margin-bottom:12px;padding:10px 12px;background:rgba(255,255,255,0.02);border-radius:10px;border-left:2px solid rgba(0,212,255,0.4);line-height:1.6;">&#x1F4CB; ${aiData.teamsContext}</div>` : ''}
+            
+            <div class="oracle-verdict-text">${aiData.aiVerdict || ''}</div>
+            
+            <!-- KPI boxes -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;">
+              <div class="oracle-verdict-box" style="border-color:${recColor};background:${recBg};">
+                <div style="font-size:1.5rem;font-weight:900;color:${recColor};">${recIcon}</div>
+                <div style="font-size:0.95rem;font-weight:800;color:${recColor};">${aiData.recommendation||'?'}</div>
+                <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);margin-top:2px;text-transform:uppercase;">Raccomandazione</div>
+              </div>
+              <div class="oracle-verdict-box">
+                <div style="font-size:1.4rem;font-weight:900;color:#00d4ff;">${aiData.confidence||'?'}%</div>
+                <div style="margin:4px 0;">
+                  <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;">
+                    <div style="width:${confWidth}%;height:100%;background:${confColor};border-radius:4px;transition:width 0.8s;"></div>
+                  </div>
+                </div>
+                <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);text-transform:uppercase;">Confidenza AI</div>
+              </div>
+              <div class="oracle-verdict-box">
+                <div style="font-size:1rem;font-weight:800;color:${aiData.riskLevel==='basso'?'#00e5a0':aiData.riskLevel==='alto'?'#f87171':'#fbbf24'};">
+                  ${aiData.riskLevel==='basso'?'&#x1F7E2;':aiData.riskLevel==='alto'?'&#x1F534;':'&#x1F7E1;'} ${(aiData.riskLevel||'?').toUpperCase()}
+                </div>
+                <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);margin-top:4px;text-transform:uppercase;">Rischio</div>
+              </div>
+              <div class="oracle-verdict-box" style="border-color:rgba(0,229,160,0.3);background:rgba(0,229,160,0.05);flex:2;min-width:140px;">
+                <div style="font-size:0.7rem;color:rgba(148,163,184,0.5);text-transform:uppercase;margin-bottom:4px;">Best Pick Oracle</div>
+                <div style="font-size:1rem;font-weight:800;color:#00e5a0;">${aiData.bestPick||'?'}</div>
+                <div style="font-size:0.85rem;font-weight:700;color:rgba(0,229,160,0.7);">${aiData.bestPickProb||'?'}%</div>
+              </div>
+              ${aiData.alternativePick ? `<div class="oracle-verdict-box" style="border-color:rgba(0,212,255,0.2);flex:1.5;min-width:110px;">
+                <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);text-transform:uppercase;margin-bottom:4px;">Alternativa Oracle</div>
+                <div style="font-size:0.9rem;font-weight:700;color:#00d4ff;">${aiData.alternativePick}</div>
+                <div style="font-size:0.8rem;color:rgba(0,212,255,0.6);">${aiData.alternativePickProb||'?'}%</div>
+              </div>` : ''}
+            </div>
+            
+            ${aiData.bestPickReasoning ? `<div style="margin:10px 0;padding:10px 12px;background:rgba(0,229,160,0.06);border:1px solid rgba(0,229,160,0.2);border-radius:10px;font-size:0.8rem;color:#a7f3d0;line-height:1.6;">&#x1F3AF; <strong>Perché:</strong> ${aiData.bestPickReasoning}</div>` : ''}
+            ${aiData.warningFlags && aiData.warningFlags.filter(w=>w).length > 0 ? `<div style="margin:8px 0;padding:8px 12px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:10px;font-size:0.78rem;color:#fcd34d;line-height:1.6;">&#x26A0;&#xFE0F; <strong>Attenzione:</strong> ${aiData.warningFlags.filter(w=>w).join(' | ')}</div>` : ''}
+            ${aiData.bookmakerOdds && aiData.bookmakerOdds !== 'null' ? `<div style="margin:8px 0;padding:8px 12px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.15);border-radius:10px;font-size:0.78rem;color:#67e8f9;">&#x1F4B0; <strong>Quote bookmakers:</strong> ${aiData.bookmakerOdds}</div>` : ''}
+            ${factorsHtml ? `
+            <div style="margin-top:10px;">
+              <div style="font-size:0.72rem;color:rgba(148,163,184,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">&#x1F511; Fattori Chiave</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">${factorsHtml}</div>
+            </div>` : ''}
+            
+            ${top3Html ? `
+            <div style="margin-top:10px;">
+              <div style="font-size:0.72rem;color:rgba(148,163,184,0.5);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">&#x1F3AF; Ranking Oracle Corretto</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">${top3Html}</div>
+            </div>` : ''}
+            
+            ${aiData.algoConfirmed !== undefined ? `
+            <div style="margin-top:12px;padding:8px 12px;border-radius:8px;font-size:0.8rem;
+              background:${aiData.algoConfirmed ? 'rgba(0,229,160,0.08)' : 'rgba(248,113,113,0.08)'};
+              border:1px solid ${aiData.algoConfirmed ? 'rgba(0,229,160,0.25)' : 'rgba(248,113,113,0.25)'};
+              color:${aiData.algoConfirmed ? '#00e5a0' : '#f87171'};">
+              ${aiData.algoConfirmed 
+                ? '&#x2705; Oracle AI <strong>conferma</strong> il ranking dell&#39;algoritmo statistico' 
+                : '&#x26A0;&#xFE0F; Oracle AI <strong>suggerisce correzioni</strong> al ranking — vedi Ranking Oracle sopra'}
+            </div>` : ''}
+          </div>`;
+      } else if (aiData && aiData.error) {
+        aiSection = `
+          <div class="super-ai-section">
+            <div style="font-size:0.78rem;color:rgba(148,163,184,0.4);padding:10px;background:rgba(248,113,113,0.05);border-radius:8px;border:1px solid rgba(248,113,113,0.15);">
+              &#x26A0;&#xFE0F; Analisi Oracle AI non disponibile: ${aiData.error}. I dati statistici locali restano validi.
+            </div>
+          </div>`;
+      }
+      
+      return `
+        <div class="super-algo-panel" id="superAlgoPanel">
+          <!-- HEADER -->
+          <div class="super-algo-header">
+            <div class="super-algo-icon">&#x1F52E;</div>
+            <div class="super-algo-title-group">
+              <div class="super-algo-title">Oracle Super Algoritmo</div>
+              <div class="super-algo-subtitle">Poisson + xG + Dixon-Coles + ML + AI News Live &#x2014; ${analysisDepth}</div>
+            </div>
+            <div class="super-algo-badge">v4.0</div>
+          </div>
+          
+          <!-- PICKS RANKING -->
+          <div style="font-size:0.72rem;color:rgba(148,163,184,0.5);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.8px;">
+            &#x1F3C6; Ranking Mercati per SuperScore
+          </div>
+          <div class="super-picks-grid">
+            ${picks.map((pick, idx) => {
+              const rank = idx + 1;
+              const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+              const probClass = pick.prob >= 70 ? 'prob-high' : pick.prob >= 54 ? 'prob-med' : 'prob-low';
+              const signalDots = Array.from({length: pick.totalSignals}, (_, i) => 
+                `<span class="super-signal ${i < pick.signalCount ? 'on' : 'off'}"></span>`
+              ).join('');
+              
+              // AI boost badge
+              let aiBoost = '';
+              if (aiData && aiData.adjustedTop3) {
+                const aiIdx = aiData.adjustedTop3.findIndex(p => {
+                  const pv = (pick.value||'').toLowerCase();
+                  const pp = p.toLowerCase();
+                  return pv.includes(pp.split(' ')[0]) || pp.includes(pv.split(' ')[0]);
+                });
+                if (aiIdx === 0 && rank > 1) aiBoost = '<span style="font-size:0.58rem;color:#f59e0b;font-weight:800;"> &#x2605;AI</span>';
+                else if (aiIdx > -1 && aiIdx < rank - 1) aiBoost = '<span style="font-size:0.58rem;color:#00e5a0;"> &#x2191;</span>';
+              }
+              
+              return `
+                <div class="super-pick-card ${rankClass}" 
+                     onclick="addToSlip(state.selectedMatch, 'oracle_${pick.value.replace(/'/g,'').replace(/ /g,'_')}', '${pick.value.replace(/'/g,"\'")}', ${pick.prob.toFixed(0)})"
+                     title="Clicca per aggiungere alla schedina">
+                  <div class="super-pick-rank">#${rank}${aiBoost}</div>
+                  <div class="super-pick-market">${pick.market}</div>
+                  <div class="super-pick-value">${pick.value}</div>
+                  <div class="super-pick-prob ${probClass}">${pick.prob.toFixed(1)}%</div>
+                  <div style="display:flex;justify-content:center;gap:5px;align-items:center;margin-top:2px;">
+                    <div class="super-pick-confidence ${pick.confidence}">${
+                      pick.confidence === 'high' ? '&#x1F3AF; Alta' : 
+                      pick.confidence === 'medium' ? '&#x2713; Media' : '&#x26A0; Bassa'
+                    }</div>
+                    ${pick.prob >= 60 ? '<span style="font-size:0.55rem;background:rgba(0,229,160,0.2);color:#00e5a0;padding:1px 5px;border-radius:4px;font-weight:800;">VALUE</span>' : ''}
+                  </div>
+                  <div class="super-signals-row">${signalDots}</div>
+                </div>`;
+            }).join('')}
+          </div>
+
+          <!-- TOP PICK REASONING -->
+          ${picks[0] ? `
+          <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px;">
+            <span style="font-size:1.1rem;flex-shrink:0;">&#x1F947;</span>
+            <div>
+              <div style="font-size:0.72rem;color:#f59e0b;font-weight:800;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.5px;">Pick principale • ${picks[0].market}</div>
+              <div style="font-size:0.9rem;font-weight:700;color:#e2e8f0;margin-bottom:4px;">${picks[0].value} — ${picks[0].prob.toFixed(1)}%</div>
+              <div style="font-size:0.76rem;color:rgba(148,163,184,0.8);">${picks[0].signalCount} segnali convergenti su ${picks[0].totalSignals} • Convergenza ${(picks[0].convergence*100).toFixed(0)}% • ML accuracy ${(picks[0].mlAccuracy*100).toFixed(0)}%</div>
+            </div>
+          </div>` : ""}
+
+          <!-- SUMMARY BAR -->
+          <div class="super-algo-summary">
+            <div class="super-summary-item">
+              <div class="super-summary-num">${picks[0].prob.toFixed(1)}%</div>
+              <div class="super-summary-label">&#x1F3C6; Top Prob</div>
+            </div>
+            <div class="super-summary-item">
+              <div class="super-summary-num">${(avgConvergence * 100).toFixed(0)}%</div>
+              <div class="super-summary-label">&#x1F4A1; Convergenza</div>
+            </div>
+            <div class="super-summary-item">
+              <div class="super-summary-num">${highConfCount}</div>
+              <div class="super-summary-label">&#x1F525; Alta Conf.</div>
+            </div>
+            <div class="super-summary-item">
+              <div class="super-summary-num">${picks.length}</div>
+              <div class="super-summary-label">&#x1F4CA; Mercati</div>
+            </div>
+            <div class="super-summary-item">
+              <div class="super-summary-num" style="color:#a78bfa;">${analysisDepth || 0}</div>
+              <div class="super-summary-label">&#x1F9E0; Segnali tot</div>
+            </div>
+            <div class="super-summary-item">
+              <div class="super-summary-num" style="color:#f59e0b;">${picks[0].superScore ? picks[0].superScore.toFixed(0) : '—'}</div>
+              <div class="super-summary-label">&#x1F4B0; SuperScore</div>
+            </div>
+            <div style="flex:2;font-size:0.68rem;color:rgba(148,163,184,0.5);line-height:1.6;min-width:90px;">
+              &#x1F7E2; = segnale attivo &nbsp;|&nbsp; <span style="color:#00e5a0;font-weight:700;">VALUE</span> = prob &gt; 60%<br>
+              &#x1F947; = top pick. Clicca per aggiungere alla schedina.
+            </div>
+          </div>
+          
+          <!-- AI ORACLE SECTION -->
+          ${aiSection}
+        </div>
+      `;
+    }
+    function getProbClass(prob) {
+      if (prob >= 65) return 'high';
+      if (prob >= 50) return 'mid';
+      return 'low';
+    }
+
+    // Funzione per generare il verdetto del trader
+
+    // === GAP ANALYSER — True Spread per il Calcio ===
+    function renderGAPAnalyser(match, d) {
+      if (!match || !d || !d.xG || !d.xG.home == null || !d.xG.away == null) return '';
+      if (isNaN(d.xG.home) || isNaN(d.xG.away)) return '';
+      const xgH = d.xG.home;
+      const xgA = d.xG.away;
+      const gap = xgH - xgA;
+      const totXG = d.xG.total;
+
+      // True Spread = handicap asiatico reale basato sul GAP xG
+      // Regola: ogni 0.5 xG di differenza = 0.5 handicap
+      const rawSpread = isNaN(gap) ? 0 : Math.round(gap * 2) / 2; // arrotondato a 0.5
+      
+      // Determina handicap consigliato e squadra da giocare
+      let spreadLabel = 'Nessun vantaggio netto';
+      let spreadColor = '#64748b';
+      let favTeam = '';
+      let underdogTeam = '';
+      let playRecommendation = '';
+      let playColor = '#64748b';
+      let evLabel = '';
+      
+      if (gap > 0.75) {
+        favTeam = match.home.name;
+        underdogTeam = match.away.name;
+        const handicap = rawSpread.toFixed(1);
+        spreadLabel = `${favTeam} -${handicap} (Asian Handicap)`;
+        spreadColor = '#00d4ff';
+        playRecommendation = `Gioca ${favTeam} con handicap -${handicap}`;
+        playColor = '#00e5a0';
+        evLabel = '✅ VALORE';
+      } else if (gap < -0.75) {
+        favTeam = match.away.name;
+        underdogTeam = match.home.name;
+        const handicap = Math.abs(rawSpread).toFixed(1);
+        spreadLabel = `${favTeam} -${handicap} (Asian Handicap)`;
+        spreadColor = '#f87171';
+        playRecommendation = `Gioca ${favTeam} con handicap -${handicap}`;
+        playColor = '#00e5a0';
+        evLabel = '✅ VALORE';
+      } else if (gap > 0.25) {
+        spreadLabel = 'Lieve vantaggio Casa';
+        spreadColor = '#00d4ff';
+        playRecommendation = 'Partita equilibrata — preferenza Casa';
+        playColor = '#fbbf24';
+        evLabel = '⚠️ BORDERLINE';
+      } else if (gap < -0.25) {
+        spreadLabel = 'Lieve vantaggio Ospite';
+        spreadColor = '#f87171';
+        playRecommendation = 'Partita equilibrata — preferenza Ospite';
+        playColor = '#fbbf24';
+        evLabel = '⚠️ BORDERLINE';
+      } else {
+        spreadLabel = 'Partita equilibrata (Pick: X)';
+        spreadColor = '#fbbf24';
+        playRecommendation = 'Nessun vantaggio netto — considera il Pareggio';
+        playColor = '#fbbf24';
+        evLabel = '⚪ NEUTRO';
+      }
+
+      // Indice di affidabilità del GAP (più dati = più affidabile)
+      const h2hCount = d.h2h ? (d.h2h.totalMatches || d.h2h.matches || 0) : 0;
+      const reliability = h2hCount >= 5 ? 'Alta' : h2hCount >= 3 ? 'Media' : 'Bassa';
+      const relColor = reliability === 'Alta' ? '#00e5a0' : reliability === 'Media' ? '#fbbf24' : '#f87171';
+
+      // Gol attesi per tempo
+      const firstHalfXG = (totXG * 0.44).toFixed(2); // ~44% gol nel 1T (dato reale Serie A media)
+      const secondHalfXG = (totXG * 0.56).toFixed(2);
+
+      // Over/Under raccomandato basato su xG totale
+      let ouRec = '';
+      let ouColor = '#64748b';
+      if (totXG >= 3.0) { ouRec = 'Over 2.5 (xG molto alto)'; ouColor = '#00e5a0'; }
+      else if (totXG >= 2.4) { ouRec = 'Over 2.5 (xG favorevole)'; ouColor = '#fbbf24'; }
+      else if (totXG >= 1.8) { ouRec = 'Zona grigia — 50/50'; ouColor = '#64748b'; }
+      else { ouRec = 'Under 2.5 (xG basso)'; ouColor = '#f87171'; }
+
+      return `
+        <div style="background:linear-gradient(135deg,rgba(0,212,255,0.04),rgba(139,92,246,0.04));
+                    border:1px solid rgba(0,212,255,0.2);border-radius:18px;padding:20px;margin-bottom:20px;">
+          
+          <!-- Header -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div style="font-size:0.72rem;color:#00d4ff;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;">
+                &#x1F4D0; GAP Analyser — True Spread
+              </div>
+              <div style="font-size:0.75rem;color:rgba(148,163,184,0.6);">
+                Handicap reale basato su Expected Goals differenziali
+              </div>
+            </div>
+            <span style="font-size:0.65rem;background:rgba(${reliability==='Alta'?'0,229,160':reliability==='Media'?'251,191,36':'248,113,113'},0.15);
+                         color:${relColor};padding:3px 10px;border-radius:8px;font-weight:700;">
+              Affidabilità ${reliability}
+            </span>
+          </div>
+
+          <!-- GAP visivo -->
+          <div style="background:rgba(0,0,0,0.3);border-radius:14px;padding:16px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <div style="text-align:center;flex:1;">
+                <div style="font-size:0.7rem;color:rgba(148,163,184,0.6);margin-bottom:4px;">${esc(match.home.name.split(' ')[0])}</div>
+                <div style="font-size:1.8rem;font-weight:800;color:#00d4ff;">${xgH.toFixed(2)}</div>
+                <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);">xG attesi</div>
+              </div>
+              <div style="text-align:center;padding:0 12px;">
+                <div style="font-size:0.7rem;color:rgba(148,163,184,0.5);margin-bottom:4px;">GAP</div>
+                <div style="font-size:1.4rem;font-weight:900;color:${gap > 0.25 ? '#00d4ff' : gap < -0.25 ? '#f87171' : '#fbbf24'};">
+                  ${gap > 0 ? '+' : ''}${gap.toFixed(2)}
+                </div>
+              </div>
+              <div style="text-align:center;flex:1;">
+                <div style="font-size:0.7rem;color:rgba(148,163,184,0.6);margin-bottom:4px;">${esc(match.away.name.split(' ')[0])}</div>
+                <div style="font-size:1.8rem;font-weight:800;color:#f87171;">${xgA.toFixed(2)}</div>
+                <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);">xG attesi</div>
+              </div>
+            </div>
+            
+            <!-- Barra GAP visiva -->
+            <div style="position:relative;height:8px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;">
+              <div style="position:absolute;left:50%;top:0;height:100%;width:2px;background:rgba(255,255,255,0.2);transform:translateX(-50%);"></div>
+              ${gap > 0 ? `
+                <div style="position:absolute;left:50%;top:0;height:100%;width:${Math.min(50, Math.abs(gap/3.5)*100)}%;
+                             background:linear-gradient(90deg,rgba(0,212,255,0.3),#00d4ff);border-radius:0 4px 4px 0;"></div>
+              ` : `
+                <div style="position:absolute;right:50%;top:0;height:100%;width:${Math.min(50, Math.abs(gap/3.5)*100)}%;
+                             background:linear-gradient(270deg,rgba(248,113,113,0.3),#f87171);border-radius:4px 0 0 4px;"></div>
+              `}
+            </div>
+          </div>
+
+          <!-- True Spread e Raccomandazione -->
+          <div style="background:rgba(${playColor==='#00e5a0'?'0,229,160':playColor==='#fbbf24'?'251,191,36':'100,116,139'},0.08);
+                      border:1px solid rgba(${playColor==='#00e5a0'?'0,229,160':playColor==='#fbbf24'?'251,191,36':'100,116,139'},0.2);
+                      border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-size:0.65rem;color:rgba(148,163,184,0.6);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">True Spread</div>
+                <div style="font-size:0.9rem;font-weight:700;color:${spreadColor};">${spreadLabel}</div>
+                <div style="font-size:0.75rem;color:rgba(148,163,184,0.7);margin-top:4px;">${playRecommendation}</div>
+              </div>
+              <div style="background:rgba(0,0,0,0.3);padding:6px 12px;border-radius:8px;white-space:nowrap;">
+                <div style="font-size:0.7rem;font-weight:800;color:${playColor};">${evLabel}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Statistiche aggiuntive -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
+            <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);margin-bottom:4px;">xG Totale</div>
+              <div style="font-size:1.2rem;font-weight:800;color:#e2e8f0;">${totXG.toFixed(2)}</div>
+              <div style="font-size:0.65rem;color:${ouColor};font-weight:700;">${ouRec}</div>
+            </div>
+            <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);margin-bottom:4px;">xG 1° Tempo</div>
+              <div style="font-size:1.2rem;font-weight:800;color:#a78bfa;">${firstHalfXG}</div>
+              <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);">${firstHalfXG >= 1.2 ? 'Over 0.5 1T probabile' : 'Primo tempo chiuso'}</div>
+            </div>
+            <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);margin-bottom:4px;">xG 2° Tempo</div>
+              <div style="font-size:1.2rem;font-weight:800;color:#f59e0b;">${secondHalfXG}</div>
+              <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);">${secondHalfXG >= 1.5 ? 'Secondo tempo prolifico' : 'Ritmo moderato'}</div>
+            </div>
+            <div style="background:rgba(0,0,0,0.25);border-radius:10px;padding:10px;text-align:center;">
+              <div style="font-size:0.62rem;color:rgba(148,163,184,0.5);margin-bottom:4px;">Risultato Esatto</div>
+              <div style="font-size:1.2rem;font-weight:800;color:#00e5a0;">${d.exactScores && d.exactScores[0] ? d.exactScores[0].h + ' - ' + d.exactScores[0].a : '?-?'}</div>
+              <div style="font-size:0.65rem;color:rgba(148,163,184,0.5);">${d.exactScores && d.exactScores[0] && d.exactScores[0].prob != null ? d.exactScores[0].prob.toFixed(1) + '% probabilità' : 'N/D'}</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;font-size:0.62rem;color:rgba(148,163,184,0.35);line-height:1.5;">
+            &#x2139;&#xFE0F; Il GAP Analyser calcola il True Spread basandosi sugli Expected Goals differenziali.
+            Un GAP &gt;0.75 indica vantaggio netto della squadra di casa; &lt;-0.75 dell'ospite.
+            Usa sempre in combinazione con il Super Algoritmo Oracle per la decisione finale.
+          </div>
+        </div>
+      `;
+    }
+
+    // === BETTINGPRO BASE — Algoritmo originale semplificato ===
+    // Logica identica alla prima versione: 8 casi chiari basati su xG
+    function generateBaseAIAdvice(match, analysis) {
+      const { xG, p1X2, pOU, pBTTS, exactScores } = analysis;
+      const homeXG = xG.home, awayXG = xG.away, totXG = xG.total;
+      
+      const advice = { pick: '', prob: 0, confidence: 'medium', reasons: [], alternatives: [] };
+      
+      const homeStrong = homeXG > 1.8;
+      const awayWeak = awayXG < 0.8;
+      const awayStrong = awayXG > 1.5;
+      const homeWeak = homeXG < 1.0;
+      const highScoring = totXG >= 3.0;
+      const veryHighScoring = totXG >= 3.8;
+      const lowScoring = totXG < 2.2;
+      const balanced = Math.abs(homeXG - awayXG) < 0.5;
+      const ggLikely = pBTTS >= 55 && homeXG > 0.9 && awayXG > 0.9;
+      
+      // CASO 1: Casa dominante
+      if (homeStrong && awayWeak && p1X2.home >= 65) {
+        advice.pick = '1 Casa'; advice.prob = p1X2.home;
+        advice.confidence = p1X2.home >= 75 ? 'high' : 'medium';
+        advice.reasons.push('xG Casa ' + homeXG.toFixed(2) + ' >> Ospite ' + awayXG.toFixed(2));
+        if (highScoring) advice.alternatives.push({ pick: '1 + Over 1.5', prob: ((p1X2.home * pOU[1.5].over) / 100).toFixed(0) });
+        advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
+      }
+      // CASO 2: Trasferta dominante
+      else if (awayStrong && homeWeak && p1X2.away >= 60) {
+        advice.pick = '2 Ospite'; advice.prob = p1X2.away;
+        advice.confidence = p1X2.away >= 70 ? 'high' : 'medium';
+        advice.reasons.push('xG Ospite ' + awayXG.toFixed(2) + ' superiore a Casa ' + homeXG.toFixed(2));
+        advice.alternatives.push({ pick: 'X2', prob: (p1X2.away + p1X2.draw).toFixed(0) });
+      }
+      // CASO 3: Partita da GOL
+      else if (veryHighScoring && pOU[2.5].over >= 70) {
+        advice.pick = 'Over 2.5'; advice.prob = pOU[2.5].over;
+        advice.confidence = pOU[2.5].over >= 80 ? 'high' : 'medium';
+        advice.reasons.push('xG Totale ' + totXG.toFixed(2) + ' molto alto');
+        advice.alternatives.push({ pick: 'Over 3.5', prob: pOU[3.5].over.toFixed(0) });
+        if (ggLikely) advice.alternatives.push({ pick: 'GG', prob: pBTTS.toFixed(0) });
+      }
+      // CASO 4: GG probabile
+      else if (ggLikely && pBTTS >= 60) {
+        advice.pick = 'GG'; advice.prob = pBTTS;
+        advice.confidence = pBTTS >= 70 ? 'high' : 'medium';
+        advice.reasons.push('Entrambe segnano: xG ' + homeXG.toFixed(2) + ' / ' + awayXG.toFixed(2));
+        if (highScoring) advice.alternatives.push({ pick: 'GG + Over 2.5', prob: ((pBTTS * pOU[2.5].over) / 100).toFixed(0) });
+        advice.alternatives.push({ pick: 'Over 2.5', prob: pOU[2.5].over.toFixed(0) });
+      }
+      // CASO 5: Over 1.5 sicuro
+      else if (pOU[1.5].over >= 80) {
+        advice.pick = 'Over 1.5'; advice.prob = pOU[1.5].over;
+        advice.confidence = 'high';
+        advice.reasons.push('Prob Over 1.5: ' + pOU[1.5].over.toFixed(0) + '% — xG ' + totXG.toFixed(2));
+        advice.alternatives.push({ pick: '1X + Over 1.5', prob: (((p1X2.home + p1X2.draw) * pOU[1.5].over) / 100).toFixed(0) });
+      }
+      // CASO 6: 1X sicuro
+      else if ((p1X2.home + p1X2.draw) >= 80) {
+        advice.pick = '1X'; advice.prob = p1X2.home + p1X2.draw;
+        advice.confidence = 'high';
+        advice.reasons.push('Casa forte (xG ' + homeXG.toFixed(2) + '), vittoria ospite improbabile (' + p1X2.away.toFixed(0) + '%)');
+        advice.alternatives.push({ pick: '1', prob: p1X2.home.toFixed(0) });
+      }
+      // CASO 7: Partita equilibrata
+      else if (balanced && p1X2.draw >= 28) {
+        advice.pick = 'Under 3.5'; advice.prob = pOU[3.5].under;
+        advice.confidence = lowScoring ? 'medium' : 'low';
+        advice.reasons.push('Partita equilibrata — xG simili (' + homeXG.toFixed(2) + ' / ' + awayXG.toFixed(2) + ')');
+        advice.alternatives.push({ pick: 'X', prob: p1X2.draw.toFixed(0) });
+        advice.alternatives.push({ pick: 'Under 2.5', prob: pOU[2.5].under.toFixed(0) });
+      }
+      // CASO 8: Default
+      else {
+        advice.pick = 'Over 1.5'; advice.prob = pOU[1.5].over;
+        advice.confidence = pOU[1.5].over >= 70 ? 'medium' : 'low';
+        advice.reasons.push('Pronostico più sicuro — xG Totale ' + totXG.toFixed(2));
+        if (p1X2.home >= 55) advice.alternatives.push({ pick: '1X', prob: (p1X2.home + p1X2.draw).toFixed(0) });
+      }
+      
+      return advice;
+    }
+    
+    // Pronostico Statistico Base — prende la predizione con probabilità più alta
+    function generateBaseStatAdvice(analysis) {
+      const { predictions } = analysis;
+      if (!predictions || predictions.length === 0) return { pick: 'N/D', market: '-', prob: 0, confidence: 'low', alternatives: [] };
+      
+      const best = predictions.reduce((b, c) => c.prob > b.prob ? c : b, predictions[0]);
+      const confidence = best.prob >= 70 ? 'high' : best.prob >= 55 ? 'medium' : 'low';
+      const alternatives = predictions
+        .filter(p => p.market !== best.market)
+        .sort((a, b) => b.prob - a.prob)
+        .slice(0, 3)
+        .map(p => ({ pick: p.value, prob: p.prob.toFixed(0) }));
+      
+      return { pick: best.value, market: best.market, prob: best.prob, confidence, alternatives };
+    }
+    
+    function renderBettingProBase(match, d) {
+      const baseAI = generateBaseAIAdvice(match, d);
+      const baseStat = generateBaseStatAdvice(d);
+      
+      const confIcon = c => c === 'high' ? '🎯' : c === 'medium' ? '✓' : '⚠️';
+      const confLabel = c => c === 'high' ? 'Alta' : c === 'medium' ? 'Media' : 'Bassa';
+      const confColor = c => c === 'high' ? '#10b981' : c === 'medium' ? '#fbbf24' : '#ef4444';
+      
+      // Confronto: i due pick concordano?
+      const agree = baseAI.pick === baseStat.pick || baseAI.pick.includes(baseStat.pick) || baseStat.pick.includes(baseAI.pick);
+      
+      let html = '<div style="display:flex;flex-direction:column;gap:14px;">';
+      
+      // CONCORDANZA
+      if (agree) {
+        html += '<div style="background:rgba(16,185,129,0.08);border:1.5px solid rgba(16,185,129,0.3);border-radius:12px;padding:10px 14px;text-align:center;">';
+        html += '<span style="font-size:0.72rem;font-weight:800;color:#10b981;">✅ CONCORDANZA — AI e Statistico concordano su ' + esc(baseAI.pick) + '</span>';
+        html += '</div>';
+      } else {
+        html += '<div style="background:rgba(251,191,36,0.08);border:1.5px solid rgba(251,191,36,0.2);border-radius:12px;padding:10px 14px;text-align:center;">';
+        html += '<span style="font-size:0.72rem;font-weight:800;color:#fbbf24;">⚡ DIVERGENZA — I due metodi suggeriscono pick diversi</span>';
+        html += '</div>';
+      }
+      
+      // DUE COLONNE: AI e Statistico
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+      
+      // === AI BASE ===
+      html += '<div style="background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.2);border-radius:12px;padding:14px;">';
+      html += '<div style="font-size:0.65rem;font-weight:700;color:#c084fc;margin-bottom:8px;">🤖 Consiglio AI Base</div>';
+      html += '<div style="font-size:1.1rem;font-weight:900;color:white;margin-bottom:4px;">' + esc(baseAI.pick) + '</div>';
+      html += '<div style="font-size:0.9rem;font-weight:800;color:' + confColor(baseAI.confidence) + ';">' + baseAI.prob.toFixed(0) + '% <span style="font-size:0.6rem;opacity:0.7;">' + confIcon(baseAI.confidence) + ' ' + confLabel(baseAI.confidence) + '</span></div>';
+      html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-top:6px;line-height:1.5;">';
+      baseAI.reasons.forEach(function(r) { html += '• ' + r + '<br>'; });
+      html += '</div>';
+      if (baseAI.alternatives.length > 0) {
+        html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">';
+        baseAI.alternatives.forEach(function(a) {
+          html += '<span style="padding:3px 8px;background:rgba(168,85,247,0.1);border-radius:6px;font-size:0.6rem;color:#c084fc;font-weight:600;">' + a.pick + ' ' + a.prob + '%</span>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+      
+      // === STATISTICO BASE ===
+      html += '<div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:12px;padding:14px;">';
+      html += '<div style="font-size:0.65rem;font-weight:700;color:#00d4ff;margin-bottom:8px;">📊 Pronostico Statistico</div>';
+      html += '<div style="font-size:1.1rem;font-weight:900;color:white;margin-bottom:4px;">' + esc(baseStat.pick) + '</div>';
+      html += '<div style="font-size:0.9rem;font-weight:800;color:' + confColor(baseStat.confidence) + ';">' + baseStat.prob.toFixed(0) + '% <span style="font-size:0.6rem;opacity:0.7;">' + confIcon(baseStat.confidence) + ' ' + confLabel(baseStat.confidence) + '</span></div>';
+      html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-top:6px;">Mercato: <strong>' + esc(baseStat.market) + '</strong></div>';
+      html += '<div style="font-size:0.58rem;color:var(--text-dark);margin-top:2px;">Basato sulla probabilità Poisson più alta</div>';
+      if (baseStat.alternatives.length > 0) {
+        html += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">';
+        baseStat.alternatives.forEach(function(a) {
+          html += '<span style="padding:3px 8px;background:rgba(0,212,255,0.1);border-radius:6px;font-size:0.6rem;color:#00d4ff;font-weight:600;">' + a.pick + ' ' + a.prob + '%</span>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+      
+      html += '</div>'; // fine grid
+      
+      // NOTA
+      html += '<div style="font-size:0.55rem;color:var(--text-dark);text-align:center;opacity:0.5;">';
+      html += '📌 BettingPro Base usa l\'algoritmo originale semplificato (8 casi xG). Confronta con il Super Oracle per decidere.';
+      html += '</div>';
+      
+      html += '</div>';
+      return html;
+    }
+
+    // === TRAP DETECTOR — Indice di rischio trappola ===
+    // Analizza 8+ fattori di rischio + Super AI/Oracle per generare il "Prono del Trap"
+    // Legge SOLO dati già calcolati — ZERO impatto sull'algoritmo
+    // === TRAP DETECTOR v2 — Indice di rischio trappola migliorato ===
+    // 13 fattori + 4 attenuanti. Integra Super AI/Oracle.
+    // Legge SOLO dati già calcolati — ZERO impatto sull'algoritmo
+    function calculateTrapScore(match, d, ai) {
+      const traps = [];
+      let totalScore = 0;
+      
+      const hD = d.homeData || {};
+      const aD = d.awayData || {};
+      const p = d.p1X2 || { home: 33, draw: 33, away: 33 };
+      const xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      const pOU = d.pOU || {};
+      const pBTTS = d.pBTTS || 50;
+      const bk = d.bookmakerOdds || {};
+      
+      // Chi è il favorito?
+      const favIs = p.home > p.away ? 'home' : 'away';
+      const favProb = favIs === 'home' ? p.home : p.away;
+      const undProb = favIs === 'home' ? p.away : p.home;
+      const favName = favIs === 'home' ? match.home.name : match.away.name;
+      const undName = favIs === 'home' ? match.away.name : match.home.name;
+      const favData = favIs === 'home' ? hD : aD;
+      const undData = favIs === 'home' ? aD : hD;
+      const favXG = favIs === 'home' ? xG.home : xG.away;
+      const undXG = favIs === 'home' ? xG.away : xG.home;
+      const favForm = favIs === 'home' ? (d.homeForm || '') : (d.awayForm || '');
+      const undForm = favIs === 'home' ? (d.awayForm || '') : (d.homeForm || '');
+      const favFatigue = favIs === 'home' ? (d.homeFatigue || 1.0) : (d.awayFatigue || 1.0);
+      const undFatigue = favIs === 'home' ? (d.awayFatigue || 1.0) : (d.homeFatigue || 1.0);
+      const favInjuries = favIs === 'home' ? (d.homeInjuries || []) : (d.awayInjuries || []);
+      const undInjuries = favIs === 'home' ? (d.awayInjuries || []) : (d.homeInjuries || []);
+      const favPos = favIs === 'home' ? d.homePosition : d.awayPosition;
+      const undPos = favIs === 'home' ? d.awayPosition : d.homePosition;
+      
+      // Se non c'è un favorito chiaro, nessuna trappola possibile
+      if (favProb < 45) {
+        return { score: 0, level: 'none', label: 'Equilibrata', color: '#64748b', traps: [{ factor: 'Partita equilibrata', detail: 'Nessun favorito chiaro (' + p.home.toFixed(0) + '% / ' + p.away.toFixed(0) + '%). Il concetto di trappola non si applica.', weight: 0, icon: 'ℹ️' }], trapPick: null };
+      }
+      
+      // === FATTORE 1: Forma gonfiata — vittorie senza dominare ===
+      if (favForm && favForm.length >= 3) {
+        const recent = favForm.slice(0, 5).split('');
+        const wins = recent.filter(function(r) { return r === 'W'; }).length;
+        const losses = recent.filter(function(r) { return r === 'L'; }).length;
+        
+        if (wins >= 3 && favData.goalsFor && favData.goalsFor < 1.5) {
+          var w = 15;
+          totalScore += w;
+          traps.push({ factor: 'Forma gonfiata', detail: favName + ': ' + wins + 'V nelle ultime 5 ma solo ' + favData.goalsFor.toFixed(1) + ' gol/g — vittorie risicate senza dominare.', weight: w, icon: '🎭' });
+        }
+        if (wins >= 3 && favData.goalsAgainst && favData.goalsAgainst >= 1.5) {
+          var w = 10;
+          totalScore += w;
+          traps.push({ factor: 'Vince ma subisce', detail: favName + ': vince spesso ma subisce ' + favData.goalsAgainst.toFixed(1) + ' gol/g — basta un gol per ribaltare.', weight: w, icon: '🎭' });
+        }
+        if (losses >= 2) {
+          var w = 12;
+          totalScore += w;
+          traps.push({ factor: 'Forma in calo', detail: favName + ': ' + losses + ' sconfitte nelle ultime 5. Tendenza negativa.', weight: w, icon: '📉' });
+        }
+      }
+      
+      // === FATTORE 2: H2H scomodo ===
+      const h2h = d.h2hInfo || {};
+      if (h2h.awayMultiplier && h2h.awayMultiplier > 1.05 && favIs === 'home') {
+        var w = 14;
+        totalScore += w;
+        traps.push({ factor: 'H2H sfavorevole', detail: undName + ' ha un buon rendimento storico contro ' + favName + '. Possibile "bestia nera".', weight: w, icon: '👻' });
+      } else if (h2h.homeMultiplier && h2h.homeMultiplier > 1.05 && favIs === 'away') {
+        var w = 14;
+        totalScore += w;
+        traps.push({ factor: 'H2H sfavorevole', detail: undName + ' ha un buon rendimento storico contro ' + favName + '. Possibile "bestia nera".', weight: w, icon: '👻' });
+      }
+      
+      // === FATTORE 3: Motivazione asimmetrica ===
+      if (favPos && undPos) {
+        if (favPos <= 4 && undPos >= 15) {
+          var w = 12;
+          totalScore += w;
+          traps.push({ factor: 'Motivazione asimmetrica', detail: favName + ' (' + favPos + '°) già al sicuro. ' + undName + ' (' + undPos + '°) lotta per la salvezza — motivazione 120%.', weight: w, icon: '🔥' });
+        }
+        if (favPos >= 8 && favPos <= 14 && (undPos <= 5 || undPos >= 17)) {
+          var w = 8;
+          totalScore += w;
+          traps.push({ factor: 'Favorito senza obiettivo', detail: favName + ' (' + favPos + '°) in terra di nessuno. Rischio rilassamento.', weight: w, icon: '😴' });
+        }
+      }
+      
+      // === FATTORE 4: Fatica / Calendario fitto ===
+      if (favFatigue < 0.95) {
+        var w = Math.min(18, Math.round((1 - favFatigue) * 120));
+        totalScore += w;
+        traps.push({ factor: 'Stanchezza favorito', detail: favName + ': calendario fitto, energia ' + (favFatigue * 100).toFixed(0) + '%. Gambe pesanti.', weight: w, icon: '🥵' });
+      }
+      
+      // === FATTORE 5: Clean sheet bassa del favorito ===
+      if (favData.cleanSheetPct != null && favData.cleanSheetPct < 25) {
+        var w = favData.cleanSheetPct < 15 ? 14 : 10;
+        totalScore += w;
+        traps.push({ factor: 'Difesa permeabile', detail: favName + ': porta inviolata solo nel ' + favData.cleanSheetPct.toFixed(0) + '%. L\'underdog troverà il gol.', weight: w, icon: '🚪' });
+      }
+      
+      // === FATTORE 6: Assenze INTELLIGENTI ===
+      // Solo lo squilibrio conta — le assenze di lunga data sono già nei dati
+      {
+        const favInj = favInjuries.length;
+        const undInj = undInjuries.length;
+        const delta = favInj - undInj;
+        
+        if (delta >= 4) {
+          var w = 12;
+          totalScore += w;
+          traps.push({ factor: 'Squilibrio assenze', detail: favName + ': ' + favInj + ' indisponibili vs ' + undInj + ' di ' + undName + ' (Δ' + delta + '). Differenza pesante.', weight: w, icon: '🏥' });
+        } else if (delta >= 2 && favInj >= 3) {
+          var w = 7;
+          totalScore += w;
+          traps.push({ factor: 'Più assenti', detail: favName + ': ' + favInj + ' assenti vs ' + undInj + '. Leggero svantaggio.', weight: w, icon: '🏥' });
+        }
+      }
+      
+      // === FATTORE 7: Quote troppo basse ===
+      const bkHome = bk.home ? parseFloat(bk.home) : 0;
+      const bkAway = bk.away ? parseFloat(bk.away) : 0;
+      const favOdds = favIs === 'home' ? bkHome : bkAway;
+      if (favOdds > 0 && favOdds <= 1.30) {
+        var w = 16;
+        totalScore += w;
+        traps.push({ factor: 'Quota troppo bassa', detail: 'Quota @' + favOdds.toFixed(2) + ' — tutti puntano uguale, zero valore. Classica trappola.', weight: w, icon: '💰' });
+      } else if (favOdds > 0 && favOdds <= 1.45) {
+        var w = 8;
+        totalScore += w;
+        traps.push({ factor: 'Quota compressa', detail: 'Quota @' + favOdds.toFixed(2) + ' — profitto minimo anche vincendo.', weight: w, icon: '💰' });
+      }
+      
+      // === FATTORE 8: Gap xG stretto mascherato ===
+      const xgGap = Math.abs(favXG - undXG);
+      if (favProb >= 60 && xgGap < 0.5) {
+        var w = 14;
+        totalScore += w;
+        traps.push({ factor: 'xG ingannatore', detail: 'Prob ' + favProb.toFixed(0) + '% ma xG vicini (' + favXG.toFixed(2) + ' vs ' + undXG.toFixed(2) + '). Più equilibrata di quanto sembra.', weight: w, icon: '📊' });
+      } else if (favProb >= 55 && xgGap < 0.35) {
+        var w = 10;
+        totalScore += w;
+        traps.push({ factor: 'xG equilibrato', detail: 'Gap xG stretto: ' + favXG.toFixed(2) + ' vs ' + undXG.toFixed(2) + '. Il favorito non domina.', weight: w, icon: '📊' });
+      }
+      
+      // === FATTORE 9: "TOO GOOD TO BE TRUE" ===
+      // Quando TUTTO concorda per vittoria facile, il rischio paradossale sale
+      {
+        var perfSignals = 0;
+        if (favProb >= 65) perfSignals++;
+        if (favOdds > 0 && favOdds <= 1.45) perfSignals++;
+        if (favForm && favForm.slice(0, 3) === 'WWW') perfSignals++;
+        if (favXG > undXG * 1.8) perfSignals++;
+        if (favData.winRate && favData.winRate >= 65) perfSignals++;
+        
+        if (perfSignals >= 4) {
+          var w = 14;
+          totalScore += w;
+          traps.push({ factor: 'Troppo facile?', detail: 'Prob ' + favProb.toFixed(0) + '%, quota bassa, forma perfetta, xG dominante — quando tutto è "troppo bello" il rischio upset è massimo. Le partite facili non esistono.', weight: w, icon: '🪤' });
+        } else if (perfSignals === 3) {
+          var w = 8;
+          totalScore += w;
+          traps.push({ factor: 'Eccessiva sicurezza', detail: 'Troppi segnali positivi concordano (' + perfSignals + '/5). Attenzione alla sindrome "partita già vinta".', weight: w, icon: '🪤' });
+        }
+      }
+      
+      // === FATTORE 10: Momentum underdog ===
+      // Se l'underdog sta migliorando è molto più pericoloso
+      if (undForm && undForm.length >= 4) {
+        const undRecent = undForm.slice(0, 5).split('');
+        const undFirst2 = undRecent.slice(0, 2);
+        const undLast3 = undRecent.slice(2);
+        const undRecentPts = undFirst2.reduce(function(s, r) { return s + (r === 'W' ? 3 : r === 'D' ? 1 : 0); }, 0);
+        const undOlderPts = undLast3.reduce(function(s, r) { return s + (r === 'W' ? 3 : r === 'D' ? 1 : 0); }, 0);
+        const undOlderAvg = undLast3.length > 0 ? undOlderPts / undLast3.length : 1;
+        const undRecentAvg = undFirst2.length > 0 ? undRecentPts / undFirst2.length : 1;
+        
+        if (undRecentAvg > undOlderAvg + 0.5 && undRecentPts >= 4) {
+          var w = 12;
+          totalScore += w;
+          traps.push({ factor: 'Underdog in crescita', detail: undName + ': trend in netto miglioramento (' + undFirst2.join('') + ' vs ' + undLast3.join('') + '). Avversario pericoloso.', weight: w, icon: '📈' });
+        } else if (undRecentAvg > undOlderAvg && undData.goalsFor >= 1.3) {
+          var w = 7;
+          totalScore += w;
+          traps.push({ factor: 'Underdog in ripresa', detail: undName + ': forma in miglioramento e segna ' + undData.goalsFor.toFixed(1) + ' gol/g. Da non sottovalutare.', weight: w, icon: '📈' });
+        }
+      }
+      
+      // === FATTORE 11: Gap fisico (underdog riposato) ===
+      if (favFatigue < 0.97 && undFatigue >= 1.0) {
+        const fatigueGap = undFatigue - favFatigue;
+        if (fatigueGap >= 0.06) {
+          var w = 10;
+          totalScore += w;
+          traps.push({ factor: 'Gap fisico', detail: undName + ' riposato, ' + favName + ' affaticato. Differenza energia: ' + (fatigueGap * 100).toFixed(0) + '%.', weight: w, icon: '🏃' });
+        }
+      }
+      
+      // === FATTORE 12: SUPER AI WARNING FLAGS ===
+      const superAI = state.superAIAnalysis;
+      if (superAI && !superAI.error) {
+        const warnings = (superAI.warningFlags || []).filter(function(wf) { return wf && wf.length > 2; });
+        if (warnings.length > 0) {
+          var w = Math.min(15, warnings.length * 6);
+          totalScore += w;
+          traps.push({ factor: 'Alert Oracle AI', detail: warnings.join(' | '), weight: w, icon: '🧠' });
+        }
+        if (superAI.recommendation === 'SKIP') {
+          var w = 12;
+          totalScore += w;
+          traps.push({ factor: 'Oracle consiglia SKIP', detail: 'L\'analisi AI con news suggerisce di evitare questa partita.', weight: w, icon: '🛑' });
+        }
+        if (superAI.riskLevel === 'alto') {
+          var w = 10;
+          totalScore += w;
+          traps.push({ factor: 'Rischio AI alto', detail: 'Oracle AI classifica il rischio come ALTO sulla base delle news.', weight: w, icon: '⚡' });
+        }
+      }
+      
+      // === FATTORE 13: Bassa convergenza Super Algoritmo ===
+      const superAlgo = state.superAnalysis;
+      if (superAlgo && superAlgo.picks && superAlgo.picks.length > 0) {
+        if (superAlgo.avgConvergence < 0.45) {
+          var w = 10;
+          totalScore += w;
+          traps.push({ factor: 'Segnali discordanti', detail: 'Super Algoritmo: convergenza ' + (superAlgo.avgConvergence * 100).toFixed(0) + '%. I segnali non concordano.', weight: w, icon: '🔀' });
+        }
+      }
+      
+      // === ATTENUANTE 1: Underdog sterile ===
+      if (undData.failedToScorePct > 40) {
+        totalScore -= 8;
+        traps.push({ factor: 'Underdog sterile', detail: undName + ': non segna nel ' + undData.failedToScorePct.toFixed(0) + '% delle partite. Poco pericoloso.', weight: -8, icon: '🛡️' });
+      }
+      
+      // === ATTENUANTE 2: Dominio reale del favorito ===
+      if (favForm && favForm.length >= 5) {
+        const fRecent = favForm.slice(0, 5).split('');
+        const fWins = fRecent.filter(function(r) { return r === 'W'; }).length;
+        if (fWins >= 4 && favData.goalsFor >= 2.0 && favData.goalsAgainst < 1.2) {
+          totalScore -= 12;
+          traps.push({ factor: 'Dominio reale', detail: favName + ': ' + fWins + 'V/5, segna ' + favData.goalsFor.toFixed(1) + ' e subisce solo ' + favData.goalsAgainst.toFixed(1) + '. Forma autentica.', weight: -12, icon: '🛡️' });
+        }
+      }
+      
+      // === ATTENUANTE 3: Oracle AI conferma con alta fiducia ===
+      if (superAI && !superAI.error && superAI.confidence >= 75 && superAI.algoConfirmed) {
+        totalScore -= 8;
+        traps.push({ factor: 'Oracle AI conferma', detail: 'L\'AI con news conferma il pronostico con ' + superAI.confidence + '% di confidenza.', weight: -8, icon: '🛡️' });
+      }
+      
+      // === ATTENUANTE 4: Underdog in crisi nera ===
+      if (undForm && undForm.length >= 4) {
+        const uRecent = undForm.slice(0, 4).split('');
+        const uLosses = uRecent.filter(function(r) { return r === 'L'; }).length;
+        if (uLosses >= 3 && undData.goalsFor < 0.8) {
+          totalScore -= 10;
+          traps.push({ factor: 'Underdog in crisi', detail: undName + ': ' + uLosses + ' sconfitte su 4 e segna solo ' + undData.goalsFor.toFixed(1) + ' gol/g. In crisi totale.', weight: -10, icon: '🛡️' });
+        }
+      }
+      
+      // Normalizza 0-100
+      totalScore = Math.max(0, Math.min(100, totalScore));
+      
+      // Ordina: rischi prima (peso alto), poi attenuanti (negativi)
+      traps.sort(function(a, b) { return b.weight - a.weight; });
+      
+      var level, label, color;
+      if (totalScore <= 20) { level = 'safe'; label = 'SICURA'; color = '#10b981'; }
+      else if (totalScore <= 40) { level = 'caution'; label = 'ATTENZIONE'; color = '#fbbf24'; }
+      else if (totalScore <= 60) { level = 'risk'; label = 'RISCHIO'; color = '#f97316'; }
+      else { level = 'trap'; label = 'TRAPPOLA'; color = '#ef4444'; }
+      
+      // === PRONO DEL TRAP ===
+      const trapPick = generateTrapPick(totalScore, level, match, d, ai, favIs, favName, undName, favXG, undXG, favProb, pOU, pBTTS, superAI, superAlgo);
+      
+      return { score: totalScore, level, label, color, traps, trapPick, favName, undName, favProb, favOdds };
+    }
+    // === PRONO DEL TRAP — Pronostico intelligente anti-trappola ===
+    function generateTrapPick(trapScore, trapLevel, match, d, ai, favIs, favName, undName, favXG, undXG, favProb, pOU, pBTTS, superAI, superAlgo) {
+      const p = d.p1X2 || { home: 33, draw: 33, away: 33 };
+      const totXG = (d.xG || {}).total || 2.2;
+      const result = { pick: '', prob: 0, reasoning: '', strategy: '', confidence: 'medium', alternatives: [] };
+      
+      // Raccogli i pick da tutte le fonti
+      const aiPick = ai ? ai.pick : '';
+      const oraclePick = (superAlgo && superAlgo.topPick) ? superAlgo.topPick.value : '';
+      const aiNewsPick = (superAI && !superAI.error) ? (superAI.bestPick || '') : '';
+      
+      // Se trap è bassa: conferma il pick principale con extra fiducia
+      if (trapLevel === 'safe') {
+        result.pick = aiPick || oraclePick || 'Over 1.5';
+        result.prob = ai ? ai.prob : 65;
+        result.reasoning = 'Nessun segnale di trappola. Il pronostico principale è affidabile.';
+        result.strategy = 'Via libera per singole e multiple.';
+        result.confidence = 'high';
+        // Aggiungi conferma fonti
+        if (oraclePick && aiNewsPick) {
+          const allAgree = aiPick.toLowerCase().includes(oraclePick.toLowerCase().split(' ')[0]) || oraclePick.toLowerCase().includes(aiPick.toLowerCase().split(' ')[0]);
+          if (allAgree) result.reasoning = 'Tutte le fonti concordano e nessun segnale di trappola. Massima fiducia.';
+        }
+        return result;
+      }
+      
+      // Se trap è TRAPPOLA o RISCHIO: suggerisci mercato sicuro
+      if (trapLevel === 'trap' || trapLevel === 'risk') {
+        // Strategia: evita esiti secchi (1, X, 2), preferisci mercati "proteggibili"
+        const candidates = [];
+        
+        // Under 3.5 quasi sempre sicuro in partite trappola (poca qualità, tensione)
+        if (pOU && pOU[3.5]) {
+          candidates.push({ pick: 'Under 3.5', prob: pOU[3.5].under, reason: 'Le partite trappola tendono ad essere bloccate — tensione alta, pochi gol.' });
+        }
+        
+        // Double chance del favorito (copertura pareggio)
+        const dcPick = favIs === 'home' ? '1X' : 'X2';
+        const dcProb = favIs === 'home' ? p.home + p.draw : p.away + p.draw;
+        candidates.push({ pick: dcPick, prob: dcProb, reason: 'Double chance copre il pareggio — il favorito potrebbe non vincere ma difficilmente crolla del tutto.' });
+        
+        // Over 1.5 (quasi sempre passa)
+        if (pOU && pOU[1.5] && pOU[1.5].over >= 70) {
+          candidates.push({ pick: 'Over 1.5', prob: pOU[1.5].over, reason: 'Almeno 2 gol sono probabili anche nelle trappole. Mercato sicuro.' });
+        }
+        
+        // GG se entrambe segnano spesso
+        if (pBTTS >= 55 && favXG > 0.9 && undXG > 0.9) {
+          candidates.push({ pick: 'GG', prob: pBTTS, reason: 'Entrambe segnano — l\'underdog motivato trova il gol, il favorito reagisce.' });
+        }
+        
+        // Under 2.5 se partita è davvero bloccata
+        if (totXG < 2.3 && pOU && pOU[2.5]) {
+          candidates.push({ pick: 'Under 2.5', prob: pOU[2.5].under, reason: 'xG totale basso (' + totXG.toFixed(2) + ') + tensione da trappola = pochi gol.' });
+        }
+        
+        // Ordina per probabilità
+        candidates.sort((a, b) => b.prob - a.prob);
+        
+        if (candidates.length > 0) {
+          const best = candidates[0];
+          result.pick = best.pick;
+          result.prob = best.prob;
+          result.reasoning = best.reason;
+          result.confidence = trapLevel === 'trap' ? 'high' : 'medium';
+          result.strategy = trapLevel === 'trap' 
+            ? '🚫 NON giocare il favorito secco. Usa questo pick sicuro o evita la partita.'
+            : '⚡ Il favorito secco è rischioso. Questo pick gestisce il rischio.';
+          result.alternatives = candidates.slice(1, 3).map(c => ({ pick: c.pick, prob: c.prob.toFixed(0) }));
+        }
+        return result;
+      }
+      
+      // Se trap è ATTENZIONE: pick "ammorbidito"
+      // Mantieni l'area del pick principale ma proteggi
+      const candidates = [];
+      
+      // Se il pick AI è un esito secco (1, 2), suggerisci double chance
+      if (aiPick && (aiPick.includes('Casa') || aiPick.includes('Ospite') || aiPick === '1' || aiPick === '2')) {
+        const dcPick = (aiPick.includes('Casa') || aiPick === '1') ? '1X' : 'X2';
+        const dcProb = (aiPick.includes('Casa') || aiPick === '1') ? p.home + p.draw : p.away + p.draw;
+        candidates.push({ pick: dcPick, prob: dcProb, reason: 'Il favorito è dato vincente ma i segnali di attenzione suggeriscono di coprire il pareggio.' });
+      }
+      
+      // Over 1.5 + Under 3.5 combo sicura
+      if (pOU && pOU[1.5] && pOU[3.5]) {
+        const o15 = pOU[1.5].over;
+        const u35 = pOU[3.5].under;
+        if (o15 >= 72 && u35 >= 60) {
+          candidates.push({ pick: 'Over 1.5', prob: o15, reason: 'Mercato gol sicuro — almeno 2 gol sono molto probabili.' });
+        }
+      }
+      
+      // GG come alternativa
+      if (pBTTS >= 55) {
+        candidates.push({ pick: 'GG', prob: pBTTS, reason: 'Entrambe segnano — copre sia vittoria che pareggio con gol.' });
+      }
+      
+      // Conferma AI se disponibile
+      if (aiNewsPick && candidates.length === 0) {
+        candidates.push({ pick: aiNewsPick, prob: (superAI || {}).bestPickProb || 60, reason: 'Oracle AI suggerisce questo pick basandosi anche sulle news.' });
+      }
+      
+      candidates.sort((a, b) => b.prob - a.prob);
+      
+      if (candidates.length > 0) {
+        const best = candidates[0];
+        result.pick = best.pick;
+        result.prob = best.prob;
+        result.reasoning = best.reason;
+        result.confidence = 'medium';
+        result.strategy = '⚠️ Giocabile con cautela. Evita nelle multiple da 3+.';
+        result.alternatives = candidates.slice(1, 3).map(c => ({ pick: c.pick, prob: c.prob.toFixed(0) }));
+      } else {
+        result.pick = aiPick || 'Over 1.5';
+        result.prob = ai ? ai.prob : 65;
+        result.reasoning = 'Segnali di attenzione limitati. Il pick principale resta valido.';
+        result.confidence = 'medium';
+        result.strategy = '✓ Giocabile come singola.';
+      }
+      
+      return result;
+    }
+    
+    // ================================================================
+    // ============ BETTINGPRO v7 — MODULI AVANZATI ====================
+    // ================================================================
+    
+    // ============================================================
+    // 1. ODDS LAB — Multi-bookmaker + Steam Move Detection
+    // ============================================================
+    async function fetchOddsLab(fixtureId) {
+      try {
+        // Prendi quote da TUTTI i bookmaker disponibili
+        const data = await callAPIFootball('/odds', { fixture: fixtureId });
+        const bookmakers = data?.response?.[0]?.bookmakers || [];
+        if (!bookmakers.length) return null;
+        
+        const result = { bookmakers: [], sharp: null, consensus: null, steamMoves: [], markets: {} };
+        
+        // Bookmaker "sharp" (Pinnacle ID=15, bet365 ID=1, Unibet ID=21)
+        const sharpIds = [15, 1, 21, 8, 3]; // Pinnacle, Bet365, Unibet, Betfair, 888sport
+        const sharpNames = ['pinnacle', 'bet365', 'unibet', 'betfair', '888sport'];
+        
+        bookmakers.forEach(bk => {
+          const market1X2 = (bk.bets || []).find(b => 
+            b.name === 'Match Winner' || b.name === '1X2' || b.name === 'Home/Draw/Away'
+          );
+          const marketOU = (bk.bets || []).find(b => 
+            b.name === 'Goals Over/Under' || b.name === 'Over/Under'
+          );
+          const marketBTTS = (bk.bets || []).find(b => 
+            b.name === 'Both Teams Score' || b.name === 'Both Teams to Score'
+          );
+          
+          if (market1X2?.values?.length >= 3) {
+            const vals = market1X2.values;
+            const homeO = parseFloat(vals.find(v => v.value === 'Home')?.odd || 0);
+            const drawO = parseFloat(vals.find(v => v.value === 'Draw')?.odd || 0);
+            const awayO = parseFloat(vals.find(v => v.value === 'Away')?.odd || 0);
+            
+            if (homeO > 1 && drawO > 1 && awayO > 1) {
+              const raw1 = 1/homeO, rawX = 1/drawO, raw2 = 1/awayO;
+              const tot = raw1 + rawX + raw2;
+              const margin = ((tot - 1) * 100).toFixed(1);
+              const isSharp = sharpNames.some(s => (bk.name || '').toLowerCase().includes(s));
+              
+              const entry = {
+                id: bk.id,
+                name: bk.name,
+                isSharp,
+                odds: { home: homeO, draw: drawO, away: awayO },
+                impliedProb: { home: (raw1/tot)*100, draw: (rawX/tot)*100, away: (raw2/tot)*100 },
+                margin: parseFloat(margin)
+              };
+              
+              // Parse O/U 2.5
+              if (marketOU) {
+                const ou25Vals = marketOU.values.filter(v => v.value && v.value.includes('2.5'));
+                const overVal = ou25Vals.find(v => v.value.toLowerCase().includes('over'));
+                const underVal = ou25Vals.find(v => v.value.toLowerCase().includes('under'));
+                if (overVal && underVal) {
+                  entry.ou25 = { over: parseFloat(overVal.odd), under: parseFloat(underVal.odd) };
+                }
+              }
+              
+              // Parse BTTS
+              if (marketBTTS) {
+                const yesVal = marketBTTS.values.find(v => v.value === 'Yes');
+                const noVal = marketBTTS.values.find(v => v.value === 'No');
+                if (yesVal && noVal) {
+                  entry.btts = { yes: parseFloat(yesVal.odd), no: parseFloat(noVal.odd) };
+                }
+              }
+              
+              result.bookmakers.push(entry);
+              if (isSharp && !result.sharp) result.sharp = entry;
+            }
+          }
+        });
+        
+        if (result.bookmakers.length === 0) return null;
+        
+        // Se nessuno sharp, usa quello con margine più basso
+        if (!result.sharp) {
+          result.sharp = result.bookmakers.reduce((best, bk) => bk.margin < best.margin ? bk : best, result.bookmakers[0]);
+        }
+        
+        // CONSENSUS: media ponderata delle probabilità (sharp 2x peso)
+        let totalW = 0;
+        const consensusProb = { home: 0, draw: 0, away: 0 };
+        result.bookmakers.forEach(bk => {
+          const w = bk.isSharp ? 2.0 : 1.0;
+          consensusProb.home += bk.impliedProb.home * w;
+          consensusProb.draw += bk.impliedProb.draw * w;
+          consensusProb.away += bk.impliedProb.away * w;
+          totalW += w;
+        });
+        consensusProb.home /= totalW;
+        consensusProb.draw /= totalW;
+        consensusProb.away /= totalW;
+        result.consensus = consensusProb;
+        
+        // STEAM MOVES: confronta sharp vs media dei "soft" bookmaker
+        const softBks = result.bookmakers.filter(b => !b.isSharp);
+        if (softBks.length >= 2 && result.sharp) {
+          const avgSoftHome = softBks.reduce((s,b) => s + b.impliedProb.home, 0) / softBks.length;
+          const avgSoftAway = softBks.reduce((s,b) => s + b.impliedProb.away, 0) / softBks.length;
+          
+          // Se sharp dà più prob a Casa/Ospite rispetto ai soft → steam move
+          const deltaHome = result.sharp.impliedProb.home - avgSoftHome;
+          const deltaAway = result.sharp.impliedProb.away - avgSoftAway;
+          
+          if (deltaHome > 3) {
+            result.steamMoves.push({ direction: 'home', delta: deltaHome.toFixed(1), signal: 'Smart money punta sulla casa — sharp book più basso dei soft.', type: 'bullish' });
+          }
+          if (deltaAway > 3) {
+            result.steamMoves.push({ direction: 'away', delta: deltaAway.toFixed(1), signal: 'Smart money punta sull\'ospite — sharp book più basso dei soft.', type: 'bullish' });
+          }
+          
+          // Detect odds discrepancy (valore nascosto)
+          const maxHome = Math.max(...result.bookmakers.map(b => b.odds.home));
+          const minHome = Math.min(...result.bookmakers.map(b => b.odds.home));
+          const maxAway = Math.max(...result.bookmakers.map(b => b.odds.away));
+          const minAway = Math.min(...result.bookmakers.map(b => b.odds.away));
+          
+          if (maxHome - minHome > 0.25) {
+            result.steamMoves.push({ direction: 'home', delta: (maxHome - minHome).toFixed(2), signal: `Discrepanza quote Casa: ${minHome.toFixed(2)}→${maxHome.toFixed(2)}. Possibile value sul book più alto.`, type: 'neutral' });
+          }
+          if (maxAway - minAway > 0.25) {
+            result.steamMoves.push({ direction: 'away', delta: (maxAway - minAway).toFixed(2), signal: `Discrepanza quote Ospite: ${minAway.toFixed(2)}→${maxAway.toFixed(2)}. Possibile value sul book più alto.`, type: 'neutral' });
+          }
+        }
+        
+        // Aggregate markets per mercato O/U e BTTS
+        const bksWithOU = result.bookmakers.filter(b => b.ou25);
+        if (bksWithOU.length > 0) {
+          const avgOver = bksWithOU.reduce((s,b) => s + b.ou25.over, 0) / bksWithOU.length;
+          const avgUnder = bksWithOU.reduce((s,b) => s + b.ou25.under, 0) / bksWithOU.length;
+          result.markets.ou25 = { avgOver: avgOver.toFixed(2), avgUnder: avgUnder.toFixed(2), impliedOver: ((1/avgOver)*100).toFixed(1), impliedUnder: ((1/avgUnder)*100).toFixed(1) };
+        }
+        const bksWithBTTS = result.bookmakers.filter(b => b.btts);
+        if (bksWithBTTS.length > 0) {
+          const avgYes = bksWithBTTS.reduce((s,b) => s + b.btts.yes, 0) / bksWithBTTS.length;
+          const avgNo = bksWithBTTS.reduce((s,b) => s + b.btts.no, 0) / bksWithBTTS.length;
+          result.markets.btts = { avgYes: avgYes.toFixed(2), avgNo: avgNo.toFixed(2), impliedYes: ((1/avgYes)*100).toFixed(1), impliedNo: ((1/avgNo)*100).toFixed(1) };
+        }
+        
+        return result;
+      } catch(e) {
+        Logger.log('fetchOddsLab', e, 'warn');
+        return null;
+      }
+    }
+
+    // ============================================================
+    // 2. VALUE BET ENGINE — Kelly Criterion + Edge Detection
+    // ============================================================
+    function calculateValueBets(analysis, oddsLab) {
+      if (!analysis || !oddsLab) return null;
+      
+      const results = [];
+      const p1X2 = analysis.p1X2;
+      const pBTTS = analysis.pBTTS;
+      const pOU = analysis.pOU;
+      
+      // Trova il book con le quote migliori per ogni mercato
+      const bestOdds = { home: 0, draw: 0, away: 0, bkHome: '', bkDraw: '', bkAway: '' };
+      oddsLab.bookmakers.forEach(bk => {
+        if (bk.odds.home > bestOdds.home) { bestOdds.home = bk.odds.home; bestOdds.bkHome = bk.name; }
+        if (bk.odds.draw > bestOdds.draw) { bestOdds.draw = bk.odds.draw; bestOdds.bkDraw = bk.name; }
+        if (bk.odds.away > bestOdds.away) { bestOdds.away = bk.odds.away; bestOdds.bkAway = bk.name; }
+      });
+      
+      // Funzione Kelly Criterion: f* = (p*b - q) / b dove b = quota-1, p = prob, q = 1-p
+      function kellyFraction(prob, odds) {
+        const p = prob / 100;
+        const q = 1 - p;
+        const b = odds - 1;
+        if (b <= 0) return 0;
+        const kelly = (p * b - q) / b;
+        return Math.max(0, kelly); // Mai negativo (non suggerire scommesse con edge negativo)
+      }
+      
+      // Funzione Edge: (prob_nostra * quota) - 1
+      function calcEdge(prob, odds) {
+        return ((prob / 100) * odds - 1) * 100;
+      }
+      
+      // 1X2 Markets
+      const markets = [
+        { market: '1X2', pick: '1', prob: p1X2.home, odds: bestOdds.home, bk: bestOdds.bkHome },
+        { market: '1X2', pick: 'X', prob: p1X2.draw, odds: bestOdds.draw, bk: bestOdds.bkDraw },
+        { market: '1X2', pick: '2', prob: p1X2.away, odds: bestOdds.away, bk: bestOdds.bkAway }
+      ];
+      
+      // O/U 2.5
+      if (oddsLab.markets.ou25 && pOU && pOU[2.5]) {
+        const bestOverBk = oddsLab.bookmakers.filter(b => b.ou25).reduce((best, b) => b.ou25.over > (best.ou25?.over || 0) ? b : best, {});
+        const bestUnderBk = oddsLab.bookmakers.filter(b => b.ou25).reduce((best, b) => b.ou25.under > (best.ou25?.under || 0) ? b : best, {});
+        if (bestOverBk.ou25) {
+          markets.push({ market: 'O/U 2.5', pick: 'Over 2.5', prob: pOU[2.5].over, odds: bestOverBk.ou25.over, bk: bestOverBk.name });
+          markets.push({ market: 'O/U 2.5', pick: 'Under 2.5', prob: pOU[2.5].under, odds: bestUnderBk.ou25?.under || 0, bk: bestUnderBk.name || '' });
+        }
+      }
+      
+      // BTTS
+      if (oddsLab.markets.btts) {
+        const bestYesBk = oddsLab.bookmakers.filter(b => b.btts).reduce((best, b) => b.btts.yes > (best.btts?.yes || 0) ? b : best, {});
+        const bestNoBk = oddsLab.bookmakers.filter(b => b.btts).reduce((best, b) => b.btts.no > (best.btts?.no || 0) ? b : best, {});
+        if (bestYesBk.btts) {
+          markets.push({ market: 'GG/NG', pick: 'GG', prob: pBTTS, odds: bestYesBk.btts.yes, bk: bestYesBk.name });
+          markets.push({ market: 'GG/NG', pick: 'NG', prob: 100 - pBTTS, odds: bestNoBk.btts?.no || 0, bk: bestNoBk.name || '' });
+        }
+      }
+      
+      markets.forEach(m => {
+        if (m.odds <= 1) return;
+        const edge = calcEdge(m.prob, m.odds);
+        const kelly = kellyFraction(m.prob, m.odds);
+        const kellyPct = (kelly * 100).toFixed(1);
+        // Kelly frazionato al 25% (conservativo)
+        const kellyStake = Math.min(5, kelly * 25).toFixed(1);
+        const impliedProb = (1 / m.odds) * 100;
+        
+        results.push({
+          market: m.market,
+          pick: m.pick,
+          ourProb: m.prob.toFixed(1),
+          impliedProb: impliedProb.toFixed(1),
+          odds: m.odds.toFixed(2),
+          bestBookmaker: m.bk,
+          edge: edge.toFixed(1),
+          isValue: edge > 0,
+          kellyFull: kellyPct,
+          kellyStake: kellyStake,
+          rating: edge > 10 ? 'HOT' : (edge > 5 ? 'GOOD' : (edge > 0 ? 'MILD' : 'NO'))
+        });
+      });
+      
+      // Ordina: value bets prima, poi per edge
+      results.sort((a, b) => {
+        if (a.isValue && !b.isValue) return -1;
+        if (!a.isValue && b.isValue) return 1;
+        return parseFloat(b.edge) - parseFloat(a.edge);
+      });
+      
+      return {
+        bets: results,
+        topValue: results.filter(r => r.isValue),
+        totalValueBets: results.filter(r => r.isValue).length,
+        bestEdge: results.length ? results[0] : null
+      };
+    }
+
+    // ============================================================
+    // 3. REGRESSION SCORE — Multi-factor weighted scoring
+    //    Ispirato al metodo regressione di Quanta Predict
+    // ============================================================
+    function calculateRegressionScore(match, analysis, oddsLab) {
+      if (!analysis) return null;
+      
+      const factors = [];
+      let totalScore = 0;
+      let totalWeight = 0;
+      
+      const p1X2 = analysis.p1X2 || { home: 33, draw: 33, away: 33 };
+      const xG = analysis.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      const hD = analysis.homeData || {};
+      const aD = analysis.awayData || {};
+      const bk = analysis.bookmakerOdds || {};
+      const pBTTS = analysis.pBTTS || 50;
+      const pOU = analysis.pOU || {};
+      
+      // Chi è il favorito dal nostro modello
+      const favIs = p1X2.home > p1X2.away ? 'home' : 'away';
+      const favProb = favIs === 'home' ? p1X2.home : p1X2.away;
+      const favXG = favIs === 'home' ? xG.home : xG.away;
+      const undXG = favIs === 'home' ? xG.away : xG.home;
+      
+      // FATTORE 1: Forza Poisson (peso 25%)
+      // Il nostro modello Poisson quanto è convinto?
+      {
+        const w = 25;
+        const score = clamp(0, (favProb - 30) * (100/40), 100); // 30%=0, 70%=100
+        factors.push({ name: '🎯 Forza Poisson', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      // FATTORE 2: Dominanza xG (peso 20%)
+      {
+        const w = 20;
+        const xgDiff = favXG - undXG;
+        const score = clamp(0, (xgDiff / 1.5) * 100, 100); // Diff 1.5+ = 100
+        factors.push({ name: '⚽ Dominanza xG', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      // FATTORE 3: Conferma Bookmaker (peso 20%)
+      {
+        const w = 20;
+        let score = 50; // default neutro
+        if (oddsLab && oddsLab.consensus) {
+          const bkFavProb = favIs === 'home' ? oddsLab.consensus.home : oddsLab.consensus.away;
+          score = clamp(0, (bkFavProb - 25) * (100/45), 100);
+        } else if (bk && bk.home > 0) {
+          const bkFavProb = favIs === 'home' ? bk.home : bk.away;
+          score = clamp(0, (bkFavProb - 25) * (100/45), 100);
+        }
+        factors.push({ name: '💰 Conferma Quote', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      // FATTORE 4: Forma recente (peso 15%)
+      {
+        const w = 15;
+        const favForm = favIs === 'home' ? (analysis.homeForm || '') : (analysis.awayForm || '');
+        let score = 50;
+        if (favForm.length >= 3) {
+          const recent = favForm.slice(0, 5).split('');
+          const wins = recent.filter(r => r === 'W').length;
+          const losses = recent.filter(r => r === 'L').length;
+          score = clamp(0, ((wins - losses + 2.5) / 5) * 100, 100);
+        }
+        factors.push({ name: '📈 Forma Recente', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      // FATTORE 5: Solidità difensiva (peso 10%)
+      {
+        const w = 10;
+        const favGA = favIs === 'home' ? (hD.goalsAgainst || 1.2) : (aD.goalsAgainst || 1.2);
+        const score = clamp(0, (1.8 - favGA) / 1.5 * 100, 100); // 0.3 GA=100, 1.8+=0
+        factors.push({ name: '🛡️ Difesa', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      // FATTORE 6: Steam Move / Smart Money (peso 10%)
+      {
+        const w = 10;
+        let score = 50;
+        if (oddsLab && oddsLab.steamMoves.length > 0) {
+          const favSteam = oddsLab.steamMoves.find(s => s.direction === favIs && s.type === 'bullish');
+          const undSteam = oddsLab.steamMoves.find(s => s.direction !== favIs && s.type === 'bullish');
+          if (favSteam) score = 80 + parseFloat(favSteam.delta);
+          else if (undSteam) score = 20;
+        }
+        score = clamp(0, score, 100);
+        factors.push({ name: '🔥 Smart Money', score: score.toFixed(0), weight: w, color: score > 65 ? '#00e5a0' : (score > 40 ? '#fbbf24' : '#f87171') });
+        totalScore += score * w;
+        totalWeight += w;
+      }
+      
+      const finalScore = totalWeight > 0 ? totalScore / totalWeight : 50;
+      
+      let grade, gradeColor;
+      if (finalScore >= 80) { grade = 'A+'; gradeColor = '#00e5a0'; }
+      else if (finalScore >= 70) { grade = 'A'; gradeColor = '#00d4ff'; }
+      else if (finalScore >= 60) { grade = 'B+'; gradeColor = '#3b82f6'; }
+      else if (finalScore >= 50) { grade = 'B'; gradeColor = '#fbbf24'; }
+      else if (finalScore >= 40) { grade = 'C'; gradeColor = '#f97316'; }
+      else { grade = 'D'; gradeColor = '#f87171'; }
+      
+      return {
+        score: finalScore.toFixed(0),
+        grade, gradeColor,
+        factors,
+        favIs,
+        favName: favIs === 'home' ? match.home.name : match.away.name,
+        recommendation: finalScore >= 70 ? 'FORTE' : (finalScore >= 55 ? 'GIOCABILE' : 'EVITARE')
+      };
+    }
+
+    // ============================================================
+    // 4. CONSENSUS ENGINE — Fusione intelligente di tutte le fonti
+    // ============================================================
+    function buildConsensusEngine(match, analysis, ai, oddsLab, regressionResult, superAI, superAlgo) {
+      if (!analysis) return null;
+      
+      const sources = [];
+      const pickVotes = {}; // { 'pick': { count, totalWeight, sources } }
+      
+      // Funzione helper per aggiungere un voto
+      function addVote(name, pick, prob, weight, icon) {
+        if (!pick || pick === 'N/A') return;
+        // Normalizza pick AGGRESSIVO — mappa tutte le varianti allo stesso pick canonico
+        const normalizedPick = normalizePick(pick);
+        const src = { name, pick: normalizedPick, prob: parseFloat(prob) || 0, weight, icon };
+        sources.push(src);
+        
+        if (!pickVotes[normalizedPick]) pickVotes[normalizedPick] = { count: 0, totalWeight: 0, maxProb: 0, sources: [] };
+        pickVotes[normalizedPick].count++;
+        pickVotes[normalizedPick].totalWeight += weight;
+        pickVotes[normalizedPick].maxProb = Math.max(pickVotes[normalizedPick].maxProb, src.prob);
+        pickVotes[normalizedPick].sources.push(name);
+      }
+      
+      function normalizePick(raw) {
+        if (!raw) return raw;
+        const p = raw.trim().toLowerCase();
+        
+        // === 1X2 ===
+        // "1", "1 Casa", "1 (Casa)", "1 (Vittoria Casa)", "Vittoria Casa", "Home Win"
+        if (/^1(\s|\(|$)/.test(p) || p.includes('vittoria casa') || p.includes('casa vince') || p.includes('home win')) return '1';
+        // "2", "2 Ospite", "2 (Ospite)", "2 (Vittoria Ospite)", "Vittoria Ospite", "Away Win"  
+        if (/^2(\s|\(|$)/.test(p) || p.includes('vittoria ospite') || p.includes('ospite vince') || p.includes('away win')) return '2';
+        // "X", "X (Pareggio)", "Pareggio", "Draw"
+        if (/^x(\s|\(|$)/.test(p) || p.includes('pareggio') || p === 'draw') return 'X';
+        
+        // === Double Chance ===
+        if (/^1x(\s|$)/i.test(p) || p === '1x') return '1X';
+        if (/^x2(\s|$)/i.test(p) || p === 'x2') return 'X2';
+        if (/^12(\s|$)/i.test(p) || p === '12') return '12';
+        
+        // === Over/Under ===
+        if (/over\s*0\.?5/i.test(p)) return 'Over 0.5';
+        if (/over\s*1\.?5/i.test(p)) return 'Over 1.5';
+        if (/over\s*2\.?5/i.test(p)) return 'Over 2.5';
+        if (/over\s*3\.?5/i.test(p)) return 'Over 3.5';
+        if (/under\s*0\.?5/i.test(p)) return 'Under 0.5';
+        if (/under\s*1\.?5/i.test(p)) return 'Under 1.5';
+        if (/under\s*2\.?5/i.test(p)) return 'Under 2.5';
+        if (/under\s*3\.?5/i.test(p)) return 'Under 3.5';
+        
+        // === GG/NG ===
+        if (p === 'gg' || p.includes('gol gol') || p.includes('both teams') || p.includes('btts')) return 'GG';
+        if (p === 'ng' || p === 'no gol' || p.includes('no gol') || p.includes('no goal')) return 'NG';
+        
+        // Fallback: trimma
+        return raw.trim();
+      }
+      
+      // 1. Modello Poisson/Dixon-Coles (peso 3)
+      if (ai && ai.pick) {
+        addVote('Poisson AI', ai.pick, ai.prob, 3, '🎯');
+      }
+      
+      // 2. Bookmaker consensus (peso 3)
+      if (oddsLab && oddsLab.consensus) {
+        const c = oddsLab.consensus;
+        const maxP = Math.max(c.home, c.draw, c.away);
+        const bkPick = c.home === maxP ? '1' : (c.away === maxP ? '2' : 'X');
+        addVote('Bookmakers', bkPick, maxP, 3, '💰');
+      } else if (analysis.bookmakerOdds) {
+        const b = analysis.bookmakerOdds;
+        const maxP = Math.max(b.home, b.draw, b.away);
+        const bkPick = b.home === maxP ? '1' : (b.away === maxP ? '2' : 'X');
+        addVote('Bookmaker', bkPick, maxP, 2.5, '💰');
+      }
+      
+      // 3. Regression Score (peso 2)
+      if (regressionResult && regressionResult.score >= 55) {
+        const rPick = regressionResult.favIs === 'home' ? '1' : '2';
+        addVote('Regressione', rPick, regressionResult.score, 2, '📊');
+      }
+      
+      // 4. Super AI con news (peso 2)
+      if (superAI && !superAI.error && superAI.bestPick) {
+        addVote('Oracle AI', superAI.bestPick, superAI.confidence || 60, 2, '🔮');
+      }
+      
+      // 5. Super Algoritmo locale (peso 2)
+      if (superAlgo && superAlgo.topPick) {
+        addVote('Super Algo', superAlgo.topPick.value, superAlgo.topPick.prob, 2, '⚡');
+      }
+      
+      // 6. Steam Move (peso 1.5)
+      if (oddsLab && oddsLab.steamMoves.length > 0) {
+        const bullish = oddsLab.steamMoves.find(s => s.type === 'bullish');
+        if (bullish) {
+          const steamPick = bullish.direction === 'home' ? '1' : '2';
+          addVote('Smart Money', steamPick, 65, 1.5, '🔥');
+        }
+      }
+      
+      // Trova il pick con il peso cumulativo più alto
+      const sortedPicks = Object.entries(pickVotes)
+        .map(([pick, data]) => ({ pick, ...data, score: data.totalWeight * (data.maxProb / 100) * data.count }))
+        .sort((a, b) => b.score - a.score);
+      
+      if (sortedPicks.length === 0) return null;
+      
+      const winner = sortedPicks[0];
+      const totalSources = sources.length;
+      const agreeSources = sources.filter(s => s.pick === winner.pick).length;
+      const agreement = totalSources > 0 ? (agreeSources / totalSources * 100) : 0;
+      
+      // Confidence calibrata
+      let confidence = 'medium', confidenceColor = '#fbbf24';
+      if (agreement >= 80 && winner.maxProb >= 60) { confidence = 'MASSIMA'; confidenceColor = '#00e5a0'; }
+      else if (agreement >= 60 && winner.maxProb >= 55) { confidence = 'ALTA'; confidenceColor = '#00d4ff'; }
+      else if (agreement >= 40) { confidence = 'MEDIA'; confidenceColor = '#fbbf24'; }
+      else { confidence = 'BASSA'; confidenceColor = '#f87171'; }
+      
+      // Calcola prob ponderata
+      const agreeingSources = sources.filter(s => s.pick === winner.pick);
+      let weightedProb = 0, sumWeights = 0;
+      agreeingSources.forEach(s => { weightedProb += s.prob * s.weight; sumWeights += s.weight; });
+      const finalProb = sumWeights > 0 ? weightedProb / sumWeights : winner.maxProb;
+      
+      return {
+        pick: winner.pick,
+        prob: finalProb.toFixed(1),
+        confidence,
+        confidenceColor,
+        agreement: agreement.toFixed(0),
+        agreeSources,
+        totalSources,
+        sources: sources.map(s => ({ ...s, agrees: s.pick === winner.pick })),
+        alternatives: sortedPicks.slice(1, 3).map(p => ({ pick: p.pick, sources: p.count, prob: p.maxProb.toFixed(0) }))
+      };
+    }
+
+    // ============================================================
+    // 6. RENDER FUNCTIONS per i nuovi moduli
+    // ============================================================
+    
+    function renderOddsLab(oddsLab) {
+      if (!oddsLab) return '';
+      const top4 = oddsLab.bookmakers.slice(0, 6);
+      
+      let bkCards = top4.map(bk => `
+        <div class="odds-bk-card">
+          <div class="odds-bk-name">${esc(bk.name)} ${bk.isSharp ? '⭐' : ''} <span style="color:var(--text-dark);font-size:0.58rem;">M: ${bk.margin}%</span></div>
+          <div class="odds-bk-row">
+            <div class="odds-bk-cell home ${bk.isSharp ? 'sharp' : ''}">${bk.odds.home.toFixed(2)}<br><span style="font-size:0.55rem;opacity:0.6">${bk.impliedProb.home.toFixed(0)}%</span></div>
+            <div class="odds-bk-cell draw ${bk.isSharp ? 'sharp' : ''}">${bk.odds.draw.toFixed(2)}<br><span style="font-size:0.55rem;opacity:0.6">${bk.impliedProb.draw.toFixed(0)}%</span></div>
+            <div class="odds-bk-cell away ${bk.isSharp ? 'sharp' : ''}">${bk.odds.away.toFixed(2)}<br><span style="font-size:0.55rem;opacity:0.6">${bk.impliedProb.away.toFixed(0)}%</span></div>
+          </div>
+          ${bk.ou25 ? `<div style="margin-top:5px;font-size:0.6rem;color:var(--text-dark);text-align:center;">O2.5 <b>${bk.ou25.over.toFixed(2)}</b> | U2.5 <b>${bk.ou25.under.toFixed(2)}</b></div>` : ''}
+          ${bk.btts ? `<div style="font-size:0.6rem;color:var(--text-dark);text-align:center;">GG <b>${bk.btts.yes.toFixed(2)}</b> | NG <b>${bk.btts.no.toFixed(2)}</b></div>` : ''}
+        </div>
+      `).join('');
+      
+      let steamHtml = '';
+      if (oddsLab.steamMoves.length > 0) {
+        steamHtml = oddsLab.steamMoves.map(s => `
+          <div class="odds-steam ${s.type}">${s.type === 'bullish' ? '🔥' : '📊'} ${esc(s.signal)}</div>
+        `).join('');
+      } else {
+        steamHtml = '<div class="odds-steam neutral">📊 Nessun movimento significativo rilevato. Quote stabili.</div>';
+      }
+      
+      // Consensus prob bar
+      let consensusBar = '';
+      if (oddsLab.consensus) {
+        const c = oddsLab.consensus;
+        consensusBar = `<div style="margin-top:10px;display:flex;height:20px;border-radius:6px;overflow:hidden;font-size:0.6rem;font-weight:700;">
+          <div style="width:${c.home.toFixed(0)}%;background:rgba(59,130,246,0.7);display:flex;align-items:center;justify-content:center;color:white;">1 ${c.home.toFixed(0)}%</div>
+          <div style="width:${c.draw.toFixed(0)}%;background:rgba(251,191,36,0.7);display:flex;align-items:center;justify-content:center;color:white;">X ${c.draw.toFixed(0)}%</div>
+          <div style="width:${c.away.toFixed(0)}%;background:rgba(248,113,113,0.7);display:flex;align-items:center;justify-content:center;color:white;">2 ${c.away.toFixed(0)}%</div>
+        </div>`;
+      }
+      
+      return `<div class="odds-lab">
+        <div style="font-size:0.62rem;color:var(--text-dark);margin-bottom:4px;">${oddsLab.bookmakers.length} bookmaker analizzati • Sharp: ${oddsLab.sharp?.name || 'N/A'}</div>
+        ${consensusBar}
+        <div class="odds-lab-grid">${bkCards}</div>
+        ${steamHtml}
+        ${oddsLab.markets.ou25 ? `<div style="margin-top:8px;padding:8px 10px;background:var(--bg-card-light);border-radius:8px;font-size:0.68rem;color:var(--text-gray);">📊 <b>O/U 2.5 media:</b> Over @${oddsLab.markets.ou25.avgOver} (${oddsLab.markets.ou25.impliedOver}%) | Under @${oddsLab.markets.ou25.avgUnder} (${oddsLab.markets.ou25.impliedUnder}%)</div>` : ''}
+        ${oddsLab.markets.btts ? `<div style="margin-top:4px;padding:8px 10px;background:var(--bg-card-light);border-radius:8px;font-size:0.68rem;color:var(--text-gray);">⚽ <b>GG/NG media:</b> GG @${oddsLab.markets.btts.avgYes} (${oddsLab.markets.btts.impliedYes}%) | NG @${oddsLab.markets.btts.avgNo} (${oddsLab.markets.btts.impliedNo}%)</div>` : ''}
+      </div>`;
+    }
+    
+    function renderValueBets(valueBets) {
+      if (!valueBets || !valueBets.bets.length) return '<div style="font-size:0.72rem;color:var(--text-dark);padding:10px;">Nessun dato quote disponibile per il calcolo value.</div>';
+      
+      const cards = valueBets.bets.map(vb => `
+        <div class="value-card ${vb.isValue ? 'is-value' : ''}">
+          <div class="value-market">${vb.market}</div>
+          <div class="value-pick">${vb.pick}</div>
+          <div class="value-row">
+            <div class="value-prob">Noi: ${vb.ourProb}%</div>
+            <div class="value-prob" style="color:var(--text-dark)">Book: ${vb.impliedProb}%</div>
+          </div>
+          <div class="value-row">
+            <div style="font-size:0.72rem;font-weight:700;color:var(--accent-gold);">@${vb.odds}</div>
+            <div class="value-edge ${parseFloat(vb.edge) > 0 ? 'positive' : 'negative'}">Edge: ${parseFloat(vb.edge) > 0 ? '+' : ''}${vb.edge}%</div>
+          </div>
+          ${vb.isValue ? `<div class="value-kelly">Kelly: ${vb.kellyStake}% del bankroll${vb.bestBookmaker ? ' • ' + vb.bestBookmaker : ''}</div>` : ''}
+        </div>
+      `).join('');
+      
+      const topCount = valueBets.topValue.length;
+      
+      return `<div class="value-engine">
+        <div style="font-size:0.68rem;color:var(--text-dark);margin-bottom:6px;">
+          ${topCount > 0 ? `<span style="color:#00e5a0;font-weight:700;">🎯 ${topCount} Value Bet trovate!</span> Edge positivo = il nostro modello vede un vantaggio rispetto al mercato.` : 'Nessuna value bet rilevata. Le quote sono allineate al nostro modello.'}
+        </div>
+        <div class="value-grid">${cards}</div>
+        <div style="margin-top:8px;font-size:0.58rem;color:var(--text-dark);">Kelly = % bankroll consigliata (frazionato al 25%). Edge = (prob × quota) - 100%.</div>
+      </div>`;
+    }
+    
+    function renderRegressionPanel(reg) {
+      if (!reg) return '';
+      
+      const factorBars = reg.factors.map(f => `
+        <div class="regression-factor">
+          <div class="regression-factor-name">${f.name}</div>
+          <div class="regression-factor-bar"><div class="regression-factor-fill" style="width:${f.score}%;background:${f.color};"></div></div>
+          <div class="regression-factor-val" style="color:${f.color};">${f.score}</div>
+        </div>
+      `).join('');
+      
+      return `<div class="regression-panel">
+        <div style="font-size:0.62rem;color:var(--text-dark);text-align:center;margin-bottom:4px;">REGRESSION SCORE • ${esc(reg.favName)}</div>
+        <div class="regression-score-big" style="color:${reg.gradeColor};">${reg.score}<span style="font-size:1rem;opacity:0.5">/100</span></div>
+        <div style="text-align:center;margin:4px 0;">
+          <span style="display:inline-block;padding:3px 12px;border-radius:6px;font-size:0.72rem;font-weight:800;background:${reg.gradeColor}22;color:${reg.gradeColor};border:1px solid ${reg.gradeColor}44;">${reg.grade} — ${reg.recommendation}</span>
+        </div>
+        <div class="regression-factors">${factorBars}</div>
+      </div>`;
+    }
+    
+    function renderConsensusPanel(consensus) {
+      if (!consensus) return '';
+      
+      const srcCards = consensus.sources.map(s => `
+        <div class="consensus-src ${s.agrees ? 'agrees' : 'disagrees'}">
+          <div class="consensus-src-name">${s.icon} ${s.name}</div>
+          <div class="consensus-src-pick" style="color:${s.agrees ? '#00e5a0' : '#f87171'};">${s.pick}</div>
+          <div style="font-size:0.58rem;color:var(--text-dark);">${s.prob.toFixed(0)}%</div>
+        </div>
+      `).join('');
+      
+      return `<div class="consensus-panel">
+        <div style="font-size:0.62rem;color:var(--text-dark);text-align:center;">CONSENSUS ENGINE • ${consensus.totalSources} fonti analizzate</div>
+        <div class="consensus-pick" style="color:${consensus.confidenceColor};">🏆 ${consensus.pick}</div>
+        <div class="consensus-confidence">
+          <span style="color:${consensus.confidenceColor};font-weight:800;">${consensus.confidence}</span> • Prob: ${consensus.prob}% • Accordo: ${consensus.agreement}% (${consensus.agreeSources}/${consensus.totalSources})
+        </div>
+        <div class="consensus-meter">
+          <div class="consensus-meter-fill" style="width:${consensus.agreement}%;background:${consensus.confidenceColor};"></div>
+        </div>
+        <div class="consensus-sources">${srcCards}</div>
+        ${consensus.alternatives.length > 0 ? `<div style="margin-top:8px;font-size:0.62rem;color:var(--text-dark);">Alternative: ${consensus.alternatives.map(a => a.pick + ' (' + a.sources + ' fonti, ' + a.prob + '%)').join(' • ')}</div>` : ''}
+      </div>`;
+    }
+
+    
+    function renderTrapDetector(match, d, ai) {
+      const trap = calculateTrapScore(match, d, ai);
+      
+      // Barra circolare progress
+      const radius = 40;
+      const circumference = 2 * Math.PI * radius;
+      const dashoffset = circumference - (trap.score / 100) * circumference;
+      
+      let html = '<div style="display:flex;flex-direction:column;gap:14px;">';
+      
+      // === HERO: Punteggio circolare ===
+      html += '<div style="display:flex;align-items:center;gap:20px;padding:16px;background:rgba(' + (trap.level === 'trap' ? '239,68,68' : trap.level === 'risk' ? '249,115,22' : trap.level === 'caution' ? '251,191,36' : '16,185,129') + ',0.06);border:1.5px solid ' + trap.color + '30;border-radius:14px;">';
+      
+      // Cerchio SVG
+      html += '<div style="flex-shrink:0;position:relative;width:96px;height:96px;">';
+      html += '<svg width="96" height="96" viewBox="0 0 96 96" style="transform:rotate(-90deg);">';
+      html += '<circle cx="48" cy="48" r="' + radius + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6"/>';
+      html += '<circle cx="48" cy="48" r="' + radius + '" fill="none" stroke="' + trap.color + '" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + dashoffset.toFixed(1) + '" style="transition:stroke-dashoffset 0.8s ease;"/>';
+      html += '</svg>';
+      html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">';
+      html += '<div style="font-size:1.6rem;font-weight:900;color:' + trap.color + ';">' + trap.score + '</div>';
+      html += '<div style="font-size:0.5rem;color:var(--text-dark);font-weight:600;">/100</div>';
+      html += '</div></div>';
+      
+      // Info
+      html += '<div style="flex:1;min-width:0;">';
+      html += '<div style="font-size:0.65rem;color:var(--text-dark);margin-bottom:4px;">Indice Rischio Trappola</div>';
+      html += '<div style="font-size:1.1rem;font-weight:900;color:' + trap.color + ';margin-bottom:2px;">';
+      html += (trap.level === 'trap' ? '🔴' : trap.level === 'risk' ? '🟠' : trap.level === 'caution' ? '🟡' : trap.level === 'safe' ? '🟢' : 'ℹ️') + ' ' + trap.label;
+      html += '</div>';
+      
+      if (trap.level === 'trap') {
+        html += '<div style="font-size:0.72rem;color:#ef4444;font-weight:600;">⚠️ Partita ad alto rischio upset! Evita nelle multiple.</div>';
+      } else if (trap.level === 'risk') {
+        html += '<div style="font-size:0.72rem;color:#f97316;font-weight:600;">⚡ Diversi segnali di rischio. Valuta come singola.</div>';
+      } else if (trap.level === 'caution') {
+        html += '<div style="font-size:0.72rem;color:#fbbf24;font-weight:600;">✓ Qualche segnale da monitorare, ma gestibile.</div>';
+      } else if (trap.level === 'safe') {
+        html += '<div style="font-size:0.72rem;color:#10b981;font-weight:600;">✅ Nessun segnale di trappola rilevante.</div>';
+      } else {
+        html += '<div style="font-size:0.72rem;color:var(--text-dark);">Nessun favorito netto — analisi trappola non applicabile.</div>';
+      }
+      
+      if (trap.favName) {
+        html += '<div style="font-size:0.6rem;color:var(--text-dark);margin-top:4px;">Favorito: <strong>' + esc(trap.favName) + '</strong> (' + (trap.favProb || 0).toFixed(0) + '%)';
+        if (trap.favOdds > 0) html += ' @' + trap.favOdds.toFixed(2);
+        html += '</div>';
+      }
+      html += '</div></div>';
+      
+      // === FATTORI DI RISCHIO ===
+      if (trap.traps.length > 0) {
+        html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+        trap.traps.forEach(function(t) {
+          const isPositive = t.weight < 0;
+          const barColor = isPositive ? '#10b981' : (Math.abs(t.weight) >= 14 ? '#ef4444' : Math.abs(t.weight) >= 10 ? '#f97316' : '#fbbf24');
+          const barWidth = Math.min(100, Math.abs(t.weight) * 6);
+          
+          html += '<div style="padding:10px 12px;background:' + (isPositive ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.04)') + ';border:1px solid ' + (isPositive ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.1)') + ';border-radius:10px;">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+          html += '<span style="font-size:0.75rem;font-weight:700;color:white;">' + t.icon + ' ' + t.factor + '</span>';
+          html += '<span style="font-size:0.65rem;font-weight:800;color:' + barColor + ';">' + (isPositive ? '' : '+') + t.weight + '</span>';
+          html += '</div>';
+          html += '<div style="font-size:0.65rem;color:var(--text-gray);line-height:1.4;margin-bottom:6px;">' + t.detail + '</div>';
+          html += '<div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">';
+          html += '<div style="height:100%;width:' + barWidth + '%;background:' + barColor + ';border-radius:2px;"></div>';
+          html += '</div></div>';
+        });
+        html += '</div>';
+      }
+      
+      // === CONSIGLIO FINALE + PRONO DEL TRAP ===
+      if (trap.trapPick && trap.trapPick.pick) {
+        const tp = trap.trapPick;
+        const tpColor = tp.confidence === 'high' ? '#10b981' : tp.confidence === 'medium' ? '#fbbf24' : '#ef4444';
+        const tpBg = tp.confidence === 'high' ? 'rgba(16,185,129,0.08)' : tp.confidence === 'medium' ? 'rgba(251,191,36,0.06)' : 'rgba(239,68,68,0.06)';
+        const tpBorder = tp.confidence === 'high' ? 'rgba(16,185,129,0.25)' : tp.confidence === 'medium' ? 'rgba(251,191,36,0.2)' : 'rgba(239,68,68,0.2)';
+        
+        html += '<div style="background:' + tpBg + ';border:1.5px solid ' + tpBorder + ';border-radius:14px;padding:16px;position:relative;overflow:hidden;">';
+        
+        // Badge
+        html += '<div style="position:absolute;top:0;right:0;background:linear-gradient(135deg,' + tpColor + ',' + tpColor + '99);color:white;font-size:0.55rem;font-weight:800;padding:4px 12px;border-radius:0 0 0 10px;letter-spacing:0.5px;">PRONO DEL TRAP</div>';
+        
+        // Pick principale
+        html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px;">';
+        html += '<div style="width:52px;height:52px;border-radius:12px;background:' + tpColor + '15;border:2px solid ' + tpColor + '40;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🚨</div>';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-size:0.6rem;color:var(--text-dark);margin-bottom:2px;">Pronostico Anti-Trappola</div>';
+        html += '<div style="font-size:1.2rem;font-weight:900;color:white;">' + esc(tp.pick) + '</div>';
+        html += '<div style="font-size:0.85rem;font-weight:800;color:' + tpColor + ';">' + tp.prob.toFixed(0) + '% <span style="font-size:0.6rem;opacity:0.7;">confidenza ' + (tp.confidence === 'high' ? '🎯 Alta' : tp.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa') + '</span></div>';
+        html += '</div></div>';
+        
+        // Reasoning
+        html += '<div style="font-size:0.7rem;color:var(--text-gray);line-height:1.5;margin-bottom:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:8px;">💡 ' + tp.reasoning + '</div>';
+        
+        // Strategy
+        html += '<div style="font-size:0.68rem;font-weight:700;color:' + tpColor + ';margin-bottom:8px;">' + tp.strategy + '</div>';
+        
+        // Alternative
+        if (tp.alternatives && tp.alternatives.length > 0) {
+          html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+          html += '<span style="font-size:0.6rem;color:var(--text-dark);align-self:center;">Alternative:</span>';
+          tp.alternatives.forEach(function(alt) {
+            html += '<span style="padding:3px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;font-size:0.62rem;color:white;font-weight:600;">' + alt.pick + ' <span style="color:' + tpColor + ';">' + alt.prob + '%</span></span>';
+          });
+          html += '</div>';
+        }
+        
+        html += '</div>';
+      } else {
+        // Fallback: consiglio senza prono
+        html += '<div style="padding:10px 14px;background:rgba(' + (trap.score >= 50 ? '239,68,68' : '16,185,129') + ',0.06);border:1px solid rgba(' + (trap.score >= 50 ? '239,68,68' : '16,185,129') + ',0.15);border-radius:10px;text-align:center;">';
+        if (trap.score >= 60) {
+          html += '<div style="font-size:0.72rem;font-weight:700;color:#ef4444;">🚫 NON inserire questa partita nei raddoppi o multiple</div>';
+        } else if (trap.score >= 40) {
+          html += '<div style="font-size:0.72rem;font-weight:700;color:#f97316;">⚡ Giocabile come singola, evita nelle multiple</div>';
+        } else if (trap.score >= 20) {
+          html += '<div style="font-size:0.72rem;font-weight:700;color:#fbbf24;">✓ OK per multiple — monitora i fattori segnalati</div>';
+        } else {
+          html += '<div style="font-size:0.72rem;font-weight:700;color:#10b981;">✅ Via libera — nessun segnale di trappola</div>';
+        }
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+
+    // === NG INSIGHT — Indicatore intelligente No Goal ===
+    // Legge SOLO dati esistenti — ZERO impatto sull'algoritmo
+    function renderNGInsight(match, d) {
+      const pBTTS = d.pBTTS || 50;
+      const ngProb = 100 - pBTTS;
+      const hD = d.homeData || {};
+      const aD = d.awayData || {};
+      const xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      const hCS = hD.cleanSheetPct || 25;
+      const aCS = aD.cleanSheetPct || 25;
+      const hFTS = hD.failedToScorePct || 25;
+      const aFTS = aD.failedToScorePct || 25;
+      
+      // Calcola segnali NG
+      const signals = [];
+      let ngScore = 0;
+      
+      // 1. Probabilità diretta NG
+      if (ngProb >= 55) { ngScore += 20; signals.push({ text: 'NG al ' + ngProb.toFixed(0) + '% (Poisson+DC)', icon: '📊', positive: true }); }
+      else if (ngProb >= 48) { ngScore += 10; signals.push({ text: 'NG al ' + ngProb.toFixed(0) + '% — zona neutrale', icon: '📊', positive: false }); }
+      else { ngScore -= 10; signals.push({ text: 'GG favorito al ' + pBTTS.toFixed(0) + '% — NG sfavorevole', icon: '📊', positive: false }); }
+      
+      // 2. Clean sheet alta di almeno una squadra
+      if (hCS >= 40 || aCS >= 40) {
+        const bestCS = Math.max(hCS, aCS);
+        const team = hCS >= aCS ? match.home.name : match.away.name;
+        ngScore += 18;
+        signals.push({ text: team + ': clean sheet ' + bestCS.toFixed(0) + '% — difesa dominante', icon: '🧱', positive: true });
+      } else if (hCS >= 30 || aCS >= 30) {
+        const bestCS = Math.max(hCS, aCS);
+        const team = hCS >= aCS ? match.home.name : match.away.name;
+        ngScore += 8;
+        signals.push({ text: team + ': clean sheet ' + bestCS.toFixed(0) + '% — difesa solida', icon: '🧱', positive: true });
+      }
+      
+      // 3. Failed to score di almeno una squadra
+      if (hFTS >= 35 || aFTS >= 35) {
+        const worstFTS = Math.max(hFTS, aFTS);
+        const team = hFTS >= aFTS ? match.home.name : match.away.name;
+        ngScore += 18;
+        signals.push({ text: team + ': non segna nel ' + worstFTS.toFixed(0) + '% — attacco sterile', icon: '🚫', positive: true });
+      } else if (hFTS >= 25 || aFTS >= 25) {
+        const worstFTS = Math.max(hFTS, aFTS);
+        const team = hFTS >= aFTS ? match.home.name : match.away.name;
+        ngScore += 5;
+        signals.push({ text: team + ': non segna nel ' + worstFTS.toFixed(0) + '%', icon: '🚫', positive: false });
+      }
+      
+      // 4. xG basso di una squadra
+      const lowXG = Math.min(xG.home, xG.away);
+      const lowXGTeam = xG.home < xG.away ? match.home.name : match.away.name;
+      if (lowXG < 0.8) {
+        ngScore += 16;
+        signals.push({ text: lowXGTeam + ': xG solo ' + lowXG.toFixed(2) + ' — improbabile che segni', icon: '📉', positive: true });
+      } else if (lowXG < 1.0) {
+        ngScore += 8;
+        signals.push({ text: lowXGTeam + ': xG ' + lowXG.toFixed(2) + ' — attacco limitato', icon: '📉', positive: true });
+      }
+      
+      // 5. xG totale basso
+      if (xG.total < 2.0) {
+        ngScore += 12;
+        signals.push({ text: 'xG totale ' + xG.total.toFixed(2) + ' — partita da pochi gol', icon: '🔒', positive: true });
+      }
+      
+      // 6. Entrambe le difese sono deboli = penalità NG
+      if (hCS < 20 && aCS < 20) {
+        ngScore -= 15;
+        signals.push({ text: 'Entrambe con clean sheet sotto 20% — difese fragili', icon: '⚠️', positive: false });
+      }
+      
+      // 7. Entrambe segnano spesso = penalità NG
+      if (hD.goalsFor >= 1.8 && aD.goalsFor >= 1.8) {
+        ngScore -= 12;
+        signals.push({ text: 'Entrambe segnano 1.8+ gol/g — attacchi prolifici', icon: '⚠️', positive: false });
+      }
+      
+      // Normalizza 0-100
+      ngScore = Math.max(0, Math.min(100, ngScore));
+      
+      var level, label, color;
+      if (ngScore >= 60) { level = 'strong'; label = 'NG FORTE'; color = '#10b981'; }
+      else if (ngScore >= 40) { level = 'moderate'; label = 'NG POSSIBILE'; color = '#fbbf24'; }
+      else if (ngScore >= 20) { level = 'weak'; label = 'NG DEBOLE'; color = '#f97316'; }
+      else { level = 'avoid'; label = 'EVITA NG'; color = '#ef4444'; }
+      
+      // === RENDERING ===
+      var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+      
+      // Hero bar
+      var radius = 36;
+      var circumference = 2 * Math.PI * radius;
+      var dashoffset = circumference - (ngScore / 100) * circumference;
+      
+      html += '<div style="display:flex;align-items:center;gap:16px;padding:14px;background:rgba(' + (level === 'strong' ? '16,185,129' : level === 'moderate' ? '251,191,36' : level === 'weak' ? '249,115,22' : '239,68,68') + ',0.06);border:1.5px solid ' + color + '30;border-radius:14px;">';
+      
+      // Cerchio
+      html += '<div style="flex-shrink:0;position:relative;width:80px;height:80px;">';
+      html += '<svg width="80" height="80" viewBox="0 0 80 80" style="transform:rotate(-90deg);">';
+      html += '<circle cx="40" cy="40" r="' + radius + '" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>';
+      html += '<circle cx="40" cy="40" r="' + radius + '" fill="none" stroke="' + color + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + dashoffset.toFixed(1) + '"/>';
+      html += '</svg>';
+      html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">';
+      html += '<div style="font-size:1.3rem;font-weight:900;color:' + color + ';">' + ngScore + '</div>';
+      html += '<div style="font-size:0.45rem;color:var(--text-dark);font-weight:600;">NG SCORE</div>';
+      html += '</div></div>';
+      
+      // Info
+      html += '<div style="flex:1;">';
+      html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-bottom:3px;">Indicatore No Goal</div>';
+      html += '<div style="font-size:1.05rem;font-weight:900;color:' + color + ';margin-bottom:2px;">' + label + '</div>';
+      html += '<div style="font-size:0.78rem;font-weight:700;color:white;">NG: ' + ngProb.toFixed(0) + '% <span style="font-size:0.65rem;color:var(--text-dark)">| GG: ' + pBTTS.toFixed(0) + '%</span></div>';
+      
+      if (level === 'strong') {
+        html += '<div style="font-size:0.62rem;color:#10b981;margin-top:3px;">✅ Condizioni ottimali per NG — giocabile in singola e multipla</div>';
+      } else if (level === 'moderate') {
+        html += '<div style="font-size:0.62rem;color:#fbbf24;margin-top:3px;">⚡ NG possibile — valuta come singola, rischio in multipla</div>';
+      } else if (level === 'weak') {
+        html += '<div style="font-size:0.62rem;color:#f97316;margin-top:3px;">⚠️ NG debole — sconsigliato, meglio GG o mercati gol</div>';
+      } else {
+        html += '<div style="font-size:0.62rem;color:#ef4444;margin-top:3px;">🚫 GG molto più probabile — evita NG</div>';
+      }
+      html += '</div></div>';
+      
+      // Segnali
+      html += '<div style="display:flex;flex-direction:column;gap:5px;">';
+      signals.forEach(function(s) {
+        var bg = s.positive ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.04)';
+        var border = s.positive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.08)';
+        var textCol = s.positive ? 'var(--text-gray)' : 'var(--text-dark)';
+        html += '<div style="padding:7px 10px;background:' + bg + ';border:1px solid ' + border + ';border-radius:8px;font-size:0.65rem;color:' + textCol + ';">' + s.icon + ' ' + s.text + '</div>';
+      });
+      html += '</div>';
+      
+      // Consiglio combo NG
+      if (level === 'strong' || level === 'moderate') {
+        var pOU = d.pOU || {};
+        html += '<div style="padding:10px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:10px;">';
+        html += '<div style="font-size:0.65rem;font-weight:700;color:#10b981;margin-bottom:6px;">💡 Combo NG consigliate:</div>';
+        var combos = [];
+        if (pOU[2.5] && pOU[2.5].under >= 45) {
+          combos.push('NG + Under 2.5 → ' + ((ngProb * pOU[2.5].under) / 100).toFixed(0) + '% @' + (10000 / (ngProb * pOU[2.5].under)).toFixed(2));
+        }
+        if (pOU[3.5] && pOU[3.5].under >= 55) {
+          combos.push('NG + Under 3.5 → ' + ((ngProb * pOU[3.5].under) / 100).toFixed(0) + '% @' + (10000 / (ngProb * pOU[3.5].under)).toFixed(2));
+        }
+        var p1X2 = d.p1X2 || {};
+        if (p1X2.home >= 55) {
+          combos.push('NG + 1 (Casa) → ' + ((ngProb * p1X2.home) / 100).toFixed(0) + '% @' + (10000 / (ngProb * p1X2.home)).toFixed(2));
+        } else if (p1X2.away >= 55) {
+          combos.push('NG + 2 (Ospite) → ' + ((ngProb * p1X2.away) / 100).toFixed(0) + '% @' + (10000 / (ngProb * p1X2.away)).toFixed(2));
+        }
+        if (combos.length > 0) {
+          html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+          combos.forEach(function(c) {
+            html += '<div style="font-size:0.62rem;color:var(--text-gray);padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:6px;">• ' + c + '</div>';
+          });
+          html += '</div>';
+        } else {
+          html += '<div style="font-size:0.62rem;color:var(--text-dark);">Nessuna combo particolarmente forte per questa partita.</div>';
+        }
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+
+    // renderBettingExchange rimossa
+
+    // === GG INSIGHT — Indicatore intelligente Goal/Goal ===
+    // Legge SOLO dati esistenti — ZERO impatto sull'algoritmo
+    function renderGGInsight(match, d) {
+      const pBTTS = d.pBTTS || 50;
+      const hD = d.homeData || {};
+      const aD = d.awayData || {};
+      const xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      const hCS = hD.cleanSheetPct || 25;
+      const aCS = aD.cleanSheetPct || 25;
+      const hFTS = hD.failedToScorePct || 25;
+      const aFTS = aD.failedToScorePct || 25;
+      
+      var signals = [];
+      var ggScore = 0;
+      
+      // 1. Probabilità diretta GG
+      if (pBTTS >= 58) { ggScore += 22; signals.push({ text: 'GG al ' + pBTTS.toFixed(0) + '% (Poisson+DC) — entrambe segnano spesso', icon: '📊', positive: true }); }
+      else if (pBTTS >= 50) { ggScore += 12; signals.push({ text: 'GG al ' + pBTTS.toFixed(0) + '% — zona equilibrata', icon: '📊', positive: true }); }
+      else { ggScore -= 10; signals.push({ text: 'NG favorito al ' + (100 - pBTTS).toFixed(0) + '% — GG sfavorevole', icon: '📊', positive: false }); }
+      
+      // 2. Entrambe segnano bene (goalsFor)
+      if (hD.goalsFor >= 1.5 && aD.goalsFor >= 1.2) {
+        ggScore += 18;
+        signals.push({ text: 'Entrambe offensive: ' + match.home.name + ' ' + hD.goalsFor.toFixed(1) + ' gol/g, ' + match.away.name + ' ' + aD.goalsFor.toFixed(1) + ' gol/g', icon: '⚽', positive: true });
+      } else if (hD.goalsFor >= 1.3 && aD.goalsFor >= 1.0) {
+        ggScore += 8;
+        signals.push({ text: 'Attacchi discreti: ' + hD.goalsFor.toFixed(1) + ' e ' + aD.goalsFor.toFixed(1) + ' gol/g', icon: '⚽', positive: true });
+      }
+      
+      // 3. Clean sheet bassa di ENTRAMBE = difese fragili
+      if (hCS < 25 && aCS < 25) {
+        ggScore += 18;
+        signals.push({ text: 'Difese fragili: CS ' + hCS.toFixed(0) + '% e ' + aCS.toFixed(0) + '% — entrambe subiscono spesso', icon: '🚪', positive: true });
+      } else if (hCS < 30 && aCS < 30) {
+        ggScore += 8;
+        signals.push({ text: 'Difese non impenetrabili: CS ' + hCS.toFixed(0) + '% e ' + aCS.toFixed(0) + '%', icon: '🚪', positive: true });
+      }
+      
+      // 4. Failed to Score basso di ENTRAMBE = segnano quasi sempre
+      if (hFTS < 20 && aFTS < 20) {
+        ggScore += 16;
+        signals.push({ text: 'Entrambe segnano quasi sempre: FTS ' + hFTS.toFixed(0) + '% e ' + aFTS.toFixed(0) + '%', icon: '🎯', positive: true });
+      }
+      
+      // 5. xG alto di entrambe
+      if (xG.home >= 1.3 && xG.away >= 1.0) {
+        ggScore += 12;
+        signals.push({ text: 'xG alti: ' + xG.home.toFixed(2) + ' vs ' + xG.away.toFixed(2) + ' — entrambe pericolose', icon: '📈', positive: true });
+      }
+      
+      // 6. Penalità: una squadra non segna quasi mai
+      if (hFTS >= 40 || aFTS >= 40) {
+        var worstTeam = hFTS >= aFTS ? match.home.name : match.away.name;
+        var worstFTS = Math.max(hFTS, aFTS);
+        ggScore -= 18;
+        signals.push({ text: worstTeam + ': non segna nel ' + worstFTS.toFixed(0) + '% — rischio NG alto', icon: '⚠️', positive: false });
+      }
+      
+      // 7. Penalità: una difesa è un muro
+      if (hCS >= 45 || aCS >= 45) {
+        var wallTeam = hCS >= aCS ? match.home.name : match.away.name;
+        var wallCS = Math.max(hCS, aCS);
+        ggScore -= 15;
+        signals.push({ text: wallTeam + ': clean sheet ' + wallCS.toFixed(0) + '% — muro difensivo', icon: '⚠️', positive: false });
+      }
+      
+      ggScore = Math.max(0, Math.min(100, ggScore));
+      
+      var level, label, color;
+      if (ggScore >= 60) { level = 'strong'; label = 'GG FORTE'; color = '#10b981'; }
+      else if (ggScore >= 40) { level = 'moderate'; label = 'GG POSSIBILE'; color = '#fbbf24'; }
+      else if (ggScore >= 20) { level = 'weak'; label = 'GG DEBOLE'; color = '#f97316'; }
+      else { level = 'avoid'; label = 'EVITA GG'; color = '#ef4444'; }
+      
+      // === RENDERING ===
+      var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+      
+      var radius = 36;
+      var circumference = 2 * Math.PI * radius;
+      var dashoffset = circumference - (ggScore / 100) * circumference;
+      
+      html += '<div style="display:flex;align-items:center;gap:16px;padding:14px;background:rgba(' + (level === 'strong' ? '16,185,129' : level === 'moderate' ? '251,191,36' : level === 'weak' ? '249,115,22' : '239,68,68') + ',0.06);border:1.5px solid ' + color + '30;border-radius:14px;">';
+      
+      html += '<div style="flex-shrink:0;position:relative;width:80px;height:80px;">';
+      html += '<svg width="80" height="80" viewBox="0 0 80 80" style="transform:rotate(-90deg);">';
+      html += '<circle cx="40" cy="40" r="' + radius + '" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>';
+      html += '<circle cx="40" cy="40" r="' + radius + '" fill="none" stroke="' + color + '" stroke-width="5" stroke-linecap="round" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + dashoffset.toFixed(1) + '"/>';
+      html += '</svg>';
+      html += '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">';
+      html += '<div style="font-size:1.3rem;font-weight:900;color:' + color + ';">' + ggScore + '</div>';
+      html += '<div style="font-size:0.45rem;color:var(--text-dark);font-weight:600;">GG SCORE</div>';
+      html += '</div></div>';
+      
+      html += '<div style="flex:1;">';
+      html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-bottom:3px;">Indicatore Goal/Goal</div>';
+      html += '<div style="font-size:1.05rem;font-weight:900;color:' + color + ';margin-bottom:2px;">' + label + '</div>';
+      html += '<div style="font-size:0.78rem;font-weight:700;color:white;">GG: ' + pBTTS.toFixed(0) + '% <span style="font-size:0.65rem;color:var(--text-dark)">| NG: ' + (100 - pBTTS).toFixed(0) + '%</span></div>';
+      
+      if (level === 'strong') {
+        html += '<div style="font-size:0.62rem;color:#10b981;margin-top:3px;">✅ Condizioni ideali per GG — giocabile con fiducia</div>';
+      } else if (level === 'moderate') {
+        html += '<div style="font-size:0.62rem;color:#fbbf24;margin-top:3px;">⚡ GG possibile — valuta il contesto prima di giocare</div>';
+      } else if (level === 'weak') {
+        html += '<div style="font-size:0.62rem;color:#f97316;margin-top:3px;">⚠️ GG rischioso — una delle due potrebbe non segnare</div>';
+      } else {
+        html += '<div style="font-size:0.62rem;color:#ef4444;margin-top:3px;">🚫 NG più probabile — evita GG</div>';
+      }
+      html += '</div></div>';
+      
+      // Segnali
+      html += '<div style="display:flex;flex-direction:column;gap:5px;">';
+      signals.forEach(function(s) {
+        var bg = s.positive ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.04)';
+        var border = s.positive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.08)';
+        var textCol = s.positive ? 'var(--text-gray)' : 'var(--text-dark)';
+        html += '<div style="padding:7px 10px;background:' + bg + ';border:1px solid ' + border + ';border-radius:8px;font-size:0.65rem;color:' + textCol + ';">' + s.icon + ' ' + s.text + '</div>';
+      });
+      html += '</div>';
+      
+      // Combo GG consigliate
+      if (level === 'strong' || level === 'moderate') {
+        var pOU = d.pOU || {};
+        html += '<div style="padding:10px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:10px;">';
+        html += '<div style="font-size:0.65rem;font-weight:700;color:#10b981;margin-bottom:6px;">💡 Combo GG consigliate:</div>';
+        var combos = [];
+        if (pOU[2.5] && pOU[2.5].over >= 50) {
+          combos.push('GG + Over 2.5 → ' + ((pBTTS * pOU[2.5].over) / 100).toFixed(0) + '% @' + (10000 / (pBTTS * pOU[2.5].over)).toFixed(2));
+        }
+        if (pOU[3.5] && pOU[3.5].under >= 50) {
+          combos.push('GG + Under 3.5 → ' + ((pBTTS * pOU[3.5].under) / 100).toFixed(0) + '% @' + (10000 / (pBTTS * pOU[3.5].under)).toFixed(2));
+        }
+        if (pOU[1.5] && pOU[1.5].over >= 65) {
+          combos.push('GG + Over 1.5 → ' + ((pBTTS * pOU[1.5].over) / 100).toFixed(0) + '% @' + (10000 / (pBTTS * pOU[1.5].over)).toFixed(2));
+        }
+        if (combos.length > 0) {
+          html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+          combos.forEach(function(c) {
+            html += '<div style="font-size:0.62rem;color:var(--text-gray);padding:4px 8px;background:rgba(255,255,255,0.03);border-radius:6px;">• ' + c + '</div>';
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+
+    // === MULTIGOL COMBINATO Casa + Ospite ===
+    // Calcola le migliori combo MG Casa + MG Ospite con prob e quota teorica
+    // Legge SOLO multigoalHome/Away già calcolati — ZERO impatto sull'algoritmo
+    function renderMultigolCombinato(match, d) {
+      var mH = d.multigoalHome || [];
+      var mA = d.multigoalAway || [];
+      
+      if (mH.length === 0 || mA.length === 0) {
+        return '<div style="padding:14px;color:var(--text-dark);font-size:0.75rem;">Dati multigol non disponibili per questa partita.</div>';
+      }
+      
+      // Range utili per le combo (escludiamo singoli come "0", "1+", etc.)
+      var rangesH = mH.filter(function(mg) { return mg.range.indexOf('-') > -1; });
+      var rangesA = mA.filter(function(mg) { return mg.range.indexOf('-') > -1; });
+      
+      // Aggiungiamo anche 0 gol come range singolo
+      var zeroH = mH.find(function(mg) { return mg.range === '0'; });
+      var zeroA = mA.find(function(mg) { return mg.range === '0'; });
+      if (zeroH) rangesH.unshift({ range: '0', prob: zeroH.prob });
+      if (zeroA) rangesA.unshift({ range: '0', prob: zeroA.prob });
+      
+      // Genera tutte le combo
+      var combos = [];
+      rangesH.forEach(function(h) {
+        rangesA.forEach(function(a) {
+          var comboProb = (h.prob * a.prob) / 100;
+          if (comboProb >= 8) { // Solo combo con almeno 8% di prob
+            var quota = comboProb > 0 ? (100 / comboProb).toFixed(2) : '—';
+            combos.push({
+              homeRange: h.range,
+              awayRange: a.range,
+              homeProb: h.prob,
+              awayProb: a.prob,
+              comboProb: comboProb,
+              quota: quota
+            });
+          }
+        });
+      });
+      
+      // Ordina per probabilità decrescente
+      combos.sort(function(a, b) { return b.comboProb - a.comboProb; });
+      
+      // Top 12
+      var top = combos.slice(0, 12);
+      
+      var html = '<div style="display:flex;flex-direction:column;gap:12px;">';
+      
+      // Header
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html += '<div style="font-size:0.7rem;color:var(--text-dark);">Combo multigol con probabilità più alta</div>';
+      html += '<div style="font-size:0.55rem;color:var(--text-dark);background:rgba(0,212,255,0.08);padding:3px 8px;border-radius:6px;">Top ' + top.length + ' combo</div>';
+      html += '</div>';
+      
+      // Best combo highlight
+      if (top.length > 0) {
+        var best = top[0];
+        var bestColor = best.comboProb >= 40 ? '#10b981' : best.comboProb >= 25 ? '#fbbf24' : '#00d4ff';
+        html += '<div style="padding:14px;background:rgba(' + (best.comboProb >= 40 ? '16,185,129' : best.comboProb >= 25 ? '251,191,36' : '0,212,255') + ',0.06);border:1.5px solid ' + bestColor + '30;border-radius:12px;display:flex;align-items:center;gap:14px;">';
+        html += '<div style="font-size:1.4rem;">🏆</div>';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-size:0.55rem;color:var(--text-dark);">Miglior combo MG Casa + MG Ospite</div>';
+        html += '<div style="font-size:1rem;font-weight:900;color:white;margin:2px 0;">';
+        html += '<span style="color:#60a5fa;">' + esc(match.home.name.substring(0, 12)) + '</span> <span style="color:' + bestColor + ';">' + best.homeRange + '</span>';
+        html += ' + ';
+        html += '<span style="color:#f87171;">' + esc(match.away.name.substring(0, 12)) + '</span> <span style="color:' + bestColor + ';">' + best.awayRange + '</span>';
+        html += '</div>';
+        html += '<div style="font-size:0.8rem;font-weight:800;color:' + bestColor + ';">' + best.comboProb.toFixed(0) + '% <span style="font-size:0.62rem;color:var(--text-dark);">@' + best.quota + '</span></div>';
+        html += '</div></div>';
+      }
+      
+      // Grid combo
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;">';
+      top.forEach(function(c, i) {
+        var probColor = c.comboProb >= 35 ? '#10b981' : c.comboProb >= 20 ? '#fbbf24' : c.comboProb >= 12 ? '#00d4ff' : 'var(--text-dark)';
+        var isBest = i === 0;
+        html += '<div style="padding:8px 10px;background:' + (isBest ? 'rgba(16,185,129,0.06)' : 'rgba(255,255,255,0.02)') + ';border:1px solid ' + (isBest ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.06)') + ';border-radius:10px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">';
+        html += '<span style="font-size:0.68rem;font-weight:800;color:white;">' + c.homeRange + ' / ' + c.awayRange + '</span>';
+        html += '<span style="font-size:0.58rem;color:var(--text-dark);">@' + c.quota + '</span>';
+        html += '</div>';
+        // Barra probabilità
+        html += '<div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-bottom:3px;">';
+        html += '<div style="height:100%;width:' + Math.min(100, c.comboProb * 1.5) + '%;background:' + probColor + ';border-radius:2px;"></div>';
+        html += '</div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:0.55rem;">';
+        html += '<span style="color:var(--text-dark);">🏠' + c.homeProb.toFixed(0) + '% × 🏟️' + c.awayProb.toFixed(0) + '%</span>';
+        html += '<span style="font-weight:800;color:' + probColor + ';">' + c.comboProb.toFixed(0) + '%</span>';
+        html += '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      
+      // Nota
+      html += '<div style="font-size:0.55rem;color:var(--text-dark);padding:6px 8px;background:rgba(255,255,255,0.02);border-radius:6px;text-align:center;">Le quote sono teoriche (prob pura senza margine). Confronta con il bookmaker per trovare value bet.</div>';
+      
+      html += '</div>';
+      return html;
+    }
+
+    // === CORNER & TIRI IN PORTA — Analisi mercati speciali ===
+    // Usa dati corner già calcolati + stima tiri da xG
+    // ZERO impatto sull'algoritmo
+    function renderCornerTiri(match, d) {
+      var corners = d.corners || {};
+      var cards = d.cards || {};
+      var xG = d.xG || { home: 1.2, away: 1.0, total: 2.2 };
+      var hD = d.homeData || {};
+      var aD = d.awayData || {};
+      
+      var html = '<div style="display:flex;flex-direction:column;gap:14px;">';
+      
+      // ═══ CORNER ═══
+      var cH = corners.home || 5.0, cA = corners.away || 4.3;
+      var cTot = corners.total || (cH + cA);
+      var cProbs = corners.probs || {};
+      
+      html += '<div style="padding:12px;background:rgba(251,191,36,0.04);border:1px solid rgba(251,191,36,0.15);border-radius:12px;">';
+      html += '<div style="font-size:0.75rem;font-weight:800;color:#fbbf24;margin-bottom:10px;">🚩 Corner</div>';
+      
+      // Media corner per squadra
+      html += '<div style="display:flex;gap:10px;margin-bottom:10px;">';
+      html += '<div style="flex:1;text-align:center;padding:8px;background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.15);border-radius:8px;"><div style="font-size:1rem;font-weight:900;color:#60a5fa;">' + cH.toFixed(1) + '</div><div style="font-size:0.55rem;color:var(--text-dark);">' + esc(match.home.name.substring(0, 12)) + '</div></div>';
+      html += '<div style="flex:0;display:flex;align-items:center;font-size:0.6rem;color:var(--text-dark);">+</div>';
+      html += '<div style="flex:1;text-align:center;padding:8px;background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.15);border-radius:8px;"><div style="font-size:1rem;font-weight:900;color:#f87171;">' + cA.toFixed(1) + '</div><div style="font-size:0.55rem;color:var(--text-dark);">' + esc(match.away.name.substring(0, 12)) + '</div></div>';
+      html += '<div style="flex:0;display:flex;align-items:center;font-size:0.6rem;color:var(--text-dark);">=</div>';
+      html += '<div style="flex:1;text-align:center;padding:8px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.15);border-radius:8px;"><div style="font-size:1rem;font-weight:900;color:#fbbf24;">' + cTot.toFixed(1) + '</div><div style="font-size:0.55rem;color:var(--text-dark);">Totale</div></div>';
+      html += '</div>';
+      
+      // Over/Under corner lines
+      html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">';
+      [8.5, 9.5, 10.5, 11.5].forEach(function(line) {
+        var p = cProbs[line] || { over: 50, under: 50 };
+        var overColor = p.over >= 60 ? '#10b981' : p.over >= 50 ? '#fbbf24' : '#ef4444';
+        var best = p.over >= 55 ? 'Over' : p.under >= 55 ? 'Under' : '—';
+        var bestProb = Math.max(p.over, p.under);
+        html += '<div style="padding:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+        html += '<span style="font-size:0.7rem;font-weight:800;color:white;">Corner ' + line + '</span>';
+        if (bestProb >= 55) html += '<span style="font-size:0.6rem;font-weight:800;color:' + overColor + ';">' + best + ' ' + bestProb.toFixed(0) + '%</span>';
+        html += '</div>';
+        html += '<div style="height:6px;background:rgba(239,68,68,0.15);border-radius:3px;overflow:hidden;">';
+        html += '<div style="height:100%;width:' + p.over.toFixed(0) + '%;background:' + overColor + ';border-radius:3px;"></div>';
+        html += '</div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:0.52rem;color:var(--text-dark);margin-top:2px;"><span>Over ' + p.over.toFixed(0) + '%</span><span>Under ' + p.under.toFixed(0) + '%</span></div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      
+      // Best corner pick
+      var bestCorner = null;
+      [8.5, 9.5, 10.5, 11.5].forEach(function(line) {
+        var p = cProbs[line] || { over: 50, under: 50 };
+        var bestP = Math.max(p.over, p.under);
+        if (bestP >= 58 && (!bestCorner || bestP > bestCorner.prob)) {
+          bestCorner = { line: line, pick: p.over >= p.under ? 'Over' : 'Under', prob: bestP };
+        }
+      });
+      if (bestCorner) {
+        var bcColor = bestCorner.prob >= 65 ? '#10b981' : '#fbbf24';
+        html += '<div style="margin-top:6px;padding:8px 10px;background:' + bcColor + '08;border:1px solid ' + bcColor + '25;border-radius:8px;font-size:0.65rem;"><span style="font-weight:800;color:' + bcColor + ';">💡 Miglior pick:</span> <span style="color:var(--text-gray);">' + bestCorner.pick + ' ' + bestCorner.line + ' Corner al ' + bestCorner.prob.toFixed(0) + '%</span></div>';
+      }
+      html += '</div>';
+      
+      // ═══ TIRI IN PORTA (stimati da xG) ═══
+      // Relazione: shots on target ≈ xG × 3.2 (media europea)
+      // Shots totali ≈ xG × 8.5
+      var hSoT = xG.home * 3.2, aSoT = xG.away * 3.2;
+      var hShots = xG.home * 8.5, aShots = xG.away * 8.5;
+      
+      // Aggiusta con dati reali se disponibili
+      if (hD.goalsFor >= 2.0) { hSoT *= 1.1; hShots *= 1.08; }
+      if (aD.goalsFor >= 1.8) { aSoT *= 1.08; aShots *= 1.06; }
+      if (hD.cleanSheetPct >= 35) { aSoT *= 0.9; aShots *= 0.92; }
+      if (aD.cleanSheetPct >= 35) { hSoT *= 0.9; hShots *= 0.92; }
+      
+      var totSoT = hSoT + aSoT;
+      var totShots = hShots + aShots;
+      
+      html += '<div style="padding:12px;background:rgba(96,165,250,0.04);border:1px solid rgba(96,165,250,0.15);border-radius:12px;">';
+      html += '<div style="font-size:0.75rem;font-weight:800;color:#60a5fa;margin-bottom:10px;">🎯 Tiri in Porta (stimati da xG)</div>';
+      
+      // Tiri per squadra
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">';
+      // Casa
+      html += '<div style="padding:10px;background:rgba(96,165,250,0.04);border:1px solid rgba(96,165,250,0.12);border-radius:8px;">';
+      html += '<div style="font-size:0.62rem;font-weight:700;color:#60a5fa;margin-bottom:6px;">' + esc(match.home.name.substring(0, 14)) + '</div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.6rem;margin-bottom:3px;"><span style="color:var(--text-dark);">Tiri totali</span><span style="color:white;font-weight:700;">~' + hShots.toFixed(1) + '</span></div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.6rem;"><span style="color:var(--text-dark);">In porta</span><span style="color:#10b981;font-weight:700;">~' + hSoT.toFixed(1) + '</span></div>';
+      html += '</div>';
+      // Ospite
+      html += '<div style="padding:10px;background:rgba(248,113,113,0.04);border:1px solid rgba(248,113,113,0.12);border-radius:8px;">';
+      html += '<div style="font-size:0.62rem;font-weight:700;color:#f87171;margin-bottom:6px;">' + esc(match.away.name.substring(0, 14)) + '</div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.6rem;margin-bottom:3px;"><span style="color:var(--text-dark);">Tiri totali</span><span style="color:white;font-weight:700;">~' + aShots.toFixed(1) + '</span></div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:0.6rem;"><span style="color:var(--text-dark);">In porta</span><span style="color:#10b981;font-weight:700;">~' + aSoT.toFixed(1) + '</span></div>';
+      html += '</div>';
+      html += '</div>';
+      
+      // Over/Under tiri in porta usando Poisson
+      html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;">';
+      [3.5, 4.5, 5.5, 6.5].forEach(function(line) {
+        // Poisson per tiri in porta
+        var pOver = 0;
+        for (var i = 0; i <= 20; i++) {
+          var p = (Math.pow(totSoT, i) * Math.exp(-totSoT)) / (function f(n){return n<=1?1:n*f(n-1)})(i);
+          if (i > line) pOver += p;
+        }
+        pOver = Math.max(10, Math.min(90, pOver * 100));
+        var pUnder = 100 - pOver;
+        var color = pOver >= 60 ? '#10b981' : pOver >= 50 ? '#fbbf24' : '#ef4444';
+        var best = pOver >= 55 ? 'Over' : pUnder >= 55 ? 'Under' : '—';
+        var bestP = Math.max(pOver, pUnder);
+        
+        html += '<div style="padding:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:8px;">';
+        html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
+        html += '<span style="font-size:0.68rem;font-weight:800;color:white;">SoT ' + line + '</span>';
+        if (bestP >= 55) html += '<span style="font-size:0.58rem;font-weight:800;color:' + color + ';">' + best + ' ' + bestP.toFixed(0) + '%</span>';
+        html += '</div>';
+        html += '<div style="height:6px;background:rgba(239,68,68,0.15);border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + pOver.toFixed(0) + '%;background:' + color + ';border-radius:3px;"></div></div>';
+        html += '<div style="display:flex;justify-content:space-between;font-size:0.52rem;color:var(--text-dark);margin-top:2px;"><span>Over ' + pOver.toFixed(0) + '%</span><span>Under ' + pUnder.toFixed(0) + '%</span></div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      
+      html += '<div style="font-size:0.5rem;color:var(--text-dark);margin-top:4px;text-align:center;">SoT = Shots on Target (Tiri in porta). Stime basate su xG e profilo offensivo/difensivo.</div>';
+      html += '</div>';
+      
+      // ═══ CARTELLINI ═══
+      if (cards.total > 0) {
+        var cardsT = cards.total || 4.0;
+        html += '<div style="padding:10px;background:rgba(251,191,36,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;">';
+        html += '<span style="font-size:0.68rem;font-weight:700;color:#fbbf24;">🟨 Cartellini stimati</span>';
+        html += '<span style="font-size:0.8rem;font-weight:900;color:white;">' + cardsT.toFixed(1) + '</span>';
+        html += '</div>';
+        var cProb35 = cards.probs && cards.probs[3.5] ? cards.probs[3.5] : null;
+        if (cProb35) {
+          html += '<div style="font-size:0.55rem;color:var(--text-dark);margin-top:4px;">Over 3.5: ' + cProb35.over.toFixed(0) + '% | Under 3.5: ' + cProb35.under.toFixed(0) + '%</div>';
+        }
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+
+
+    // === LIVE BETTING SYSTEM ===
+    
+    async function loadLiveMatches() {
+      state.liveLoading = true;
+      render();
+      
+      try {
+        // Usa la stessa API già configurata
+        const data = await callAPIFootball('/fixtures', { live: 'all' });
+        
+        if (data && data.response) {
+          state.liveMatches = data.response.map(f => ({
+            id: f.fixture.id,
+            status: f.fixture.status.short,
+            elapsed: f.fixture.status.elapsed || 0,
+            league: {
+              id: f.league.id,
+              name: f.league.name,
+              country: f.league.country,
+              logo: f.league.logo
+            },
+            home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo },
+            away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo },
+            goals: { home: f.goals.home || 0, away: f.goals.away || 0 },
+            stats: f.statistics || []
+          }));
+          
+          // Calcola gli alert
+          calculateLiveAlerts();
+        }
+      } catch (e) {
+        console.error('Live load error:', e);
+      }
+      
+      state.liveLoading = false;
+      render();
+    }
+    
+    function calculateLiveAlerts() {
+      const allAlerts = [];
+      const matchPicks = {};
+      
+      const HIGH_SCORING_LEAGUES = {
+        88: { name: 'Eredivisie', avgGoals: 3.2, boost: 12 },
+        78: { name: 'Bundesliga', avgGoals: 3.1, boost: 10 },
+        144: { name: 'Jupiler Pro', avgGoals: 3.0, boost: 10 },
+        218: { name: 'Bundesliga Austria', avgGoals: 3.0, boost: 10 },
+        179: { name: 'Premiership Scozia', avgGoals: 2.9, boost: 8 },
+        135: { name: 'Serie A', avgGoals: 2.8, boost: 6 },
+        39: { name: 'Premier League', avgGoals: 2.8, boost: 6 },
+        140: { name: 'La Liga', avgGoals: 2.6, boost: 4 },
+        61: { name: 'Ligue 1', avgGoals: 2.7, boost: 5 },
+        203: { name: 'Super Lig Turchia', avgGoals: 2.9, boost: 8 },
+        94: { name: 'Primeira Liga', avgGoals: 2.7, boost: 5 },
+        71: { name: 'Serie A Brasile', avgGoals: 2.6, boost: 5 },
+        128: { name: 'Liga Argentina', avgGoals: 2.5, boost: 4 }
+      };
+      
+      state.liveMatches.forEach(match => {
+        const elapsed = match.elapsed || 0;
+        const hg = match.goals?.home || 0;
+        const ag = match.goals?.away || 0;
+        const tot = hg + ag;
+        const is1H = match.status === '1H';
+        const is2H = match.status === '2H';
+        const isHT = match.status === 'HT';
+        const leagueId = match.league?.id || 0;
+        const leagueInfo = HIGH_SCORING_LEAGUES[leagueId];
+        const leagueBoost = leagueInfo ? leagueInfo.boost : 0;
+        const leagueAvgGoals = leagueInfo ? leagueInfo.avgGoals : 2.6;
+        
+        // Parse stats
+        let st = { shotsHome:0, shotsAway:0, shotsOnHome:0, shotsOnAway:0, cornersHome:0, cornersAway:0, possHome:50, possAway:50, hasStats:false };
+        if (match.stats && match.stats.length >= 2) {
+          const hs = match.stats[0]?.statistics || [];
+          const as = match.stats[1]?.statistics || [];
+          const g = (arr, t) => { const s = arr.find(x => x.type === t); return s ? (parseInt(s.value) || 0) : 0; };
+          st.shotsHome = g(hs, 'Total Shots'); st.shotsAway = g(as, 'Total Shots');
+          st.shotsOnHome = g(hs, 'Shots on Goal'); st.shotsOnAway = g(as, 'Shots on Goal');
+          st.cornersHome = g(hs, 'Corner Kicks'); st.cornersAway = g(as, 'Corner Kicks');
+          st.possHome = g(hs, 'Ball Possession') || 50; st.possAway = g(as, 'Ball Possession') || 50;
+          st.hasStats = (st.shotsHome + st.shotsAway >= 1) || (st.cornersHome + st.cornersAway >= 1);
+        }
+        const shotsOn = st.shotsOnHome + st.shotsOnAway;
+        const shots = st.shotsHome + st.shotsAway;
+        const corners = st.cornersHome + st.cornersAway;
+        const pressure = st.hasStats ? (shotsOn * 3) + (shots * 1) + (corners * 1.5) : 0;
+        
+        // Tempo rimanente normalizzato (0-1, 1=inizio, 0=fine)
+        const timeLeft = is1H ? Math.max(0, (45 - elapsed) / 45) : is2H ? Math.max(0, (90 - elapsed) / 45) : isHT ? 0.5 : 0.3;
+        // Gol attesi rimanenti basati su media campionato
+        const expectedRemaining = leagueAvgGoals * timeLeft;
+        
+        // Calcolo pressione per squadra
+        const homeDominance = st.hasStats ? (st.shotsOnHome - st.shotsOnAway) / Math.max(shotsOn, 1) : 0;
+        const awayDominance = -homeDominance;
+        
+        const picks = [];
+        
+        // === FUNZIONE HELPER PER AGGIUNGERE PICK ===
+        function addPick(market, icon, prob, reason, verdict, category) {
+          prob = Math.max(5, Math.min(96, prob));
+          const v = verdict || (prob >= 72 ? 'GIOCA' : prob >= 55 ? 'VALUTA' : 'SKIP');
+          picks.push({ market, icon, prob: Math.round(prob), reason, verdict: v, quota: (100/prob).toFixed(2), cat: category || 'altro' });
+        }
+        
+        // =============================================
+        // OVER/UNDER 1° TEMPO
+        // =============================================
+        if (is1H || isHT) {
+          // Over 0.5 1T
+          if (tot === 0 && is1H && elapsed >= 15) {
+            let prob = 35 + (elapsed - 10) * 1.2;
+            if (st.hasStats) prob += Math.min(18, shotsOn * 2.5);
+            prob += leagueBoost * 0.6;
+            if (elapsed >= 35) prob += 8;
+            if (elapsed >= 40) prob += 10;
+            if (elapsed >= 43) prob += 8;
+            addPick('Over 0.5 1°T', '⚽', prob, `0-0 al ${elapsed}'${st.hasStats ? ' | '+shotsOn+' tiri' : ''}${elapsed>=40?' ⏰ Fine 1T!':''}`, null, '1T');
+          }
+          // Over 1.5 1T
+          if (tot >= 1 && is1H && elapsed >= 15) {
+            let prob = 25 + (elapsed - 10) * 0.8 + tot * 12;
+            if (st.hasStats) prob += Math.min(12, shotsOn * 1.8);
+            prob += leagueBoost * 0.4;
+            if (elapsed >= 35) prob += 6;
+            if (elapsed >= 42) prob += 8;
+            if (Math.abs(hg-ag) === 1) prob += 6;
+            addPick('Over 1.5 1°T', '⚽⚽', prob, `${hg}-${ag} al ${elapsed}'`, null, '1T');
+          }
+          // Under 0.5 1T
+          if (tot === 0 && is1H && elapsed >= 30) {
+            let prob = 30 + (elapsed - 25) * 1.8;
+            if (st.hasStats && shotsOn <= 2) prob += 10;
+            if (st.hasStats && shotsOn <= 1) prob += 8;
+            if (elapsed >= 40) prob += 8;
+            if (elapsed >= 43) prob += 6;
+            addPick('Under 0.5 1°T', '🛡️', prob, `Ancora 0-0 al ${elapsed}'${st.hasStats?' | solo '+shotsOn+' tiri':''}`, null, '1T');
+          }
+          // HT: Gol 2°T
+          if (isHT) {
+            let prob = 55 + leagueBoost;
+            if (tot === 0) prob += 15;
+            if (tot === 1) prob += 8;
+            if (st.hasStats && shotsOn >= 4) prob += 8;
+            if (st.hasStats && corners >= 5) prob += 4;
+            addPick('Gol 2°T', '⚽', prob, `${hg}-${ag} HT${st.hasStats?' | '+shotsOn+' tiri, '+corners+' corner':''}`, null, '2T');
+          }
+        }
+        
+        // =============================================
+        // OVER/UNDER 2° TEMPO
+        // =============================================
+        if (is2H) {
+          const elapsed2T = elapsed - 45;
+          // Over 0.5 2T (= almeno 1 gol nel 2T)
+          const goals2T = tot - (hg + ag - tot); // approximation - use total since we don't track per-half
+          // Simplified: just check if another goal can come
+          {
+            let prob = 45 + elapsed2T * 0.5;
+            if (st.hasStats) prob += Math.min(15, shotsOn * 1.5);
+            prob += leagueBoost * 0.5;
+            if (Math.abs(hg-ag) === 1 && elapsed >= 55) prob += 8;
+            if (Math.abs(hg-ag) === 1 && elapsed >= 70) prob += 8;
+            if (hg === ag && elapsed >= 60) prob += 6;
+            if (elapsed >= 75) prob += 5;
+            if (elapsed >= 82) prob -= 10; // poco tempo
+            if (elapsed >= 87) prob -= 15;
+            addPick('Over 0.5 2°T', '⚽', prob, `${hg}-${ag} al ${elapsed}'${Math.abs(hg-ag)===1?' | squadra sotto spinge':''}`, null, '2T');
+          }
+          
+          // Over 1.5 2T
+          if (elapsed <= 78) {
+            let prob = 25 + leagueBoost * 0.4;
+            if (st.hasStats) prob += Math.min(12, shotsOn * 1.2);
+            if (hg === 1 && ag === 1) prob += 12;
+            if (Math.abs(hg-ag) >= 2) prob -= 8; // partita chiusa
+            if (Math.abs(hg-ag) === 1) prob += 8;
+            if (tot >= 2 && elapsed <= 65) prob += 8;
+            addPick('Over 1.5 2°T', '⚽⚽', prob, `Servono 2+ gol nel 2T`, null, '2T');
+          }
+          
+          // Under 0.5 2T (nessun gol nel 2T)
+          if (elapsed >= 65) {
+            let prob = 25 + (elapsed - 60) * 1.5;
+            if (st.hasStats && shotsOn <= 3) prob += 10;
+            if (st.hasStats && shotsOn <= 5) prob += 5;
+            if (elapsed >= 80) prob += 10;
+            if (elapsed >= 85) prob += 8;
+            if (elapsed >= 88) prob += 8;
+            if (hg === ag && tot === 0) prob += 5;
+            addPick('Under 0.5 2°T', '🛡️', prob, `Nessun gol nel 2T finora | ${elapsed}'`, null, '2T');
+          }
+        }
+        
+        // =============================================
+        // OVER/UNDER TOTALE
+        // =============================================
+        if (elapsed >= 20) {
+          // Over 2.5
+          if (tot <= 2 && elapsed <= 85) {
+            let prob = 20 + tot * 15 + expectedRemaining * 12;
+            if (st.hasStats) prob += Math.min(15, shotsOn * 1.8);
+            prob += leagueBoost * 0.6;
+            if (hg === 1 && ag === 1) prob += 15;
+            if ((hg === 2 && ag === 0) || (hg === 0 && ag === 2)) prob += 10;
+            addPick('Over 2.5', '🔥', prob, tot >= 2 ? `Già ${tot} gol! Partita viva` : `${hg}-${ag} al ${elapsed}'`, null, 'total');
+          }
+          // Under 2.5
+          if (tot <= 2 && elapsed >= 50) {
+            let prob = 35 + (elapsed - 45) * 1.0;
+            if (tot === 0) prob += 15;
+            else if (tot === 1) prob += 5;
+            if (st.hasStats && shotsOn <= 3) prob += 12;
+            if (elapsed >= 75) prob += 10;
+            if (elapsed >= 82) prob += 8;
+            if (elapsed >= 87) prob += 8;
+            if (st.hasStats && shotsOn >= 8) prob -= 12;
+            addPick('Under 2.5', '🛡️', prob, `${hg}-${ag} al ${elapsed}'${st.hasStats?' | '+shotsOn+' tiri':''}`, null, 'total');
+          }
+          // Over 1.5
+          if (tot <= 1 && elapsed <= 82) {
+            let prob = 30 + expectedRemaining * 15;
+            if (tot === 1) prob += 15;
+            if (st.hasStats) prob += Math.min(15, shotsOn * 2);
+            prob += leagueBoost * 0.5;
+            if (is2H && Math.abs(hg-ag) === 1 && elapsed >= 60) prob += 10;
+            addPick('Over 1.5', '⚽⚽', prob, `${hg}-${ag} al ${elapsed}'`, null, 'total');
+          }
+          // Over 3.5
+          if (tot >= 2 && tot <= 3 && elapsed <= 82) {
+            let prob = 18 + tot * 10 + expectedRemaining * 10;
+            if (st.hasStats) prob += Math.min(12, shotsOn * 1.5);
+            prob += leagueBoost * 0.4;
+            if ((hg === 2 && ag === 1) || (hg === 1 && ag === 2)) prob += 12;
+            addPick('Over 3.5', '💥', prob, `Già ${tot} gol al ${elapsed}'`, null, 'total');
+          }
+        }
+        
+        // =============================================
+        // GG / NG
+        // =============================================
+        if (elapsed >= 20) {
+          if (hg > 0 && ag > 0) {
+            addPick('GG ✅', '✅', 100, 'Già segnato: ' + hg + '-' + ag, 'VINTO', 'gg');
+          } else if (tot >= 1 && (hg === 0 || ag === 0) && elapsed <= 85) {
+            const trailTeam = hg === 0 ? match.home.name.substring(0,12) : match.away.name.substring(0,12);
+            const trailShots = hg === 0 ? st.shotsOnHome : st.shotsOnAway;
+            let prob = 25 + expectedRemaining * 10;
+            if (st.hasStats && trailShots >= 2) prob += trailShots * 5;
+            prob += leagueBoost * 0.5;
+            if (is2H) prob += 8;
+            if (is2H && elapsed >= 60) prob += 5;
+            if (elapsed >= 82) prob -= 10;
+            if (elapsed >= 87) prob -= 15;
+            addPick('GG', '⚡', prob, `${trailTeam} deve segnare${st.hasStats && trailShots >= 2 ? ' (' + trailShots + ' tiri)' : ''}`, null, 'gg');
+          }
+          if ((hg === 0 || ag === 0) && elapsed >= 55) {
+            let prob = 30 + (elapsed - 50) * 0.8;
+            if (tot === 0) prob += 10;
+            if (st.hasStats) { const zs = hg === 0 ? st.shotsOnHome : st.shotsOnAway; if (zs <= 1) prob += 12; }
+            if (elapsed >= 75) prob += 10;
+            if (elapsed >= 82) prob += 10;
+            addPick('NG', '🚫', prob, `${hg}-${ag} al ${elapsed}'`, null, 'gg');
+          }
+        }
+        
+        // =============================================
+        // ESITO FINALE (1/X/2, 1X, X2)
+        // =============================================
+        if (elapsed >= 30) {
+          if (hg > ag) {
+            let prob = 40 + (hg - ag) * 10 + (elapsed - 20) * 0.5;
+            if (is2H && elapsed >= 75) prob += 10;
+            if (is2H && elapsed >= 82) prob += 8;
+            if (hg - ag >= 2) prob += 15;
+            addPick('1 (Casa)', '🏠', prob, match.home.name.substring(0,12) + ' avanti ' + hg + '-' + ag, null, 'esito');
+          }
+          if (ag > hg) {
+            let prob = 38 + (ag - hg) * 10 + (elapsed - 20) * 0.5;
+            if (is2H && elapsed >= 75) prob += 10;
+            if (is2H && elapsed >= 82) prob += 8;
+            if (ag - hg >= 2) prob += 15;
+            addPick('2 (Ospite)', '✈️', prob, match.away.name.substring(0,12) + ' avanti ' + hg + '-' + ag, null, 'esito');
+          }
+          if (hg === ag) {
+            let prob = 28;
+            if (is2H) prob += (elapsed - 45) * 0.8;
+            if (elapsed >= 80) prob += 10;
+            if (elapsed >= 85) prob += 12;
+            if (elapsed >= 88) prob += 8;
+            addPick('X (Pareggio)', '🤝', prob, hg + '-' + ag + ' al ' + elapsed + '\'', null, 'esito');
+          }
+          if (hg >= ag) {
+            let p1x = 45 + (hg - ag) * 8 + (elapsed > 60 ? (elapsed - 60) * 0.5 : 0);
+            if (hg > ag) p1x += 10;
+            if (elapsed >= 80) p1x += 8;
+            addPick('1X', '🏠🤝', p1x, match.home.name.substring(0,12) + ' non perde', null, 'esito');
+          }
+          if (ag >= hg) {
+            let px2 = 42 + (ag - hg) * 8 + (elapsed > 60 ? (elapsed - 60) * 0.5 : 0);
+            if (ag > hg) px2 += 10;
+            if (elapsed >= 80) px2 += 8;
+            addPick('X2', '🤝✈️', px2, match.away.name.substring(0,12) + ' non perde', null, 'esito');
+          }
+        }
+        
+        // Ordina per probabilità e prendi i top
+        picks.sort((a, b) => b.prob - a.prob);
+        matchPicks[match.id] = picks;
+        
+        // I top 3 con prob >= 55 diventano alerts globali
+        picks.filter(p => p.prob >= 55 && p.verdict !== 'VINTO').slice(0, 3).forEach(p => {
+          allAlerts.push({
+            match, type: p.market, level: p.prob >= 75 ? 'high' : p.prob >= 60 ? 'medium' : 'low',
+            pick: p.icon + ' ' + p.market, prob: p.prob, quota: p.quota, reason: p.reason,
+            stats: st, verdict: p.verdict
+          });
+        });
+      });
+      
+      // Ordina alerts globali
+      allAlerts.sort((a, b) => {
+        const lo = { high: 0, medium: 1, low: 2 };
+        if (lo[a.level] !== lo[b.level]) return lo[a.level] - lo[b.level];
+        return b.prob - a.prob;
+      });
+      
+      state.liveAlerts = allAlerts;
+      state.liveMatchPicks = matchPicks;
+    }
+    
+    // === LIVE BACKGROUND MONITORING ===
+    function startLiveBackgroundMonitoring() {
+      // Carica subito i dati LIVE
+      loadLiveMatchesBackground();
+      
+      // Poi ogni 90 secondi in background
+      state.liveBackgroundInterval = setInterval(() => {
+        loadLiveMatchesBackground();
+      }, 90000); // 90 secondi in background
+    }
+    
+    async function loadLiveMatchesBackground() {
+      try {
+        const data = await callAPIFootball('/fixtures', { live: 'all' });
+        
+        if (data && data.response) {
+          state.liveMatches = data.response.map(f => ({
+            id: f.fixture.id,
+            status: f.fixture.status.short,
+            elapsed: f.fixture.status.elapsed || 0,
+            league: {
+              id: f.league.id,
+              name: f.league.name,
+              country: f.league.country,
+              logo: f.league.logo
+            },
+            home: { id: f.teams.home.id, name: f.teams.home.name, logo: f.teams.home.logo },
+            away: { id: f.teams.away.id, name: f.teams.away.name, logo: f.teams.away.logo },
+            goals: { home: f.goals.home || 0, away: f.goals.away || 0 },
+            stats: f.statistics || []
+          }));
+          
+          // Calcola gli alert
+          calculateLiveAlerts();
+          
+          // Aggiorna solo il badge senza re-renderizzare tutto
+          updateLiveBadge();
+        }
+      } catch (e) {
+        console.warn('Live background load error:', e);
+      }
+    }
+    
+    function updateLiveBadge() {
+      const badge = document.querySelector('#liveTab');
+      if (badge) {
+        const alertCount = state.liveAlerts.length;
+        const dot = '<span class="live-dot"></span>';
+        const countBadge = alertCount > 0 ? `<span class="live-badge-count">${alertCount}</span>` : '';
+        badge.innerHTML = `${dot} LIVE ${countBadge}`;
+      }
+    }
+    
+    function startLiveAutoRefresh() {
+      if (state.liveInterval) return;
+      
+      // Countdown visivo
+      state.liveCountdown = 60;
+      state.countdownInterval = setInterval(() => {
+        state.liveCountdown--;
+        const countdownEl = document.querySelector('.live-countdown');
+        if (countdownEl) {
+          countdownEl.textContent = state.liveCountdown + 's';
+        }
+        if (state.liveCountdown <= 0) {
+          state.liveCountdown = 60;
+        }
+      }, 1000);
+      
+      // Refresh dati ogni 60 secondi quando nella sezione LIVE
+      state.liveInterval = setInterval(() => {
+        if (state.liveMode) {
+          loadLiveMatches();
+          state.liveCountdown = 60;
+        }
+      }, 60000);
+    }
+    
+    function stopLiveAutoRefresh() {
+      if (state.liveInterval) {
+        clearInterval(state.liveInterval);
+        state.liveInterval = null;
+      }
+      if (state.countdownInterval) {
+        clearInterval(state.countdownInterval);
+        state.countdownInterval = null;
+      }
+    }
+    
+    function toggleConsigliMode() {
+      state.consigliMode = !state.consigliMode;
+      state.liveMode = false; // Disattiva live mode
+      render();
+    }
+    
+    function toggleLiveMode() {
+      state.liveMode = !state.liveMode;
+      if (state.liveMode) {
+        loadLiveMatches();
+        startLiveAutoRefresh();
+      } else {
+        stopLiveAutoRefresh();
+      }
+      render();
+    }
+    
+    // === TRACKING PRONOSTICI ===
+    
+    function trackBet(type, matchId, matchName, pick, prob, odds, isLive = false) {
+      // Normalizza il pick per evitare duplicati con formati diversi
+      const normalizedPick = pick.trim();
+      
+      // Evita duplicati - controllo più robusto
+      const isDuplicate = state.trackedBets.some(b => {
+        if (b.matchId !== matchId) return false;
+        const existingPick = b.pick.trim().toLowerCase();
+        const newPick = normalizedPick.toLowerCase();
+        
+        // Match esatto
+        if (existingPick === newPick) return true;
+        
+        // Evita che 1X sia considerato duplicato di X o 1
+        // Ma se esiste già 1X, non aggiungere 1X di nuovo
+        return false;
+      });
+      
+      if (isDuplicate) {
+        console.log('Pronostico già tracciato:', normalizedPick);
+        return null;
+      }
+      
+      const bet = {
+        id: Date.now(),
+        type, // 'prematch' o 'live'
+        matchId,
+        matchName,
+        pick: normalizedPick, // Usa il pick normalizzato
+        prob: parseFloat(prob),
+        odds: parseFloat(odds) || 0,
+        isLive,
+        timestamp: new Date().toISOString(),
+        status: 'pending', // pending, won, lost
+        result: null,
+        // NUOVO: Salva features per ML training
+        features: extractMLFeatures(matchId)
+      };
+      
+      state.trackedBets.push(bet);
+      saveTrackedBets();
+      
+      console.log('✅ Pronostico tracciato:', normalizedPick, 'per match:', matchId);
+      
+      render();
+      return bet;
+    }
+    
+    // Funzione per tracciare pronostici pre-match
+    function trackPrematchBet(matchId, matchName, pick, prob, event) {
+      if (event) event.stopPropagation();
+      
+      // Stima quota basata sulla probabilità
+      const odds = (100 / prob).toFixed(2);
+      
+      const bet = trackBet('prematch', matchId, matchName, pick, prob, odds, false);
+      if (bet) {
+        alert(`✅ Pronostico tracciato!\n\n${matchName}\n${pick} @ ${odds}\n\nVerrà verificato automaticamente a fine partita.`);
+      } else {
+        alert('⚠️ Questo pronostico è già stato tracciato.');
+      }
+    }
+    
+    // Funzione per tracciare pronostici LIVE
+    function trackLiveBet(matchId, matchName, pick, prob, odds, event) {
+      if (event) event.stopPropagation();
+      const bet = trackBet('live', matchId, matchName, pick, prob, odds, true);
+      if (bet) {
+        alert(`✅ Pronostico LIVE tracciato!\n\n${matchName}\n${pick} @ ${odds}\n\nVerrà verificato automaticamente a fine partita.`);
+      } else {
+        alert('⚠️ Questo pronostico LIVE è già stato tracciato.');
+      }
+    }
+    
+    // Funzione per tracciare pronostici dalla HOME (Consiglio AI cards)
+    function trackFromHome(matchId, matchName, pick, prob, event) {
+      if (event) event.stopPropagation();
+      const odds = (100 / prob).toFixed(2);
+      const bet = trackBet('prematch', matchId, matchName, pick, prob, odds, false);
+      if (bet) {
+        render();
+      } else {
+        alert('⚠️ Questo pronostico è già nella tua schedina.');
+      }
+    }
+    
+    function updateBetResult(betId, status, result) {
+      const bet = state.trackedBets.find(b => b.id === betId);
+      if (bet) {
+        bet.status = status;
+        bet.result = result;
+        saveTrackedBets();
+      }
+    }
+    
+    function saveTrackedBets() {
+      // Salva su localStorage (locale)
+      localStorage.setItem('bp2_tracked', JSON.stringify(state.trackedBets));
+      
+      // Salva su Firebase (cloud) - async, non bloccante
+      saveToFirebase('trackedBets', state.trackedBets).catch(e => 
+        console.warn('Firebase save trackedBets failed:', e)
+      );
+    }
+    
+    async function loadTrackingFromLocalStorage() {
+      // Prova prima Firebase (cloud), poi localStorage (locale)
+      try {
+        // 1. Carica da Firebase se disponibile
+        const firebaseData = await loadFromFirebase('trackedBets');
+        if (firebaseData && Array.isArray(firebaseData)) {
+          state.trackedBets = firebaseData;
+          console.log(`&#x1F4CA; Caricati ${firebaseData.length} pronostici da Firebase`);
+          return;
+        }
+        
+        // 2. Fallback su localStorage
+        const saved = localStorage.getItem('bp2_tracked');
+        if (saved) {
+          state.trackedBets = JSON.parse(saved);
+          console.log(`&#x1F4CA; Caricati ${state.trackedBets.length} pronostici da localStorage`);
+          
+          // Sincronizza con Firebase se disponibile
+          if (firebaseEnabled && state.trackedBets.length > 0) {
+            saveToFirebase('trackedBets', state.trackedBets).catch(e => 
+              console.warn('Firebase sync failed:', e)
+            );
+          }
+        }
+      } catch (e) {
+        console.warn('Tracking load error:', e);
+      }
+    }
+    
+    async function loadMLThresholdsFromCloud() {
+      try {
+        const firebaseData = await loadFromFirebase('mlThresholds');
+        if (firebaseData && typeof firebaseData === 'object') {
+          state.mlThresholds = firebaseData;
+          console.log('&#x1F916; ML Thresholds caricati da Firebase');
+          return;
+        }
+        
+        // Fallback già fatto in state init con localStorage
+        console.log('&#x1F916; ML Thresholds da localStorage (Firebase non disponibile)');
+      } catch (e) {
+        console.warn('ML Thresholds load error:', e);
+      }
+    }
+    
+    async function loadPerformanceHistoryFromCloud() {
+      try {
+        const firebaseData = await loadFromFirebase('performanceHistory');
+        if (firebaseData && Array.isArray(firebaseData)) {
+          state.performanceHistory = firebaseData;
+          console.log(`&#x1F4C8; Performance History caricato da Firebase (${firebaseData.length} records)`);
+          return;
+        }
+        
+        // Fallback già fatto in state init con localStorage
+        console.log('&#x1F4C8; Performance History da localStorage (Firebase non disponibile)');
+      } catch (e) {
+        console.warn('Performance History load error:', e);
+      }
+    }
+    
+    // Carica ML Stats da Firebase
+    async function loadMLStatsFromCloud() {
+      try {
+        const firebaseData = await loadFromFirebase('mlStats');
+        if (firebaseData && typeof firebaseData === 'object') {
+          state.mlStats = firebaseData;
+          localStorage.setItem('bp2_ml_stats', JSON.stringify(firebaseData));
+          console.log('&#x1F916; ML Stats caricate da Firebase:', Object.keys(firebaseData).length, 'categorie');
+          return;
+        }
+        
+        // Fallback su localStorage
+        const saved = localStorage.getItem('bp2_ml_stats');
+        if (saved) {
+          state.mlStats = JSON.parse(saved);
+          console.log('&#x1F916; ML Stats da localStorage');
+        }
+      } catch (e) {
+        console.warn('ML Stats load error:', e);
+      }
+    }
+    
+    async function checkPendingResults() {
+      const pending = state.trackedBets.filter(b => b.status === 'pending');
+      let updated = false;
+      
+      for (const bet of pending) {
+        try {
+          const data = await callAPIFootball('/fixtures', { id: bet.matchId });
+          if (data && data.response && data.response[0]) {
+            const fixture = data.response[0];
+            const status = fixture.fixture.status.short;
+            
+            // Solo se la partita è finita
+            if (['FT', 'AET', 'PEN'].includes(status)) {
+              const homeGoals = fixture.goals.home;
+              const awayGoals = fixture.goals.away;
+              const totalGoals = homeGoals + awayGoals;
+              const result = `${homeGoals}-${awayGoals}`;
+              
+              // Verifica se ha vinto
+              let won = false;
+              const pick = bet.pick.toLowerCase().trim();
+              
+              // Over/Under - ordine specifico per evitare conflitti
+              if (pick.includes('over 3.5') && totalGoals >= 4) won = true;
+              else if (pick.includes('over 2.5') && totalGoals >= 3) won = true;
+              else if (pick.includes('over 1.5') && totalGoals >= 2) won = true;
+              else if (pick.includes('over 0.5') && totalGoals >= 1) won = true;
+              else if (pick.includes('under 1.5') && totalGoals < 2) won = true;
+              else if (pick.includes('under 2.5') && totalGoals < 3) won = true;
+              else if (pick.includes('under 3.5') && totalGoals < 4) won = true;
+              // GG/NG
+              else if ((pick === 'gg' || pick.includes('entrambe segnano') || pick === 'goal') && homeGoals > 0 && awayGoals > 0) won = true;
+              else if ((pick === 'ng' || pick.includes('no gol')) && (homeGoals === 0 || awayGoals === 0)) won = true;
+              // DOPPIE CHANCE - IMPORTANTE: verificare PRIMA di 1X2 singoli
+              else if ((pick === '1x' || pick.startsWith('1x ') || pick.startsWith('1x(')) && homeGoals >= awayGoals) won = true;
+              else if ((pick === 'x2' || pick.startsWith('x2 ') || pick.startsWith('x2(')) && homeGoals <= awayGoals) won = true;
+              else if ((pick === '12' || pick.startsWith('12 ') || pick.startsWith('12(')) && homeGoals !== awayGoals) won = true;
+              // 1X2 SINGOLI - verificare dopo le doppie chance
+              else if ((pick === '1' || pick === '1 (vittoria casa)' || (pick.startsWith('1 ') && !pick.startsWith('1x'))) && homeGoals > awayGoals) won = true;
+              else if ((pick === 'x' || pick === 'pareggio' || pick === 'x (pareggio)') && homeGoals === awayGoals) won = true;
+              else if ((pick === '2' || pick === '2 (vittoria ospite)' || (pick.startsWith('2 ') && !pick.startsWith('2x'))) && homeGoals < awayGoals) won = true;
+              // Multigol
+              else if (pick.includes('multigol 1-3') && totalGoals >= 1 && totalGoals <= 3) won = true;
+              else if (pick.includes('multigol 2-4') && totalGoals >= 2 && totalGoals <= 4) won = true;
+              else if (pick.includes('multigol 2-5') && totalGoals >= 2 && totalGoals <= 5) won = true;
+              // Segna
+              else if (pick.includes('segna') && totalGoals > 0) won = true;
+              else if (pick.includes('gol 2°') && totalGoals > 0) won = true;
+              
+              updateBetResult(bet.id, won ? 'won' : 'lost', result);
+              updated = true;
+              console.log(`&#x1F4CA; Risultato verificato: ${bet.matchName} - ${pick} = ${won ? 'VINTO' : 'PERSO'} (${result})`);
+            }
+          }
+        } catch (e) {
+          console.warn('Check result error:', e);
+        }
+      }
+      
+      if (updated) {
+        // Aggiorna ML con i nuovi risultati
+        updateMLFromResults();
+        render();
+      }
+    }
+    
+    // === MACHINE LEARNING - Aggiorna soglie in base ai risultati ===
+    function updateMLFromResults() {
+      const completedBets = state.trackedBets.filter(b => b.status !== 'pending');
+      if (completedBets.length < 5) return; // Serve un minimo di dati
+      
+      // Calcola win rate per ogni tipo di pick
+      const pickStats = {};
+      
+      // Categorie di pick da analizzare
+      const categories = [
+        { patterns: ['over 2.5'], key: 'over25' },
+        { patterns: ['over 1.5'], key: 'over15' },
+        { patterns: ['gg', 'entrambe segnano', 'goal'], key: 'gg' },
+        { patterns: ['ng', 'no gol'], key: 'ng' },
+        { patterns: ['1x'], key: '1x' },
+        { patterns: ['x2'], key: 'x2' },
+        { patterns: ['under 2.5'], key: 'under25' }
+      ];
+      
+      categories.forEach(cat => {
+        const bets = completedBets.filter(b => {
+          const pick = b.pick.toLowerCase();
+          return cat.patterns.some(p => pick.includes(p) || pick === p);
+        });
+        
+        if (bets.length >= 3) {
+          const won = bets.filter(b => b.status === 'won').length;
+          const total = bets.length;
+          const winRate = (won / total) * 100;
+          
+          pickStats[cat.key] = {
+            total,
+            won,
+            winRate: winRate.toFixed(1),
+            // Suggerimento soglia basato su win rate
+            suggestedThreshold: Math.max(50, Math.min(85, 100 - winRate + 10))
+          };
+        }
+      });
+      
+      // Salva statistiche ML
+      state.mlStats = pickStats;
+      
+      // Salva su localStorage
+      localStorage.setItem('bp2_ml_stats', JSON.stringify(pickStats));
+      
+      // Salva su Firebase
+      saveToFirebase('mlStats', pickStats).catch(e => 
+        console.warn('Firebase save mlStats failed:', e)
+      );
+      
+      // Aggiorna anche i threshold ML in base ai risultati
+      updateMLThresholdsFromStats(pickStats);
+      
+      console.log('&#x1F916; ML Stats aggiornate:', pickStats);
+    }
+    
+    // Aggiorna i threshold ML in base alle statistiche
+    function updateMLThresholdsFromStats(pickStats) {
+      const mapping = {
+        'over25': 'Over 2.5',
+        'over15': 'Over 1.5',
+        'gg': 'GG',
+        '1x': '1X',
+        'x2': 'X2',
+        'under25': 'Under 2.5'
+      };
+      
+      Object.entries(pickStats).forEach(([key, stats]) => {
+        const thresholdKey = mapping[key];
+        if (thresholdKey && state.mlThresholds[thresholdKey]) {
+          // Aggiorna accuracy e predizioni
+          state.mlThresholds[thresholdKey].accuracy = parseFloat(stats.winRate);
+          state.mlThresholds[thresholdKey].totalPredictions = stats.total;
+          state.mlThresholds[thresholdKey].correctPredictions = stats.won;
+          
+          // Suggerisci nuova soglia se win rate è buono
+          if (stats.total >= 10 && parseFloat(stats.winRate) >= 55) {
+            // Abbassa leggermente la soglia se sta andando bene
+            const currentThreshold = state.mlThresholds[thresholdKey].threshold;
+            state.mlThresholds[thresholdKey].threshold = Math.max(45, currentThreshold - 2);
+          } else if (stats.total >= 10 && parseFloat(stats.winRate) < 45) {
+            // Alza la soglia se sta andando male
+            const currentThreshold = state.mlThresholds[thresholdKey].threshold;
+            state.mlThresholds[thresholdKey].threshold = Math.min(75, currentThreshold + 3);
+          }
+        }
+      });
+      
+      // Salva i threshold aggiornati
+      localStorage.setItem('bp2_ml_thresholds', JSON.stringify(state.mlThresholds));
+      saveToFirebase('mlThresholds', state.mlThresholds).catch(e => 
+        console.warn('Firebase save mlThresholds failed:', e)
+      );
+      
+      console.log('&#x1F916; ML Thresholds aggiornati');
+    }
+    
+    function getTrackingStats() {
+      const stats = {
+        total: state.trackedBets.length,
+        pending: state.trackedBets.filter(b => b.status === 'pending').length,
+        won: state.trackedBets.filter(b => b.status === 'won').length,
+        lost: state.trackedBets.filter(b => b.status === 'lost').length,
+        byType: {},
+        byPick: {}
+      };
+      
+      // Win rate
+      const completed = stats.won + stats.lost;
+      stats.winRate = completed > 0 ? ((stats.won / completed) * 100).toFixed(1) : 0;
+      
+      // Per tipo (prematch vs live)
+      ['prematch', 'live'].forEach(type => {
+        const bets = state.trackedBets.filter(b => b.type === type);
+        const won = bets.filter(b => b.status === 'won').length;
+        const lost = bets.filter(b => b.status === 'lost').length;
+        const total = won + lost;
+        stats.byType[type] = {
+          total: bets.length,
+          won,
+          lost,
+          winRate: total > 0 ? ((won / total) * 100).toFixed(1) : 0
+        };
+      });
+      
+      // Per tipo di pick - CORRETTO per evitare sovrapposizioni
+      // Funzione helper per matchare esattamente il tipo di pick
+      const matchPick = (pick, patterns) => {
+        const p = pick.toLowerCase().trim();
+        return patterns.some(pattern => {
+          if (pattern.startsWith('^')) {
+            // Match esatto all'inizio
+            return p.startsWith(pattern.slice(1));
+          } else if (pattern.endsWith('$')) {
+            // Match esatto alla fine
+            return p.endsWith(pattern.slice(0, -1));
+          } else if (pattern.includes('|exact|')) {
+            // Match esatto
+            return p === pattern.replace('|exact|', '');
+          } else {
+            // Match contains
+            return p.includes(pattern);
+          }
+        });
+      };
+      
+      const pickCategories = [
+        { patterns: ['over 0.5'], label: 'Over 0.5', excludePatterns: [] },
+        { patterns: ['over 1.5'], label: 'Over 1.5', excludePatterns: [] },
+        { patterns: ['over 2.5'], label: 'Over 2.5', excludePatterns: [] },
+        { patterns: ['over 3.5'], label: 'Over 3.5', excludePatterns: [] },
+        { patterns: ['under 1.5', 'under 2.5', 'under 3.5'], label: 'Under', excludePatterns: [] },
+        { patterns: ['|exact|gg', 'entrambe segnano', '|exact|goal'], label: 'GG', excludePatterns: ['multigol'] },
+        { patterns: ['|exact|ng', 'no gol'], label: 'NG', excludePatterns: [] },
+        { patterns: ['^1x', '1x '], label: '1X', excludePatterns: [] },
+        { patterns: ['^x2', 'x2 '], label: 'X2', excludePatterns: [] },
+        { patterns: ['|exact|1', '^1 (', '1 (vittoria'], label: '1 (Casa)', excludePatterns: ['1x', 'over 1', 'under 1', 'multigol 1'] },
+        { patterns: ['|exact|2', '^2 (', '2 (vittoria'], label: '2 (Ospite)', excludePatterns: ['x2', 'over 2', 'under 2', 'multigol 2'] },
+        { patterns: ['|exact|x', 'pareggio', 'x (pareggio)'], label: 'X (Pareggio)', excludePatterns: ['1x', 'x2'] },
+        { patterns: ['multigol'], label: 'Multigol', excludePatterns: [] }
+      ];
+      
+      pickCategories.forEach(cat => {
+        const bets = state.trackedBets.filter(b => {
+          const pick = b.pick.toLowerCase().trim();
+          // Verifica che matchi almeno un pattern
+          const matches = matchPick(pick, cat.patterns);
+          // Verifica che non sia escluso
+          const excluded = cat.excludePatterns.length > 0 && 
+            cat.excludePatterns.some(ex => pick.includes(ex));
+          return matches && !excluded;
+        });
+        
+        const won = bets.filter(b => b.status === 'won').length;
+        const lost = bets.filter(b => b.status === 'lost').length;
+        const total = won + lost;
+        
+        if (bets.length > 0) {
+          stats.byPick[cat.label] = {
+            total: bets.length,
+            won,
+            lost,
+            winRate: total > 0 ? ((won / total) * 100).toFixed(1) : 0
+          };
+        }
+      });
+      
+      return stats;
+    }
+    
+    function clearOldTrackedBets() {
+      // Rimuove bet completati più vecchi di 30 giorni
+      const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+      state.trackedBets = state.trackedBets.filter(b => {
+        if (b.status === 'pending') return true;
+        return new Date(b.timestamp).getTime() > thirtyDaysAgo;
+      });
+      saveTrackedBets();
+    }
+    
+    // === VERIFICA AUTOMATICA RISULTATI ===
+    async function autoVerifyPendingBets() {
+      const pending = state.trackedBets.filter(b => b.status === 'pending');
+      if (pending.length === 0) {
+        console.log('✅ Nessun pronostico pendente da verificare');
+        return;
+      }
+      
+      console.log(`&#x1F50D; Verifica automatica di ${pending.length} pronostici pendenti...`);
+      let updatedCount = 0;
+      
+      for (const bet of pending) {
+        try {
+          // Controlla se la partita è finita (almeno 30 minuti fa - tempo sufficiente per fine match)
+          const betDate = new Date(bet.timestamp);
+          const now = new Date();
+          const minutesSince = (now - betDate) / (1000 * 60);
+          
+          console.log(`⏳ Verifica bet: ${bet.matchName} (${(minutesSince/60).toFixed(1)}h fa)`);
+          
+          // Verifica solo partite che sono iniziate almeno 30 minuti fa
+          if (minutesSince < 30) {
+            console.log(`  ⏸️ Troppo recente, skippo`);
+            continue;
+          }
+          
+          // Ottieni risultato dalla API
+          const data = await callAPIFootball('/fixtures', { id: bet.matchId });
+          
+          if (!data?.response || data.response.length === 0) {
+            console.log(`  ❌ Nessun dato ricevuto per fixture ${bet.matchId}`);
+            continue;
+          }
+          
+          const fixture = data.response[0];
+          const status = fixture.fixture.status.short;
+          
+          // Partita finita?
+          if (!['FT', 'AET', 'PEN'].includes(status)) {
+            console.log(`  ⏸️ Partita non ancora finita (status: ${status})`);
+            continue;
+          }
+          
+          const homeGoals = fixture.goals.home;
+          const awayGoals = fixture.goals.away;
+          const totalGoals = homeGoals + awayGoals;
+          
+          // Verifica risultato basandosi sul tipo di pronostico
+          let isWon = false;
+          const pickLower = bet.pick.toLowerCase().trim();
+          
+          // IMPORTANTE: Ordine dei check - più specifico prima
+          if (pickLower.includes('over 3.5')) isWon = totalGoals >= 4;
+          else if (pickLower.includes('over 2.5')) isWon = totalGoals >= 3;
+          else if (pickLower.includes('over 1.5')) isWon = totalGoals >= 2;
+          else if (pickLower.includes('over 0.5')) isWon = totalGoals >= 1;
+          else if (pickLower.includes('under 1.5')) isWon = totalGoals < 2;
+          else if (pickLower.includes('under 2.5')) isWon = totalGoals < 3;
+          else if (pickLower.includes('under 3.5')) isWon = totalGoals < 4;
+          else if (pickLower === 'gg' || pickLower.includes('entrambe segnano') || pickLower === 'goal') isWon = homeGoals > 0 && awayGoals > 0;
+          else if (pickLower === 'ng' || pickLower.includes('no gol')) isWon = homeGoals === 0 || awayGoals === 0;
+          // Doppie chance PRIMA delle singole
+          else if (pickLower === '1x' || pickLower.startsWith('1x ')) isWon = homeGoals >= awayGoals;
+          else if (pickLower === 'x2' || pickLower.startsWith('x2 ')) isWon = homeGoals <= awayGoals;
+          else if (pickLower === '12' || pickLower.includes('no pareggio')) isWon = homeGoals !== awayGoals;
+          // 1X2 singoli
+          else if (pickLower === '1' || pickLower.includes('vittoria casa') || pickLower.includes('1 (')) isWon = homeGoals > awayGoals;
+          else if (pickLower === '2' || pickLower.includes('vittoria ospite') || pickLower.includes('2 (')) isWon = homeGoals < awayGoals;
+          else if (pickLower === 'x' || pickLower === 'pareggio' || pickLower.includes('x (')) isWon = homeGoals === awayGoals;
+          else {
+            console.warn(`⚠️ Pick type non riconosciuto: "${bet.pick}"`);
+            continue;
+          }
+          
+          // Aggiorna stato
+          bet.status = isWon ? 'won' : 'lost';
+          bet.result = `${homeGoals}-${awayGoals}`;
+          bet.verified = new Date().toISOString();
+          updatedCount++;
+          
+          console.log(`${isWon ? '✅' : '❌'} ${bet.matchName}: ${bet.pick} - ${homeGoals}-${awayGoals}`);
+          
+          // Aggiorna ML thresholds
+          updateMLThresholds(bet.pick, isWon, bet.prob);
+          
+          // NUOVO: Alimenta il vero ML Engine con questo risultato
+          mlAddTrainingSample(bet);
+          
+          // Piccola pausa per evitare rate limiting
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+        } catch (e) {
+          console.warn(`Errore verifica bet ${bet.id}:`, e);
+        }
+      }
+      
+      // Salva solo se ci sono stati aggiornamenti
+      if (updatedCount > 0) {
+        saveTrackedBets();
+        saveMLThresholds();
+        updatePerformanceHistory();
+        updateMLFromResults();
+        
+        console.log(`&#x1F4CA; Aggiornati ${updatedCount} pronostici`);
+      }
+      
+      // Aggiorna interfaccia
+      render();
+      
+      console.log('✅ Verifica automatica completata');
+    }
+    
+    // === MACHINE LEARNING: CALIBRAZIONE SOGLIE ===
+    function updateMLThresholds(pick, isWon, prob) {
+      // Normalizza il pick per trovare la categoria giusta
+      const pickLower = pick.toLowerCase().trim();
+      let market = null;
+      
+      // IMPORTANTE: Ordine dei check - più specifico prima
+      // Over/Under
+      if (pickLower.includes('over 3.5')) market = 'Over 3.5';
+      else if (pickLower.includes('over 2.5')) market = 'Over 2.5';
+      else if (pickLower.includes('over 1.5')) market = 'Over 1.5';
+      else if (pickLower.includes('under 2.5')) market = 'Under 2.5';
+      else if (pickLower.includes('under 3.5')) market = 'Under 3.5';
+      // GG/NG
+      else if (pickLower.includes('gg') || pickLower.includes('entrambe segnano') || pickLower.includes('both teams')) market = 'GG';
+      else if (pickLower.includes('ng') || pickLower.includes('no gol') || pickLower.includes('nessuna')) market = 'NG';
+      // Doppie chance (PRIMA delle singole!)
+      else if (pickLower === '1x' || pickLower.includes('1x ') || pickLower.includes('casa o pareggio')) market = '1X';
+      else if (pickLower === 'x2' || pickLower.includes('x2 ') || pickLower.includes('pareggio o ospite')) market = 'X2';
+      // Risultati esatti
+      else if (pickLower.includes('1 (') || pickLower === '1' || pickLower.includes('vittoria casa') || pickLower.includes('home win')) market = '1';
+      else if (pickLower.includes('2 (') || pickLower === '2' || pickLower.includes('vittoria ospite') || pickLower.includes('away win')) market = '2';
+      else if (pickLower.includes('pareggio') || pickLower === 'x' || pickLower.includes('x (') || pickLower.includes('draw')) market = 'X';
+      
+      // Se mercato non trovato o non supportato, skippa
+      if (!market) {
+        console.log(`&#x1F916; ML: Mercato non riconosciuto per "${pick}"`);
+        return;
+      }
+      
+      // Se il mercato non esiste ancora in mlThresholds, crealo
+      if (!state.mlThresholds[market]) {
+        state.mlThresholds[market] = {
+          threshold: 55,
+          accuracy: 0,
+          totalPredictions: 0,
+          correctPredictions: 0,
+          streak: 0,
+          lastResults: []
+        };
+      }
+      
+      const ml = state.mlThresholds[market];
+      const oldThreshold = ml.threshold;
+      const oldAccuracy = ml.accuracy;
+      
+      // Aggiorna statistiche
+      ml.totalPredictions++;
+      if (isWon) {
+        ml.correctPredictions++;
+        ml.streak = (ml.streak >= 0) ? ml.streak + 1 : 1; // Reset o incrementa streak positivo
+      } else {
+        ml.streak = (ml.streak <= 0) ? ml.streak - 1 : -1; // Reset o decrementa streak negativo
+      }
+      
+      // Salva ultimi 10 risultati
+      if (!ml.lastResults) ml.lastResults = [];
+      ml.lastResults.push(isWon ? 1 : 0);
+      if (ml.lastResults.length > 10) ml.lastResults.shift();
+      
+      // Calcola accuracy
+      ml.accuracy = ml.totalPredictions > 0 
+        ? ((ml.correctPredictions / ml.totalPredictions) * 100).toFixed(1) 
+        : 0;
+      
+      // === CALIBRAZIONE SOGLIA INTELLIGENTE ===
+      // Basata su accuracy globale + trend recente
+      if (ml.totalPredictions >= 15) {
+        const currentAccuracy = parseFloat(ml.accuracy);
+        const recentAccuracy = ml.lastResults.length >= 5 
+          ? (ml.lastResults.slice(-5).reduce((a, b) => a + b, 0) / 5) * 100
+          : currentAccuracy;
+        
+        // Se accuracy bassa E trend negativo → aumenta molto la soglia
+        if (currentAccuracy < 45 && recentAccuracy < 40) {
+          ml.threshold = Math.min(ml.threshold + 4, 80);
+        }
+        // Se accuracy sotto 50% → aumenta soglia
+        else if (currentAccuracy < 50) {
+          ml.threshold = Math.min(ml.threshold + 2, 75);
+        }
+        // Se accuracy molto alta E trend positivo → diminuisci soglia
+        else if (currentAccuracy > 70 && recentAccuracy > 70 && ml.totalPredictions >= 25) {
+          ml.threshold = Math.max(ml.threshold - 2, 35);
+        }
+        // Se accuracy buona → leggera diminuzione
+        else if (currentAccuracy > 60 && ml.totalPredictions >= 20) {
+          ml.threshold = Math.max(ml.threshold - 1, 40);
+        }
+      }
+      
+      // Log dettagliato per debug
+      const trendEmoji = ml.streak > 0 ? '&#x1F4C8;' : (ml.streak < 0 ? '&#x1F4C9;' : '➖');
+      console.log(`&#x1F916; ML Update [${market}]: ${isWon ? 'WIN ✅' : 'LOSS ❌'} | Accuracy: ${oldAccuracy}% → ${ml.accuracy}% (${ml.correctPredictions}/${ml.totalPredictions}) | Threshold: ${oldThreshold}% ${ml.threshold !== oldThreshold ? '→ ' + ml.threshold + '%' : ''} | Streak: ${ml.streak} ${trendEmoji}`);
+    }
+    
+    function saveMLThresholds() {
+      // Salva su localStorage (locale)
+      localStorage.setItem('bp2_ml_thresholds', JSON.stringify(state.mlThresholds));
+      
+      // Salva su Firebase (cloud) - async, non bloccante
+      saveToFirebase('mlThresholds', state.mlThresholds).catch(e => 
+        console.warn('Firebase save mlThresholds failed:', e)
+      );
+    }
+    
+    // =====================================================================
+    // === VERO ML ENGINE — Regressione Logistica (SOLO GG / Over) ===
+    // === NON MODIFICA le probabilità 1X2 in nessun caso ===
+    // =====================================================================
+    
+    // Estrae features numeriche da una partita per il training
+    function extractMLFeatures(matchId) {
+      try {
+        const match = state.matches.find(m => m.id === matchId);
+        if (!match) return null;
+        
+        // Cerca dati FootyStats
+        const fsKey = `${match.home.name.toLowerCase()}_${match.away.name.toLowerCase()}`.replace(/\s+/g, '');
+        const fsMatch = state.fsData.get(fsKey);
+        
+        // xG base
+        let homeXG = 1.3, awayXG = 1.1;
+        if (fsMatch) {
+          if (fsMatch.home_xg > 0) homeXG = fsMatch.home_xg;
+          else if (fsMatch.homexg > 0) homeXG = fsMatch.homexg;
+          else if (fsMatch.home_ppg > 0) homeXG = fsMatch.home_ppg * 0.85;
+          if (fsMatch.away_xg > 0) awayXG = fsMatch.away_xg;
+          else if (fsMatch.awayxg > 0) awayXG = fsMatch.awayxg;
+          else if (fsMatch.away_ppg > 0) awayXG = fsMatch.away_ppg * 0.75;
+        }
+        
+        const totXG = homeXG + awayXG;
+        const xgDiff = Math.abs(homeXG - awayXG);
+        
+        // Probabilità correnti dal modello
+        const p1X2 = quickCalc1X2(homeXG, awayXG);
+        const pOver25 = quickCalcOver(homeXG, awayXG, 2.5);
+        const pBTTS_raw = (1 - poisson(homeXG, 0)) * (1 - poisson(awayXG, 0)) * 100;
+        
+        // Features difensive (se disponibili)
+        let homeCS = 25, awayCS = 25, homeFTS = 25, awayFTS = 25;
+        let homeGA = 1.2, awayGA = 1.2;
+        if (fsMatch) {
+          homeCS = fsMatch.home_cs_percentage || fsMatch.home_clean_sheet_pct || 25;
+          awayCS = fsMatch.away_cs_percentage || fsMatch.away_clean_sheet_pct || 25;
+          homeFTS = fsMatch.home_fts_percentage || 25;
+          awayFTS = fsMatch.away_fts_percentage || 25;
+        }
+        
+        // Normalizza: tutte le features tra 0 e 1
+        return {
+          homeXG: Math.min(homeXG / 3.5, 1),         // 0-1
+          awayXG: Math.min(awayXG / 3.0, 1),         // 0-1
+          totXG: Math.min(totXG / 5.0, 1),           // 0-1
+          xgDiff: Math.min(xgDiff / 2.0, 1),         // 0-1
+          xgBalance: 1 - xgDiff / (totXG + 0.01),    // 0-1 (1=equilibrato)
+          pHome: p1X2.home / 100,                     // 0-1
+          pDraw: p1X2.draw / 100,                     // 0-1
+          pAway: p1X2.away / 100,                     // 0-1
+          pOver25: pOver25 / 100,                     // 0-1
+          pBTTS: pBTTS_raw / 100,                     // 0-1
+          homeCS: homeCS / 100,                       // 0-1 (alto=difesa forte)
+          awayCS: awayCS / 100,                       // 0-1
+          homeFTS: homeFTS / 100,                     // 0-1 (alto=non segna spesso)
+          awayFTS: awayFTS / 100,                     // 0-1
+          bothCanScore: (1 - homeFTS/100) * (1 - awayFTS/100), // prob entrambe segnano (storico)
+          bothLeaky: (1 - homeCS/100) * (1 - awayCS/100),      // prob entrambe subiscono
+          // Meta-features
+          probModelConfidence: Math.max(p1X2.home, p1X2.away, p1X2.draw) / 100 // quanto è sicuro il modello
+        };
+      } catch(e) {
+        console.warn('ML: Feature extraction failed:', e);
+        return null;
+      }
+    }
+    
+    // Features come array numerico per il calcolo
+    function featuresToArray(f) {
+      if (!f) return null;
+      return [
+        f.homeXG, f.awayXG, f.totXG, f.xgDiff, f.xgBalance,
+        f.pHome, f.pDraw, f.pAway, f.pOver25, f.pBTTS,
+        f.homeCS, f.awayCS, f.homeFTS, f.awayFTS,
+        f.bothCanScore, f.bothLeaky, f.probModelConfidence
+      ];
+    }
+    
+    const ML_FEATURE_COUNT = 17;
+    
+    // Sigmoid function
+    function sigmoid(z) {
+      if (z > 20) return 1;
+      if (z < -20) return 0;
+      return 1 / (1 + Math.exp(-z));
+    }
+    
+    // Predizione: sigmoid(w · x + b)
+    function mlPredict(weights, bias, features) {
+      if (!weights || !features || weights.length !== features.length) return null;
+      let z = bias;
+      for (let i = 0; i < weights.length; i++) {
+        z += weights[i] * features[i];
+      }
+      return sigmoid(z);
+    }
+    
+    // Training: gradient descent su tutti i campioni
+    function mlTrain(market) {
+      const model = state.mlEngine[market];
+      if (!model) return;
+      
+      // Filtra training data per questo mercato
+      const data = state.mlTrainingData.filter(d => d.market === market && d.features);
+      if (data.length < 8) {
+        console.log(`🧠 ML [${market}]: Solo ${data.length} campioni, servono almeno 8`);
+        return;
+      }
+      
+      // Inizializza pesi se non esistono
+      if (!model.weights || model.weights.length !== ML_FEATURE_COUNT) {
+        model.weights = new Array(ML_FEATURE_COUNT).fill(0);
+        model.bias = 0;
+      }
+      
+      const lr = 0.05; // Learning rate
+      const epochs = 100;
+      const lambda = 0.01; // L2 regularization
+      
+      // Prepara X e y
+      const X = data.map(d => featuresToArray(d.features)).filter(f => f && f.length === ML_FEATURE_COUNT);
+      const y = data.filter(d => featuresToArray(d.features)?.length === ML_FEATURE_COUNT).map(d => d.won ? 1 : 0);
+      
+      if (X.length < 8) return;
+      
+      let w = [...model.weights];
+      let b = model.bias;
+      
+      // Mini-batch gradient descent
+      for (let ep = 0; ep < epochs; ep++) {
+        let gradW = new Array(ML_FEATURE_COUNT).fill(0);
+        let gradB = 0;
+        
+        for (let i = 0; i < X.length; i++) {
+          const pred = mlPredict(w, b, X[i]);
+          const err = pred - y[i];
+          
+          for (let j = 0; j < ML_FEATURE_COUNT; j++) {
+            gradW[j] += err * X[i][j] + lambda * w[j]; // L2 reg
+          }
+          gradB += err;
+        }
+        
+        // Aggiorna pesi
+        for (let j = 0; j < ML_FEATURE_COUNT; j++) {
+          w[j] -= lr * gradW[j] / X.length;
+          // Clamp pesi per stabilità
+          w[j] = Math.max(-5, Math.min(5, w[j]));
+        }
+        b -= lr * gradB / X.length;
+        b = Math.max(-3, Math.min(3, b));
+      }
+      
+      // Calcola accuracy sul training set
+      let correct = 0;
+      for (let i = 0; i < X.length; i++) {
+        const pred = mlPredict(w, b, X[i]) >= 0.5 ? 1 : 0;
+        if (pred === y[i]) correct++;
+      }
+      const accuracy = (correct / X.length * 100).toFixed(1);
+      
+      // Salva modello
+      model.weights = w;
+      model.bias = b;
+      model.samples = X.length;
+      model.accuracy = parseFloat(accuracy);
+      model.lastTrain = new Date().toISOString();
+      
+      const wonCount = y.filter(v => v === 1).length;
+      console.log(`🧠 ML TRAIN [${market}]: ${X.length} campioni (${wonCount}W/${X.length - wonCount}L) → Accuracy: ${accuracy}%`);
+      console.log(`🧠 ML WEIGHTS [${market}]:`, w.map((v,i) => {
+        const names = ['hXG','aXG','totXG','xgDiff','xgBal','pH','pD','pA','pO25','pBTTS','hCS','aCS','hFTS','aFTS','bothScore','bothLeak','confid'];
+        return names[i] + ':' + v.toFixed(2);
+      }).join(' | '));
+      
+      saveMLEngine();
+    }
+    
+    // Salva ML Engine
+    function saveMLEngine() {
+      localStorage.setItem('bp2_ml_engine', JSON.stringify(state.mlEngine));
+      localStorage.setItem('bp2_ml_training', JSON.stringify(state.mlTrainingData));
+      saveToFirebase('mlEngine', state.mlEngine).catch(e => console.warn('Firebase mlEngine save failed:', e));
+      saveToFirebase('mlTrainingData', state.mlTrainingData).catch(e => console.warn('Firebase mlTraining save failed:', e));
+    }
+    
+    // Aggiungi campione al training set quando un risultato viene verificato
+    function mlAddTrainingSample(bet) {
+      if (!bet.features || bet.status === 'pending') return;
+      
+      const pickLower = bet.pick.toLowerCase();
+      const isWon = bet.status === 'won';
+      
+      // Determina mercato
+      const markets = [];
+      if (pickLower.includes('gg') || pickLower.includes('entrambe') || pickLower.includes('btts')) {
+        markets.push({ market: 'gg', won: isWon });
+      }
+      if (pickLower.includes('ng') || pickLower.includes('no gol')) {
+        markets.push({ market: 'gg', won: !isWon }); // NG perso = GG vinto e viceversa
+      }
+      if (pickLower.includes('over 2.5')) {
+        markets.push({ market: 'over25', won: isWon });
+      }
+      if (pickLower.includes('under 2.5')) {
+        markets.push({ market: 'over25', won: !isWon });
+      }
+      if (pickLower.includes('over 1.5')) {
+        markets.push({ market: 'over15', won: isWon });
+      }
+      
+      // ANCHE per partite con esito 1/2/X, registra se GG e Over sono usciti
+      // Questo dà dati extra gratis!
+      if (bet.result) {
+        const parts = String(bet.result).split('-').map(Number);
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          const [hg, ag] = parts;
+          const wasGG = hg > 0 && ag > 0;
+          const wasOver25 = (hg + ag) > 2;
+          const wasOver15 = (hg + ag) > 1;
+          
+          // Aggiungi campioni impliciti (solo se non già aggiunto per quel mercato)
+          if (!markets.some(m => m.market === 'gg')) {
+            markets.push({ market: 'gg', won: wasGG });
+          }
+          if (!markets.some(m => m.market === 'over25')) {
+            markets.push({ market: 'over25', won: wasOver25 });
+          }
+          if (!markets.some(m => m.market === 'over15')) {
+            markets.push({ market: 'over15', won: wasOver15 });
+          }
+        }
+      }
+      
+      // Aggiungi al training set
+      markets.forEach(({ market, won }) => {
+        // Evita duplicati
+        const exists = state.mlTrainingData.some(d => 
+          d.betId === bet.id && d.market === market
+        );
+        if (!exists) {
+          state.mlTrainingData.push({
+            betId: bet.id,
+            market,
+            won,
+            features: bet.features,
+            timestamp: bet.timestamp
+          });
+        }
+      });
+      
+      // Limita a 500 campioni (rimuovi i più vecchi)
+      if (state.mlTrainingData.length > 500) {
+        state.mlTrainingData = state.mlTrainingData.slice(-500);
+      }
+      
+      // Re-train se abbastanza dati
+      ['gg', 'over25', 'over15'].forEach(m => {
+        const count = state.mlTrainingData.filter(d => d.market === m).length;
+        if (count >= 8 && count % 3 === 0) { // Train ogni 3 nuovi campioni
+          mlTrain(m);
+        }
+      });
+      
+      saveMLEngine();
+    }
+    
+    // Ottieni aggiustamento ML per GG o Over (ritorna valore tra -15 e +15)
+    // IMPORTANTE: questo NON sostituisce la probabilità, la AGGIUSTA
+    function getMLAdjustment(market, matchId) {
+      const modelKey = market === 'GG' ? 'gg' : market === 'Over 2.5' ? 'over25' : market === 'Over 1.5' ? 'over15' : null;
+      if (!modelKey) return 0; // NON aggiusta 1X2!
+      
+      const model = state.mlEngine[modelKey];
+      if (!model || !model.weights || model.samples < 8 || model.accuracy < 48) return 0;
+      
+      const features = extractMLFeatures(matchId);
+      if (!features) return 0;
+      
+      const featArray = featuresToArray(features);
+      if (!featArray) return 0;
+      
+      const mlProb = mlPredict(model.weights, model.bias, featArray) * 100;
+      
+      // L'aggiustamento è la differenza tra predizione ML e predizione base
+      const baseProb = market === 'GG' ? features.pBTTS * 100 : 
+                       market === 'Over 2.5' ? features.pOver25 * 100 : 
+                       quickCalcOver(features.homeXG * 3.5, features.awayXG * 3.0, 1.5);
+      
+      // Differenza limitata: max ±15 punti percentuali
+      let adj = (mlProb - baseProb) * 0.5; // 50% peso ML, molto conservativo
+      adj = Math.max(-15, Math.min(15, adj));
+      
+      // Riduce aggiustamento se pochi campioni
+      if (model.samples < 15) adj *= 0.5;
+      else if (model.samples < 25) adj *= 0.75;
+      
+      // Se accuracy del modello è bassa, fidati meno
+      if (model.accuracy < 55) adj *= 0.3;
+      else if (model.accuracy < 60) adj *= 0.6;
+      
+      return Math.round(adj * 10) / 10;
+    }
+    
+    // Funzione per ottenere info ML per UI
+    function getMLEngineInfo() {
+      const info = {};
+      ['gg', 'over25', 'over15'].forEach(market => {
+        const model = state.mlEngine[market];
+        const dataCount = state.mlTrainingData.filter(d => d.market === market).length;
+        const wonCount = state.mlTrainingData.filter(d => d.market === market && d.won).length;
+        
+        info[market] = {
+          status: !model.weights ? 'non_addestrato' : model.samples < 8 ? 'raccolta_dati' : model.accuracy >= 55 ? 'attivo' : 'apprendimento',
+          samples: dataCount,
+          wonRate: dataCount > 0 ? (wonCount / dataCount * 100).toFixed(1) : 0,
+          accuracy: model.accuracy || 0,
+          lastTrain: model.lastTrain,
+          active: model.weights && model.samples >= 8 && model.accuracy >= 48
+        };
+      });
+      return info;
+    }
+    
+    function getMLInsights() {
+      const insights = [];
+      
+      Object.entries(state.mlThresholds).forEach(([market, data]) => {
+        if (data.totalPredictions < 10) {
+          insights.push({
+            market,
+            status: 'learning',
+            message: `${market}: Raccogliendo dati (${data.totalPredictions}/15 predizioni)`,
+            accuracy: data.accuracy,
+            threshold: data.threshold
+          });
+        } else {
+          const acc = parseFloat(data.accuracy);
+          let status = 'stable';
+          let message = '';
+          
+          if (acc < 50) {
+            status = 'declining';
+            message = `${market}: Performance bassa (${acc}%). Soglia aumentata a ${data.threshold}% per essere più selettivi.`;
+          } else if (acc >= 70) {
+            status = 'improving';
+            message = `${market}: Ottima performance (${acc}%)! Soglia calibrata a ${data.threshold}%.`;
+          } else {
+            message = `${market}: Performance stabile (${acc}%). Soglia: ${data.threshold}%.`;
+          }
+          
+          insights.push({
+            market,
+            status,
+            message,
+            accuracy: acc,
+            threshold: data.threshold,
+            total: data.totalPredictions,
+            correct: data.correctPredictions
+          });
+        }
+      });
+      
+      return insights.sort((a, b) => b.total - a.total);
+    }
+    
+    // === PERFORMANCE HISTORY ===
+    function updatePerformanceHistory() {
+      const today = new Date().toISOString().split('T')[0];
+      const stats = getTrackingStats();
+      
+      // Rimuovi entry di oggi se esiste
+      state.performanceHistory = state.performanceHistory.filter(h => h.date !== today);
+      
+      // Aggiungi nuova entry
+      state.performanceHistory.push({
+        date: today,
+        totalBets: stats.total,
+        won: stats.won,
+        lost: stats.lost,
+        pending: stats.pending,
+        winRate: parseFloat(stats.winRate),
+        byMarket: stats.byPick
+      });
+      
+      // Mantieni solo ultimi 60 giorni
+      if (state.performanceHistory.length > 60) {
+        state.performanceHistory = state.performanceHistory.slice(-60);
+      }
+      
+      localStorage.setItem('bp2_performance_history', JSON.stringify(state.performanceHistory));
+      
+      // Salva su Firebase (cloud) - async, non bloccante
+      saveToFirebase('performanceHistory', state.performanceHistory).catch(e => 
+        console.warn('Firebase save performanceHistory failed:', e)
+      );
+    }
+    
+    // === RENDER ===
+    function render() {
+      document.getElementById('app').innerHTML = `
+        ${renderHeader()}
+        <main class="main">
+          ${state.loading ? renderLoading() :
+            state.view === 'leagues' ? renderLeagues() :
+            state.view === 'matches' ? renderMatches() :
+            state.view === 'performance' ? renderPerformance() :
+            renderAnalysis()}
+        </main>
+        ${renderSlipFloating()}
+        ${state.slipModal ? renderSlipModal() : ''}
+        ${state.schedinaModal ? renderSchedinaModal() : ''}
+      `;
+      attachEvents();
+      
+      // Inizializza grafici se siamo nella view performance
+      if (state.view === 'performance') {
+        setTimeout(() => initializeCharts(), 100);
+      }
+      // Swipe mobile
+      if (state.view === 'matches') setTimeout(() => initSwipeOnMatchesList(), 100);
+      if (state.view === 'analysis') setTimeout(() => initSwipeOnMatches(), 100);
+    }
+
+    function renderHeader() {
+      const userDisplay = authState.isLoggedIn 
+        ? `<span class="user-email" title="${authState.email}">&#x1F464; ${authState.email.split('@')[0]}</span>`
+        : '';
+      
+      return `
+        <header class="header">
+          <div class="header-inner">
+            <div class="brand">
+              <div class="brand-icon">⚽</div>
+              <span class="brand-name">BettingPro</span>
+            </div>
+            <div class="header-right">
+              <button onclick="toggleTheme()" title="Cambia tema" style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 9px;cursor:pointer;font-size:0.85rem;color:var(--text-gray);transition:all 0.2s;" id="themeBtn">
+                ${document.body.classList.contains('light-mode') ? '☀️' : '🌙'}
+              </button>
+              <div class="status-bar">
+                <div class="status-item">
+                  <span class="status-dot ${state.api.football}"></span>
+                  <span>API</span>
+                </div>
+                <div class="status-item">
+                  <span class="status-dot ${state.api.footystats}"></span>
+                  <span>Stats</span>
+                </div>
+                <div class="status-item" title="Firebase Cloud Storage">
+                  <span class="status-dot ${firebaseEnabled ? 'online' : 'offline'}"></span>
+                  <span>Cloud</span>
+                </div>
+              </div>
+              ${userDisplay}
+              <button class="auth-btn ${authState.isLoggedIn ? 'logged-in' : ''}" onclick="${authState.isLoggedIn ? 'firebaseLogout()' : 'toggleLoginModal()'}" title="${authState.isLoggedIn ? 'Esci' : 'Accedi per sincronizzare su tutti i dispositivi'}">
+                ${authState.isLoggedIn ? '&#x1F6AA; Esci' : '&#x1F510; Accedi'}
+              </button>
+              <button class="settings-btn" onclick="showPerformance()" title="Performance & Analytics">
+                &#x1F4CA;
+              </button>
+              <button class="settings-btn" onclick="toggleSettingsPanel()" title="Impostazioni">
+                ⚙️
+              </button>
+              <button class="schedina-btn" onclick="state.schedinaModal=true;render();" style="padding:6px 12px;border-radius:20px;border:1.5px solid var(--accent-gold);background:transparent;color:var(--accent-gold);font-size:0.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;">&#x1F3AB; Schedina (${state.trackedBets.length})</button>
+              <div class="slip-badge" id="openSlip">
+                &#x1F3AB; ${state.slip.length} pronostici
+              </div>
+            </div>
+          </div>
+        </header>
+        ${renderSettingsPanel()}
+        ${authState.showLoginModal ? renderLoginModal() : ''}
+      `;
+    }
+    
+    function renderLoginModal() {
+      return `
+        <div class="login-modal-overlay" onclick="toggleLoginModal()">
+          <div class="login-modal" onclick="event.stopPropagation()">
+            <div class="login-header">
+              <h2>&#x1F510; Accedi a BettingPro</h2>
+              <button class="login-close" onclick="toggleLoginModal()">×</button>
+            </div>
+            <div class="login-body">
+              <p class="login-info">Accedi per sincronizzare i tuoi pronostici su tutti i dispositivi</p>
+              
+              ${authState.loginError ? `<div class="login-error">❌ ${authState.loginError}</div>` : ''}
+              
+              <div class="login-form">
+                <input type="email" id="loginEmail" placeholder="Email" class="login-input" />
+                <input type="password" id="loginPassword" placeholder="Password" class="login-input" />
+                
+                <div class="login-buttons">
+                  <button class="login-btn primary" onclick="handleLogin()" ${authState.isLoading ? 'disabled' : ''}>
+                    ${authState.isLoading ? '⏳ Attendere...' : '&#x1F511; Accedi'}
+                  </button>
+                  <button class="login-btn secondary" onclick="handleRegister()" ${authState.isLoading ? 'disabled' : ''}>
+                    ${authState.isLoading ? '⏳ Attendere...' : '&#x1F4DD; Registrati'}
+                  </button>
+                </div>
+              </div>
+              
+              <div class="login-note">
+                <p>&#x1F4A1; <strong>Nota:</strong> La registrazione è gratuita e ti permette di:</p>
+                <ul>
+                  <li>✅ Sincronizzare i pronostici tracciati su tutti i dispositivi</li>
+                  <li>✅ Mantenere le statistiche ML personalizzate</li>
+                  <li>✅ Accedere alla cronologia ovunque</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Handler per login/registrazione (chiamati dal modal)
+    function handleLogin() {
+      const email = document.getElementById('loginEmail')?.value;
+      const password = document.getElementById('loginPassword')?.value;
+      if (email && password) {
+        firebaseLogin(email, password);
+      } else {
+        authState.loginError = 'Inserisci email e password';
+        render();
+      }
+    }
+    
+    function handleRegister() {
+      const email = document.getElementById('loginEmail')?.value;
+      const password = document.getElementById('loginPassword')?.value;
+      if (email && password) {
+        if (password.length < 6) {
+          authState.loginError = 'La password deve avere almeno 6 caratteri';
+          render();
+          return;
+        }
+        firebaseRegister(email, password);
+      } else {
+        authState.loginError = 'Inserisci email e password';
+        render();
+      }
+    }
+    
+    function renderSettingsPanel() {
+      const s = state.settings;
+      const stats = getTrackingStats();
+      return `
+        <div class="settings-overlay ${state.settingsOpen ? 'open' : ''}" onclick="toggleSettingsPanel()"></div>
+        <div class="settings-panel ${state.settingsOpen ? 'open' : ''}">
+          <div class="settings-header">
+            <span class="settings-title">⚙️ Impostazioni</span>
+            <button class="settings-close" onclick="toggleSettingsPanel()">×</button>
+          </div>
+          
+          <div class="settings-section">
+            <div class="settings-section-title">&#x1F4CA; Win Rate per Segno</div>
+            ${renderWinRateByPick(stats)}
+          </div>
+          
+          <div class="settings-section">
+            <div class="settings-section-title">&#x1F527; Funzionalità</div>
+            <div class="settings-row">
+              <span class="settings-label">Mostra Classifica</span>
+              <div class="settings-toggle ${s.showStandings ? 'active' : ''}" 
+                onclick="toggleSetting('showStandings')"></div>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Mostra Infortunati</span>
+              <div class="settings-toggle ${s.showInjuries ? 'active' : ''}" 
+                onclick="toggleSetting('showInjuries')"></div>
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">Auto-refresh LIVE</span>
+              <div class="settings-toggle ${s.autoRefresh ? 'active' : ''}" 
+                onclick="toggleSetting('autoRefresh')"></div>
+            </div>
+          </div>
+          
+          <div class="settings-section">
+            <div class="settings-section-title">&#x1F4C8; Storico Ultimi Pronostici</div>
+            ${renderHistoryChart()}
+          </div>
+          
+          <div class="settings-section">
+            <div class="settings-section-title">📖 Guida Rapida — Come ottenere il pronostico migliore</div>
+            <div style="font-size:0.72rem;color:var(--text-gray);line-height:1.6;">
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-cyan);font-size:0.78rem;margin-bottom:4px;">STEP 1 · Seleziona la partita</div>
+                <div>Scegli la partita dalla lista. Il sistema calcola automaticamente <b>Poisson/Dixon-Coles</b>, probabilità 1X2, Over/Under, GG/NG, risultati esatti, Trap Detector e tutti i mercati. In background vengono caricate le quote da tutti i bookmaker.</div>
+              </div>
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-cyan);font-size:0.78rem;margin-bottom:4px;">STEP 2 · 🏆 Leggi il CONSENSUS ENGINE</div>
+                <div>È la sezione più importante. Fonde tutte le fonti (Poisson, Bookmaker, Regressione, Smart Money) in un <b>unico pick</b> con livello di confidenza. Se dice <span style="color:#00e5a0;font-weight:700;">MASSIMA</span> con accordo ≥80% → pick molto solido. Se <span style="color:#f87171;font-weight:700;">BASSA</span> → partita incerta, meglio evitare.</div>
+              </div>
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-purple);font-size:0.78rem;margin-bottom:4px;">STEP 3 · 📊 Controlla il REGRESSION SCORE</div>
+                <div>Punteggio 0-100 con grado A+→D. Analizza 6 fattori pesati: forza modello, xG, quote, forma, difesa, smart money. Gradi <span style="color:#00e5a0;font-weight:700;">A/A+</span> = pick forte. <span style="color:#fbbf24;font-weight:700;">B</span> = giocabile. <span style="color:#f87171;font-weight:700;">C/D</span> = da evitare in multipla.</div>
+              </div>
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-gold);font-size:0.78rem;margin-bottom:4px;">STEP 4 · ⚡ Premi "ANALIZZA con Super AI"</div>
+                <div>Lancia l'analisi AI Claude con notizie e infortuni aggiornati. Dopo il completamento, il <b>Consensus Engine si ricalcola</b> automaticamente includendo Oracle AI e Super Algoritmo. Il pick può rafforzarsi o cambiare.</div>
+              </div>
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-green);font-size:0.78rem;margin-bottom:4px;">STEP 5 · 🎯 Verifica le VALUE BET</div>
+                <div>Confronta le probabilità del modello con le quote dei bookmaker. Se l'<b>Edge</b> è positivo (verde) → value bet. Il <b>Kelly</b> indica quanto puntare in % del bankroll. L'<b>Odds Lab</b> mostra gli steam moves (dove puntano gli sharp bookmaker).</div>
+              </div>
+              <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                <div style="font-weight:800;color:var(--accent-red);font-size:0.78rem;margin-bottom:4px;">STEP 6 · 🚨 Controlla il TRAP DETECTOR</div>
+                <div>Verifica se la partita nasconde trappole. Score ≤20 = <span style="color:#10b981;">SICURA</span>. 21-40 = <span style="color:#fbbf24;">ATTENZIONE</span>. 41-60 = <span style="color:#f97316;">RISCHIO</span>. 61+ = <span style="color:#ef4444;">TRAPPOLA</span> — non giocare il favorito secco.</div>
+              </div>
+              <div style="padding:10px 0;">
+                <div style="font-weight:800;color:#f8fafc;font-size:0.82rem;margin-bottom:6px;">🏅 REGOLA D'ORO</div>
+                <div style="padding:10px;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.2);border-radius:10px;">
+                  Gioca solo quando:<br>
+                  ✅ <b>Consensus</b> = MASSIMA o ALTA<br>
+                  ✅ <b>Regression</b> = A o A+<br>
+                  ✅ <b>Trap Detector</b> = SICURA o ATTENZIONE<br><br>
+                  Se anche solo una condizione manca → rischio elevato. Per le <b>multiple</b>, usa solo partite che soddisfano tutte e tre.
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="settings-section">
+            <button class="btn btn-secondary" style="width:100%" onclick="resetAllData()">
+              &#x1F5D1;️ Reset tutti i dati
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderWinRateByPick(stats) {
+      const picks = Object.entries(stats.byPick);
+      if (picks.length === 0) {
+        return '<div style="text-align:center; color:var(--text-dark); padding:20px;">Nessun pronostico tracciato</div>';
+      }
+      
+      // Ordina per numero di giocate
+      picks.sort((a, b) => b[1].total - a[1].total);
+      
+      return `
+        <div class="winrate-grid">
+          ${picks.map(([label, data]) => `
+            <div class="winrate-item">
+              <div class="winrate-label">${label}</div>
+              <div class="winrate-stats">
+                <span class="winrate-played">${data.total} giocate</span>
+                <span class="winrate-won">✅ ${data.won}</span>
+                <span class="winrate-lost">❌ ${data.lost}</span>
+              </div>
+              <div class="winrate-bar">
+                <div class="winrate-bar-fill ${parseFloat(data.winRate) >= 50 ? 'good' : 'bad'}" 
+                  style="width: ${data.winRate}%"></div>
+              </div>
+              <div class="winrate-percent">${data.winRate}%</div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <div class="winrate-summary">
+          <div class="winrate-summary-item">
+            <span>Totale</span>
+            <strong>${stats.total}</strong>
+          </div>
+          <div class="winrate-summary-item">
+            <span>Vinte</span>
+            <strong style="color: var(--accent-green)">${stats.won}</strong>
+          </div>
+          <div class="winrate-summary-item">
+            <span>Perse</span>
+            <strong style="color: var(--accent-red)">${stats.lost}</strong>
+          </div>
+          <div class="winrate-summary-item">
+            <span>Win Rate</span>
+            <strong style="color: var(--accent-cyan)">${stats.winRate}%</strong>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderHistoryChart() {
+      const bets = state.trackedBets.filter(b => b.status !== 'pending').slice(-30).reverse();
+      if (bets.length === 0) {
+        return '<div style="text-align:center; color:var(--text-dark); padding:20px; font-size:0.8rem;">Nessun pronostico verificato</div>';
+      }
+
+      const formatTs = ts => {
+        if (!ts) return '';
+        const d = new Date(ts);
+        return d.toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'}) + ' ' + d.toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'});
+      };
+
+      const won = bets.filter(b => b.status === 'won').length;
+      const lost = bets.filter(b => b.status === 'lost').length;
+      const wr = bets.length > 0 ? ((won / bets.length) * 100).toFixed(0) : 0;
+
+      return `
+        <!-- Summary bar -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:10px 14px;background:var(--bg-card);border-radius:10px;border:1px solid var(--border);">
+          <div style="font-size:1.4rem;font-weight:900;color:var(--accent-cyan);">${wr}%</div>
+          <div style="flex:1;">
+            <div style="height:6px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;margin-bottom:4px;">
+              <div style="height:100%;width:${wr}%;background:linear-gradient(90deg,var(--accent-green),var(--accent-cyan));border-radius:3px;"></div>
+            </div>
+            <div style="display:flex;gap:12px;font-size:0.65rem;color:var(--text-dark);">
+              <span style="color:var(--accent-green);">✅ ${won} vinti</span>
+              <span style="color:var(--accent-red);">❌ ${lost} persi</span>
+              <span>${bets.length} totali</span>
+            </div>
+          </div>
+        </div>
+        <!-- Lista partite cliccabili -->
+        <div style="display:flex;flex-direction:column;gap:6px;max-height:380px;overflow-y:auto;padding-right:2px;">
+          ${bets.map((b, i) => {
+            const isWon = b.status === 'won';
+            const borderColor = isWon ? 'rgba(0,229,160,0.3)' : 'rgba(248,113,113,0.3)';
+            const accentColor = isWon ? 'var(--accent-green)' : 'var(--accent-red)';
+            const bgColor = isWon ? 'rgba(0,229,160,0.04)' : 'rgba(248,113,113,0.04)';
+            return `
+              <div onclick="openHistoryDetail(${i})" style="
+                display:flex;align-items:center;gap:10px;
+                background:${bgColor};
+                border:1px solid ${borderColor};
+                border-radius:10px;padding:10px 12px;
+                cursor:pointer;transition:background 0.15s,transform 0.1s;
+              " onmouseenter="this.style.background='${isWon ? 'rgba(0,229,160,0.08)' : 'rgba(248,113,113,0.08)'}'"
+                 onmouseleave="this.style.background='${bgColor}'"
+                 onmousedown="this.style.transform='scale(0.99)'" onmouseup="this.style.transform=''">
+                <!-- Icona esito -->
+                <div style="width:28px;height:28px;border-radius:50%;background:${isWon ? 'rgba(0,229,160,0.15)' : 'rgba(248,113,113,0.15)'};display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;">
+                  ${isWon ? '✅' : '❌'}
+                </div>
+                <!-- Info partita -->
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:0.78rem;font-weight:700;color:var(--text-white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    ${esc(b.match || 'Partita')}
+                  </div>
+                  <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap;">
+                    <span style="font-size:0.65rem;color:${accentColor};font-weight:700;">${esc(b.pick || '—')}</span>
+                    ${b.odds ? `<span style="font-size:0.62rem;color:var(--text-dark);">@${b.odds}</span>` : ''}
+                    <span style="font-size:0.62rem;color:var(--text-dark);">${formatTs(b.timestamp)}</span>
+                  </div>
+                </div>
+                <!-- Prob + stake -->
+                <div style="text-align:right;flex-shrink:0;">
+                  ${b.stake ? `<div style="font-size:0.75rem;font-weight:700;color:${isWon ? 'var(--accent-green)' : 'var(--text-gray)'};">${isWon ? '+' : '-'}€${(isWon ? (b.stake*(b.odds||1)-b.stake) : b.stake).toFixed(0)}</div>` : ''}
+                  <div style="font-size:0.6rem;color:var(--text-dark);">${b.prob ? b.prob.toFixed(0) + '%' : ''}</div>
+                </div>
+                <!-- Freccia -->
+                <div style="color:var(--text-dark);font-size:0.7rem;flex-shrink:0;">›</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    // Modal dettaglio storico
+    function openHistoryDetail(index) {
+      const bets = state.trackedBets.filter(b => b.status !== 'pending').slice(-30).reverse();
+      const b = bets[index];
+      if (!b) return;
+      const isWon = b.status === 'won';
+      const detail = [
+        b.match ? 'Partita: ' + b.match : '',
+        b.pick  ? 'Pick: ' + b.pick    : '',
+        b.odds  ? 'Quota: @' + b.odds  : '',
+        b.stake ? 'Puntata: €' + b.stake : '',
+        b.prob  ? 'Probabilità modello: ' + b.prob.toFixed(0) + '%' : '',
+        'Esito: ' + (isWon ? '✅ VINTO' : '❌ PERSO'),
+        b.timestamp ? 'Data: ' + new Date(b.timestamp).toLocaleString('it-IT') : ''
+      ].filter(Boolean).join('\n');
+      alert(detail);
+    }
+    
+    // ============================================================
+    // TABS PRONOSTICI
+    // ============================================================
+    function switchAdviceTab(tab, btnEl) {
+      // Trova tutti i tab e panel nel contenitore padre
+      const container = btnEl.closest('[style*="margin-bottom"]') || btnEl.parentElement.parentElement;
+      const tabs = btnEl.parentElement.querySelectorAll('.advice-tab');
+      const panels = container.querySelectorAll('.advice-panel');
+      tabs.forEach(t => t.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      btnEl.classList.add('active');
+      // Trova il panel corrispondente al tab
+      const activePanel = container.querySelector(`[id^="advicePanel_${tab}_"]`);
+      if (activePanel) activePanel.classList.add('active');
+    }
+
+    // ============================================================
+    // ACCORDION SEZIONI
+    // ============================================================
+    function toggleAccordion(header) {
+      const body = header.nextElementSibling;
+      const isOpen = header.classList.contains('open');
+      header.classList.toggle('open', !isOpen);
+      body.classList.toggle('open', !isOpen);
+    }
+
+    // Salva stato accordion in sessionStorage
+    function saveAccordionState() {
+      const states = {};
+      document.querySelectorAll('.section-accordion-header').forEach((h, i) => {
+        states[i] = h.classList.contains('open');
+      });
+      sessionStorage.setItem('accordion_state', JSON.stringify(states));
+    }
+
+    function restoreAccordionState() {
+      try {
+        const states = JSON.parse(sessionStorage.getItem('accordion_state') || '{}');
+        document.querySelectorAll('.section-accordion-header').forEach((h, i) => {
+          const body = h.nextElementSibling;
+          if (states[i] === true) {
+            h.classList.add('open');
+            body.classList.add('open');
+          } else if (states[i] === false) {
+            h.classList.remove('open');
+            body.classList.remove('open');
+          }
+        });
+      } catch(e) {}
+    }
+
+        function toggleTheme() {
+      const isLight = document.body.classList.toggle('light-mode');
+      localStorage.setItem('bp2_theme', isLight ? 'light' : 'dark');
+      render(); // aggiorna icona pulsante
+    }
+    // Applica tema salvato all'avvio
+    if (localStorage.getItem('bp2_theme') === 'light') document.body.classList.add('light-mode');
+
+    function toggleSetting(key) {
+      state.settings[key] = !state.settings[key];
+      saveSettings();
+      render();
+    }
+    
+    function resetAllData() {
+      if (confirm('Sei sicuro di voler cancellare TUTTI i dati? (pronostici, impostazioni, statistiche)')) {
+        localStorage.removeItem('bp2_tracked');
+        localStorage.removeItem('bp2_settings');
+        localStorage.removeItem('bp2_history');
+        localStorage.removeItem('bp2_bankroll');
+        localStorage.removeItem('bp2_slip');
+        state.trackedBets = [];
+        state.slip = [];
+        state.settings = {
+          thresholds: { '1': 50, 'X': 28, '2': 50, 'GG': 55, 'Over 2.5': 50, 'Over 1.5': 65 },
+          showInjuries: true, showStandings: true, autoRefresh: true
+        };
+        render();
+        alert('✅ Tutti i dati sono stati cancellati');
+      }
+    }
+    
+    // Filtra campionati e squadre
+    // ============================================================
+    // WIDGET COLPO DEL GIORNO
+    // ============================================================
+    function renderColpoDelGiorno(picks) {
+      const advices = (picks?.matchAdvices || []).filter(a => a.confidence === 'high');
+      if (advices.length === 0) return '';
+
+      // Prendi il pick con probabilità più alta tra quelli "high confidence"
+      const best = advices.reduce((best, a) => a.prob > best.prob ? a : best, advices[0]);
+      const prob = best.prob || 0;
+
+      const probColor = prob >= 75 ? '#00e5a0' : prob >= 65 ? '#fbbf24' : '#00d4ff';
+
+      // Prendi le prime 2 motivazioni (reasons)
+      const reasons = (best.reasons || []).slice(0, 2);
+      const reasoning = reasons.length > 0
+        ? reasons.map(r => r.text || r).join(' · ')
+        : 'Alta probabilità statistica confermata da più modelli';
+
+      return `
+        <div id="colpoDelGiorno" style="
+          position:relative;overflow:hidden;
+          background: linear-gradient(135deg, rgba(245,158,11,0.10) 0%, rgba(0,212,255,0.07) 100%);
+          border: 1.5px solid rgba(245,158,11,0.35);
+          border-radius: 18px;
+          padding: 18px 20px 16px;
+          margin-bottom: 18px;
+          cursor: pointer;
+          box-shadow: 0 4px 24px rgba(245,158,11,0.12);
+          transition: box-shadow 0.2s, transform 0.15s;
+        " onclick="selectMatch_CDG(${best.matchId})">
+          <!-- Glow bg -->
+          <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 70%);pointer-events:none;"></div>
+
+          <!-- Header -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:1.1rem;">🏆</span>
+              <span style="font-size:0.7rem;font-weight:900;color:var(--accent-gold);letter-spacing:0.08em;text-transform:uppercase;">Colpo del Giorno</span>
+              <span style="font-size:0.58rem;background:rgba(245,158,11,0.2);color:var(--accent-gold);padding:2px 7px;border-radius:20px;font-weight:700;">TOP PICK</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:0.65rem;color:var(--text-dark);">${best.time || ''}</span>
+              <span style="font-size:0.65rem;color:var(--text-dark);">·</span>
+              <span style="font-size:0.65rem;color:var(--text-dark);">${(best.league || '').split('-').pop().trim()}</span>
+            </div>
+          </div>
+
+          <!-- Match + Pick -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.92rem;font-weight:800;color:var(--text-white);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                ${esc(best.homeName)} <span style="color:var(--text-gray);font-weight:400;">vs</span> ${esc(best.awayName)}
+              </div>
+            </div>
+            <!-- Pick badge -->
+            <div style="flex-shrink:0;text-align:center;background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(0,229,160,0.10));border:1.5px solid rgba(0,212,255,0.3);border-radius:12px;padding:8px 14px;">
+              <div style="font-size:1rem;font-weight:900;color:var(--accent-cyan);line-height:1;">${esc(best.pick)}</div>
+              <div style="font-size:0.62rem;color:var(--text-gray);margin-top:2px;">pick</div>
+            </div>
+          </div>
+
+          <!-- Motivazione -->
+          <div style="font-size:0.72rem;color:var(--text-gray);line-height:1.4;margin-bottom:12px;padding:8px 10px;background:rgba(0,0,0,0.15);border-radius:8px;border-left:2px solid rgba(245,158,11,0.4);">
+            ${esc(reasoning)}
+          </div>
+
+          <!-- Prob bar + CTA -->
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="flex:1;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:0.62rem;color:var(--text-dark);">Probabilità</span>
+                <span style="font-size:0.72rem;font-weight:800;color:${probColor};">${prob.toFixed(0)}%</span>
+              </div>
+              <div style="height:6px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:${prob}%;background:linear-gradient(90deg,${probColor}88,${probColor});border-radius:3px;"></div>
+              </div>
+            </div>
+            <button style="
+              background:linear-gradient(135deg,var(--accent-gold),#d97706);
+              border:none;border-radius:10px;
+              padding:9px 18px;
+              font-size:0.78rem;font-weight:800;
+              color:#000;letter-spacing:0.02em;
+              cursor:pointer;white-space:nowrap;
+              box-shadow:0 3px 12px rgba(245,158,11,0.3);
+              transition:transform 0.15s;
+            " onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(0.96)'" ontouchend="this.style.transform=''">
+              Analizza ⚡
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function navigateMatch(direction) {
+      const matches = state.matches.filter(m => m.league?.id === state.selectedLeague?.id);
+      const idx = matches.findIndex(m => m.id === state.selectedMatch?.id);
+      const newIdx = idx + direction;
+      if (newIdx >= 0 && newIdx < matches.length) analyzeMatch(matches[newIdx]);
+    }
+
+        function selectMatch_CDG(matchId) {
+      const match = state.matches.find(m => m.id == matchId);
+      if (match) {
+        // Seleziona il campionato giusto prima
+        state.selectedLeague = state.leagues.find(l => l.id === match.league.id) || state.selectedLeague;
+        state.view = 'matches';
+        render();
+        setTimeout(() => analyzeMatch(match), 100);
+      }
+    }
+
+    // ============================================================
+    // RADAR CHART COMPARATIVO — 6 metriche affiancate
+    // ============================================================
+    function renderRadarChart(m, d) {
+      if (!d || !d.homeData || !d.awayData) return '';
+      const hd = d.homeData, ad = d.awayData;
+
+      // Calcola punteggi normalizzati 0-100 per 6 metriche
+      const norm = (val, min, max) => Math.min(100, Math.max(0, ((val - min) / (max - min)) * 100));
+
+      const metrics = [
+        {
+          label: 'Attacco',
+          home: norm(hd.goalsFor,  0.3, 2.5),
+          away: norm(ad.goalsFor,  0.3, 2.5),
+          icon: '⚡'
+        },
+        {
+          label: 'Difesa',
+          home: norm(2.5 - hd.goalsAgainst, 0, 2.2), // inverso: meno gol subiti = meglio
+          away: norm(2.5 - ad.goalsAgainst, 0, 2.2),
+          icon: '🛡'
+        },
+        {
+          label: 'Forma',
+          home: (() => { const w=(d.homeForm||'').split('').filter(c=>c==='W').length; return norm(w,0,5); })(),
+          away: (() => { const w=(d.awayForm||'').split('').filter(c=>c==='W').length; return norm(w,0,5); })(),
+          icon: '📈'
+        },
+        {
+          label: 'xG',
+          home: norm(d.xG?.home || 1.0, 0.3, 2.8),
+          away: norm(d.xG?.away || 1.0, 0.3, 2.8),
+          icon: '🎯'
+        },
+        {
+          label: 'Gol/G',
+          home: norm(hd.scoredAvg || 1.2, 0.3, 3.0),
+          away: norm(ad.scoredAvg || 1.2, 0.3, 3.0),
+          icon: '⚽'
+        },
+        {
+          label: 'Win Rate',
+          home: norm(hd.winRate || 40, 10, 80),
+          away: norm(ad.winRate || 40, 10, 80),
+          icon: '🏆'
+        }
+      ];
+
+      const barRow = (metric) => {
+        const hW = metric.home.toFixed(0);
+        const aW = metric.away.toFixed(0);
+        const hBetter = metric.home >= metric.away;
+        return `
+          <div style="margin-bottom:13px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:0.68rem;font-weight:700;color:var(--accent-cyan);">${hW}%</span>
+              <span style="font-size:0.7rem;color:var(--text-gray);letter-spacing:0.03em;">${metric.icon} ${metric.label}</span>
+              <span style="font-size:0.68rem;font-weight:700;color:var(--accent-red);">${aW}%</span>
+            </div>
+            <div style="display:flex;gap:3px;align-items:center;">
+              <!-- Home bar (verso sinistra) -->
+              <div style="flex:1;display:flex;justify-content:flex-end;overflow:hidden;border-radius:4px 0 0 4px;">
+                <div style="height:8px;width:${hW}%;background:${hBetter ? 'linear-gradient(90deg,rgba(0,212,255,0.3),#00d4ff)' : 'rgba(0,212,255,0.25)'};border-radius:4px 0 0 4px;transition:width 0.5s ease;"></div>
+              </div>
+              <!-- Divisore centrale -->
+              <div style="width:2px;height:14px;background:var(--border);flex-shrink:0;"></div>
+              <!-- Away bar (verso destra) -->
+              <div style="flex:1;overflow:hidden;border-radius:0 4px 4px 0;">
+                <div style="height:8px;width:${aW}%;background:${!hBetter ? 'linear-gradient(90deg,rgba(248,113,113,0.3),#f87171)' : 'rgba(248,113,113,0.25)'};border-radius:0 4px 4px 0;transition:width 0.5s ease;"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      };
+
+      // Calcola score aggregato
+      const homeTotal = metrics.reduce((s, m) => s + m.home, 0) / metrics.length;
+      const awayTotal = metrics.reduce((s, m) => s + m.away, 0) / metrics.length;
+      const diff = homeTotal - awayTotal;
+      const edge = Math.abs(diff);
+
+      return `
+        <div class="analysis-card wide" style="grid-column:1/-1;">
+          <div class="card-title">
+            <div class="card-title-icon">📊</div>
+            <span>Comparazione Squadre</span>
+            <span class="card-title-badge" style="background:rgba(0,212,255,0.1);color:var(--accent-cyan);">6 METRICHE</span>
+          </div>
+          <!-- Header squadre -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding:10px 14px;background:var(--bg-card-light);border-radius:10px;">
+            <div style="text-align:center;flex:1;">
+              <div style="font-size:0.72rem;font-weight:800;color:var(--accent-cyan);letter-spacing:0.04em;">${esc(m.home.name)}</div>
+              <div style="font-size:0.65rem;color:var(--text-dark);margin-top:2px;">CASA</div>
+            </div>
+            <div style="text-align:center;padding:6px 16px;background:${diff > 5 ? 'rgba(0,212,255,0.1)' : diff < -5 ? 'rgba(248,113,113,0.1)' : 'rgba(100,116,139,0.12)'};border-radius:8px;min-width:70px;">
+              <div style="font-size:0.65rem;color:var(--text-gray);">vantaggio</div>
+              <div style="font-size:0.85rem;font-weight:900;color:${diff > 5 ? 'var(--accent-cyan)' : diff < -5 ? 'var(--accent-red)' : 'var(--text-gray)'};">
+                ${diff > 5 ? '🏠 +' + edge.toFixed(0) : diff < -5 ? '✈️ +' + edge.toFixed(0) : '≈ Pari'}
+              </div>
+            </div>
+            <div style="text-align:center;flex:1;">
+              <div style="font-size:0.72rem;font-weight:800;color:var(--accent-red);letter-spacing:0.04em;">${esc(m.away.name)}</div>
+              <div style="font-size:0.65rem;color:var(--text-dark);margin-top:2px;">OSPITE</div>
+            </div>
+          </div>
+          <!-- Barre metriche -->
+          <div style="padding:0 4px;">
+            ${metrics.map(barRow).join('')}
+          </div>
+          <!-- Score aggregato -->
+          <div style="margin-top:6px;padding:10px 14px;background:var(--bg-card-light);border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="text-align:center;">
+              <div style="font-size:1.1rem;font-weight:900;color:var(--accent-cyan);">${homeTotal.toFixed(0)}</div>
+              <div style="font-size:0.6rem;color:var(--text-dark);">SCORE CASA</div>
+            </div>
+            <div style="font-size:0.65rem;color:var(--text-gray);">Score aggregato (0-100)</div>
+            <div style="text-align:center;">
+              <div style="font-size:1.1rem;font-weight:900;color:var(--accent-red);">${awayTotal.toFixed(0)}</div>
+              <div style="font-size:0.6rem;color:var(--text-dark);">SCORE OSPITE</div>
+            </div>
+          </div>
+
+          <!-- RIASSUNTO CONSIGLIATO -->
+          ${(() => {
+            // Analisi delle metriche per generare consigli
+            const attack  = metrics[0], defense = metrics[1], forma = metrics[2];
+            const xgM     = metrics[3], corner  = metrics[4], wr    = metrics[5];
+            const tips = [];
+
+            // --- 1X2 ---
+            const winnerScore = diff; // positivo = casa, negativo = ospite
+            if (winnerScore > 20) {
+              tips.push({ market: '1 (Casa)', icon: '🏠', color: '#00d4ff',
+                reason: esc(m.home.name) + ' superiore in ' + [attack.home>attack.away?'attacco':'', wr.home>wr.away?'win rate':'', xgM.home>xgM.away?'xG':''].filter(Boolean).join(', '), conf: 'alta' });
+            } else if (winnerScore < -20) {
+              tips.push({ market: '2 (Ospite)', icon: '✈️', color: '#f87171',
+                reason: esc(m.away.name) + ' superiore in ' + [attack.away>attack.home?'attacco':'', wr.away>wr.home?'win rate':'', xgM.away>xgM.home?'xG':''].filter(Boolean).join(', '), conf: 'alta' });
+            } else {
+              tips.push({ market: 'X o doppia', icon: '⚖️', color: '#fbbf24',
+                reason: 'Squadre equilibrate — vantaggio incerto, considera 1X o X2', conf: 'media' });
+            }
+
+            // --- OVER/UNDER ---
+            const avgXgNorm = (xgM.home + xgM.away) / 2;
+            const avgAttNorm = (attack.home + attack.away) / 2;
+            const avgDefNorm = (defense.home + defense.away) / 2;
+            if (avgXgNorm > 55 && avgAttNorm > 55) {
+              tips.push({ market: 'Over 2.5', icon: '⚡', color: '#00e5a0',
+                reason: 'Alto xG combinato (' + d.xG.home.toFixed(2) + ' + ' + d.xG.away.toFixed(2) + ' = ' + d.xG.total.toFixed(2) + ')', conf: 'alta' });
+            } else if (avgXgNorm < 40 || avgDefNorm > 65) {
+              tips.push({ market: 'Under 2.5', icon: '🔒', color: '#a78bfa',
+                reason: 'Difese solide — xG totale ' + d.xG.total.toFixed(2) + ', basso volume atteso', conf: 'alta' });
+            } else {
+              tips.push({ market: 'Over 1.5', icon: '⚽', color: '#fbbf24',
+                reason: 'Produzione offensiva sufficiente per almeno 2 gol', conf: 'media' });
+            }
+
+            // --- BTTS ---
+            const homeAttacks = attack.home > 45;
+            const awayAttacks = attack.away > 45;
+            const homeDefWeak = defense.home < 50;
+            const awayDefWeak = defense.away < 50;
+            if (homeAttacks && awayAttacks && homeDefWeak && awayDefWeak) {
+              tips.push({ market: 'GG (Entrambe segnano)', icon: '🎯', color: '#00e5a0',
+                reason: 'Entrambe attaccano bene e difendono poco', conf: 'media' });
+            } else if (defense.home > 65 || defense.away > 65) {
+              tips.push({ market: 'NG (Solo una segna)', icon: '🛡', color: '#a78bfa',
+                reason: (defense.home > defense.away ? esc(m.home.name) : esc(m.away.name)) + ' ha difesa molto solida', conf: 'media' });
+            }
+
+            // --- CLEAN SHEET ---
+            if (defense.away > 72 && attack.home < 45) {
+              tips.push({ market: esc(m.away.name) + ' CS', icon: '🧤', color: '#a78bfa',
+                reason: esc(m.away.name) + ' difende eccellentemente, ' + esc(m.home.name) + ' attacca poco', conf: 'media' });
+            } else if (defense.home > 72 && attack.away < 45) {
+              tips.push({ market: esc(m.home.name) + ' CS', icon: '🧤', color: '#00d4ff',
+                reason: esc(m.home.name) + ' difende eccellentemente, ' + esc(m.away.name) + ' attacca poco', conf: 'media' });
+            }
+
+            const confColor = c => c === 'alta' ? '#00e5a0' : '#fbbf24';
+            const confBg    = c => c === 'alta' ? 'rgba(0,229,160,0.08)' : 'rgba(251,191,36,0.08)';
+            const confBord  = c => c === 'alta' ? 'rgba(0,229,160,0.25)' : 'rgba(251,191,36,0.2)';
+
+            return `
+              <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+                <div style="font-size:0.68rem;font-weight:800;color:var(--text-gray);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;">
+                  🎯 Cosa consiglia questa comparazione
+                </div>
+                <div style="display:flex;flex-direction:column;gap:7px;">
+                  ${tips.map(t => `
+                    <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;
+                      background:${confBg(t.conf)};border:1px solid ${confBord(t.conf)};border-radius:10px;">
+                      <span style="font-size:1rem;flex-shrink:0;">${t.icon}</span>
+                      <div style="flex:1;min-width:0;">
+                        <span style="font-size:0.8rem;font-weight:800;color:${t.color};">${t.market}</span>
+                        <span style="font-size:0.68rem;color:var(--text-gray);margin-left:8px;">${t.reason}</span>
+                      </div>
+                      <span style="font-size:0.6rem;font-weight:700;color:${confColor(t.conf)};
+                        background:${confBg(t.conf)};border:1px solid ${confBord(t.conf)};
+                        padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0;">
+                        ${t.conf}
+                      </span>
+                    </div>
+                  `).join('')}
+                </div>
+                <div style="margin-top:8px;font-size:0.62rem;color:var(--text-dark);font-style:italic;">
+                  ⚠️ Basato solo sulle metriche comparative — verifica con il modello probabilistico completo
+                </div>
+              </div>
+            `;
+          })()}
+
+        </div>
+      `;
+    }
+
+        function renderLoading() {
+      // Skeleton loading — sagome animate invece dello spinner generico
+      return `
+        <div style="padding:16px;">
+          <!-- Skeleton Match Header -->
+          <div class="skeleton-card" style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+            <div class="skeleton skeleton-circle"></div>
+            <div style="flex:1;">
+              <div class="skeleton skeleton-line medium" style="margin-bottom:10px;"></div>
+              <div class="skeleton skeleton-line short"></div>
+            </div>
+            <div class="skeleton skeleton-badge"></div>
+          </div>
+          <!-- Skeleton stat cards -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+            ${[1,2,3,4].map(() => `
+              <div class="skeleton-card" style="padding:14px;">
+                <div class="skeleton skeleton-line short" style="margin-bottom:8px;"></div>
+                <div class="skeleton skeleton-line" style="height:28px;width:70%;border-radius:6px;"></div>
+              </div>
+            `).join('')}
+          </div>
+          <!-- Skeleton analysis section -->
+          <div class="skeleton-card">
+            <div class="skeleton skeleton-line short" style="margin-bottom:14px;"></div>
+            <div class="skeleton skeleton-line long"></div>
+            <div class="skeleton skeleton-line medium"></div>
+            <div class="skeleton skeleton-line long"></div>
+            <div style="display:flex;gap:8px;margin-top:12px;">
+              ${[1,2,3].map(() => `<div class="skeleton skeleton-badge" style="width:80px;height:30px;border-radius:8px;"></div>`).join('')}
+            </div>
+          </div>
+          <!-- Skeleton picks -->
+          <div class="skeleton-card" style="margin-top:12px;">
+            <div class="skeleton skeleton-line short" style="margin-bottom:12px;"></div>
+            ${[1,2].map(() => `
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+                <div class="skeleton skeleton-badge" style="width:90px;height:34px;border-radius:10px;"></div>
+                <div style="flex:1;"><div class="skeleton skeleton-line medium"></div></div>
+                <div class="skeleton skeleton-badge" style="width:50px;height:20px;"></div>
+              </div>
+            `).join('')}
+          </div>
+          <div style="text-align:center;margin-top:16px;font-size:0.8rem;color:var(--text-dark);">
+            ⚡ Analisi in corso…
+          </div>
+        </div>
+      `;
+    }
+
+    // === RENDER PERFORMANCE VIEW ===
+    function renderPerformance() {
+      const stats = getTrackingStats();
+      const mlInsights = getMLInsights();
+      const history = state.performanceHistory.slice(-30); // Ultimi 30 giorni
+      
+      return `
+        <div class="panel">
+          <div class="panel-title">&#x1F4CA; Performance & Analytics</div>
+          
+          <!-- STATS OVERVIEW -->
+          <div class="stats-overview" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
+            <div class="stats-card">
+              <div class="stats-card-value ${stats.winRate >= 60 ? 'green' : stats.winRate >= 50 ? 'yellow' : 'red'}">
+                ${stats.winRate}%
+              </div>
+              <div class="stats-card-label">Win Rate Totale</div>
+            </div>
+            <div class="stats-card">
+              <div class="stats-card-value green">${stats.won}</div>
+              <div class="stats-card-label">Pronostici Vinti</div>
+            </div>
+            <div class="stats-card">
+              <div class="stats-card-value red">${stats.lost}</div>
+              <div class="stats-card-label">Pronostici Persi</div>
+            </div>
+            <div class="stats-card">
+              <div class="stats-card-value">${stats.total}</div>
+              <div class="stats-card-label">Totale Pronostici</div>
+            </div>
+          </div>
+          
+          <!-- MACHINE LEARNING INSIGHTS -->
+          ${mlInsights.length > 0 ? `
+          <div class="ml-insights">
+            <div class="ml-insights-header">
+              <div class="ml-insights-icon">&#x1F916;</div>
+              <div>
+                <div class="ml-insights-title">Machine Learning Insights</div>
+                <div style="font-size: 0.75rem; color: var(--text-gray); margin-top: 4px;">
+                  Calibrazione automatica delle soglie basata sui risultati storici
+                </div>
+              </div>
+            </div>
+            
+            ${mlInsights.map(insight => `
+              <div class="ml-suggestion-card">
+                <div class="ml-suggestion-header">
+                  <span class="ml-suggestion-market">${insight.market}</span>
+                  <span class="ml-suggestion-status ${insight.status}">${
+                    insight.status === 'improving' ? '&#x1F4C8; In miglioramento' :
+                    insight.status === 'declining' ? '&#x1F4C9; In calo' :
+                    insight.status === 'learning' ? '&#x1F393; Apprendimento' : '➡️ Stabile'
+                  }</span>
+                </div>
+                <div class="ml-suggestion-body">
+                  ${insight.message}
+                  ${insight.total >= 10 ? `<br><small>${insight.correct}/${insight.total} predizioni corrette</small>` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          ` : ''}
+          
+          <!-- VERO ML ENGINE STATUS -->
+          <div style="background:rgba(168,85,247,0.04);border:1px solid rgba(168,85,247,0.15);border-radius:12px;padding:16px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <span style="font-size:1.3rem;">🧠</span>
+              <div>
+                <div style="font-size:0.88rem;font-weight:800;color:#c084fc;">ML Engine — Regressione Logistica</div>
+                <div style="font-size:0.68rem;color:var(--text-gray);">Apprendimento reale da features partita (solo GG/Over — non tocca 1X2)</div>
+              </div>
+            </div>
+            ${(() => {
+              const mlInfo = getMLEngineInfo();
+              const labels = { gg: 'GG (Entrambe Segnano)', over25: 'Over 2.5', over15: 'Over 1.5' };
+              const icons = { gg: '⚡', over25: '🔥', over15: '⚽' };
+              return Object.entries(mlInfo).map(([key, info]) => {
+                const statusColor = info.status === 'attivo' ? '#10b981' : info.status === 'apprendimento' ? '#fbbf24' : info.status === 'raccolta_dati' ? '#00d4ff' : '#64748b';
+                const statusLabel = info.status === 'attivo' ? '✅ ATTIVO' : info.status === 'apprendimento' ? '🔄 Apprendimento' : info.status === 'raccolta_dati' ? '📊 Raccolta dati' : '⏸️ Non addestrato';
+                const barWidth = Math.min(100, info.accuracy);
+                return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:rgba(168,85,247,0.04);border-radius:8px;margin-bottom:6px;">' +
+                  '<div style="flex:1;">' +
+                    '<div style="font-size:0.78rem;font-weight:700;color:white;">' + icons[key] + ' ' + labels[key] + '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;">' +
+                      '<div style="flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;"><div style="width:' + barWidth + '%;height:100%;background:' + statusColor + ';border-radius:2px;"></div></div>' +
+                      '<span style="font-size:0.62rem;color:var(--text-dark);">' + info.samples + ' campioni</span>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div style="text-align:right;margin-left:12px;">' +
+                    '<div style="font-size:0.82rem;font-weight:900;color:' + statusColor + ';">' + (info.accuracy > 0 ? info.accuracy + '%' : '—') + '</div>' +
+                    '<div style="font-size:0.55rem;color:' + statusColor + ';font-weight:700;">' + statusLabel + '</div>' +
+                  '</div>' +
+                '</div>';
+              }).join('');
+            })()}
+            <div style="font-size:0.6rem;color:var(--text-dark);text-align:center;margin-top:8px;">
+              🔒 Le probabilità 1X2 NON sono modificate dal ML Engine — solo GG e Over vengono aggiustati
+            </div>
+          </div>
+          
+          <!-- GRAFICI -->
+          <div class="performance-grid">
+            <!-- Win Rate nel Tempo -->
+            <div class="chart-container" style="grid-column: span 2;">
+              <div class="chart-header">
+                <div class="chart-title">&#x1F4C8; Win Rate nel Tempo (Ultimi 30 giorni)</div>
+              </div>
+              <div class="chart-canvas-wrapper">
+                <canvas id="winRateChart"></canvas>
+              </div>
+            </div>
+            
+            <!-- Performance per Mercato -->
+            <div class="chart-container">
+              <div class="chart-header">
+                <div class="chart-title">&#x1F3AF; Performance per Mercato</div>
+              </div>
+              <div class="chart-canvas-wrapper">
+                <canvas id="marketPerformanceChart"></canvas>
+              </div>
+            </div>
+            
+            <!-- Distribuzione Risultati -->
+            <div class="chart-container">
+              <div class="chart-header">
+                <div class="chart-title">&#x1F4CA; Distribuzione Risultati</div>
+              </div>
+              <div class="chart-canvas-wrapper">
+                <canvas id="resultsDistributionChart"></canvas>
+              </div>
+            </div>
+          </div>
+          
+          <!-- BOTTONE VERIFICA AUTOMATICA -->
+          <div style="text-align: center; margin-top: 24px;">
+            <button class="btn btn-primary" onclick="manualVerifyBets()" style="padding: 12px 32px; font-size: 1rem;">
+              &#x1F50D; Verifica Risultati Pendenti
+            </button>
+            <div style="font-size: 0.75rem; color: var(--text-dark); margin-top: 8px;">
+              Verifica automaticamente i risultati delle partite terminate
+            </div>
+          </div>
+          
+          <!-- BACK BUTTON -->
+          <div style="text-align: center; margin-top: 16px;">
+            <button class="btn btn-secondary" id="backFromPerformance" onclick="backToLeagues()">
+              ← Torna ai Campionati
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    // === INITIALIZE CHARTS ===
+    function initializeCharts() {
+      if (!window.Chart) {
+        console.warn('Chart.js non caricato');
+        return;
+      }
+      
+      const history = state.performanceHistory.slice(-30);
+      const stats = getTrackingStats();
+      
+      // Chart.js default colors
+      Chart.defaults.color = '#94a3b8';
+      Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+      
+      // 1. WIN RATE NEL TEMPO
+      const winRateCtx = document.getElementById('winRateChart');
+      if (winRateCtx && history.length > 0) {
+        new Chart(winRateCtx, {
+          type: 'line',
+          data: {
+            labels: history.map(h => new Date(h.date).toLocaleDateString('it-IT', { month: 'short', day: 'numeric' })),
+            datasets: [{
+              label: 'Win Rate %',
+              data: history.map(h => h.winRate),
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              fill: true,
+              tension: 0.4,
+              pointRadius: 4,
+              pointHoverRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#22253a',
+                titleColor: '#f1f5f9',
+                bodyColor: '#94a3b8',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 100,
+                grid: { color: 'rgba(255,255,255,0.05)' }
+              },
+              x: {
+                grid: { display: false }
+              }
+            }
+          }
+        });
+      }
+      
+      // 2. PERFORMANCE PER MERCATO
+      const marketCtx = document.getElementById('marketPerformanceChart');
+      if (marketCtx && Object.keys(stats.byPick).length > 0) {
+        const marketData = Object.entries(stats.byPick).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
+        
+        new Chart(marketCtx, {
+          type: 'bar',
+          data: {
+            labels: marketData.map(m => m[0]),
+            datasets: [{
+              label: 'Win Rate %',
+              data: marketData.map(m => parseFloat(m[1].winRate)),
+              backgroundColor: marketData.map(m => {
+                const wr = parseFloat(m[1].winRate);
+                return wr >= 60 ? 'rgba(16, 185, 129, 0.8)' :
+                       wr >= 50 ? 'rgba(251, 191, 36, 0.8)' :
+                       'rgba(239, 68, 68, 0.8)';
+              }),
+              borderRadius: 8,
+              borderSkipped: false
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 100,
+                grid: { color: 'rgba(255,255,255,0.05)' }
+              },
+              x: {
+                grid: { display: false }
+              }
+            }
+          }
+        });
+      }
+      
+      // 3. DISTRIBUZIONE RISULTATI
+      const resultsCtx = document.getElementById('resultsDistributionChart');
+      if (resultsCtx) {
+        new Chart(resultsCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Vinti', 'Persi', 'Pendenti'],
+            datasets: [{
+              data: [stats.won, stats.lost, stats.pending],
+              backgroundColor: [
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(239, 68, 68, 0.8)',
+                'rgba(251, 191, 36, 0.8)'
+              ],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  padding: 15,
+                  font: { size: 12 }
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+    
+    function manualVerifyBets() {
+      if (confirm('Vuoi verificare automaticamente i risultati delle partite terminate?\n\nQuesto potrebbe richiedere alcuni minuti.')) {
+        state.loading = true;
+        render();
+        
+        autoVerifyPendingBets().then(() => {
+          state.loading = false;
+          const stats = getTrackingStats();
+          alert(`✅ Verifica completata!\n\nWin Rate: ${stats.winRate}%\nVinti: ${stats.won}\nPersi: ${stats.lost}\nPendenti: ${stats.pending}`);
+          render();
+        }).catch(e => {
+          state.loading = false;
+          alert('❌ Errore durante la verifica:\n\n' + e.message);
+          render();
+        });
+      }
+    }
+    
+    // === DEBUG FUNCTIONS ===
+    window.debugTracking = function() {
+      const stats = getTrackingStats();
+      console.log('=== &#x1F4CA; TRACKING SYSTEM DEBUG ===');
+      console.log(`Total Bets: ${stats.total}`);
+      console.log(`Won: ${stats.won} | Lost: ${stats.lost} | Pending: ${stats.pending}`);
+      console.log(`Win Rate: ${stats.winRate}%`);
+      console.log('\n=== &#x1F916; MACHINE LEARNING STATUS ===');
+      Object.entries(state.mlThresholds).forEach(([market, data]) => {
+        console.log(`[${market}] Accuracy: ${data.accuracy}% (${data.correctPredictions}/${data.totalPredictions}) | Threshold: ${data.threshold}%`);
+      });
+      console.log('\n=== &#x1F4C8; PERFORMANCE HISTORY ===');
+      console.log(`Records: ${state.performanceHistory.length}`);
+      if (state.performanceHistory.length > 0) {
+        const latest = state.performanceHistory[state.performanceHistory.length - 1];
+        console.log(`Latest: ${latest.date} - WR: ${latest.winRate}% (${latest.won}W/${latest.lost}L)`);
+      }
+      console.log('\n=== &#x1F3AF; TRACKED BETS ===');
+      state.trackedBets.forEach((bet, idx) => {
+        console.log(`${idx + 1}. [${bet.status.toUpperCase()}] ${bet.matchName} → ${bet.pick} (${bet.prob}%)`);
+      });
+      console.log('\n&#x1F4A1; Tip: Scrivi debugTracking() in console per vedere queste info');
+    };
+    
+    window.debugFirebase = function() {
+      console.log('=== ☁️ FIREBASE DEBUG ===');
+      console.log(`Status: ${firebaseEnabled ? '✅ ONLINE' : '❌ OFFLINE'}`);
+      console.log(`User ID: ${USER_ID}`);
+      console.log(`Database URL: https://bettingpro2-9f1d9-default-rtdb.europe-west1.firebasedatabase.app/`);
+      console.log(`Firebase Path: users/${USER_ID}/`);
+      
+      if (firebaseEnabled && db) {
+        console.log('\n&#x1F4E5; Caricamento dati da Firebase...');
+        
+        Promise.all([
+          loadFromFirebase('trackedBets'),
+          loadFromFirebase('mlThresholds'),
+          loadFromFirebase('performanceHistory')
+        ]).then(([bets, ml, perf]) => {
+          console.log('\n✅ Dati Firebase:');
+          console.log(`  Tracked Bets: ${bets ? (Array.isArray(bets) ? bets.length : 'Invalid') : 'Nessuno'}`);
+          console.log(`  ML Thresholds: ${ml ? Object.keys(ml).length + ' mercati' : 'Nessuno'}`);
+          console.log(`  Performance History: ${perf ? (Array.isArray(perf) ? perf.length + ' records' : 'Invalid') : 'Nessuno'}`);
+        }).catch(e => {
+          console.error('❌ Errore caricamento:', e);
+        });
+      } else {
+        console.log('\n⚠️ Firebase non disponibile - dati salvati solo in localStorage');
+      }
+      
+      console.log('\n&#x1F4A1; Tips:');
+      console.log('  - debugFirebase() per vedere questo status');
+      console.log('  - debugTracking() per vedere i dati locali');
+    };
+    
+    function backToLeagues() {
+      state.view = 'leagues';
+      state.selectedLeague = null;
+      render();
+    }
+    
+    function backToMatches() {
+      state.view = 'matches';
+      state.selectedMatch = null;
+      state.analysis = null;
+      state.superAnalysis = null;
+      state.superAIAnalysis = null;
+      state.superAnalysisRunning = false;
+      state.superAIRunning = false;
+      render();
+    }
+    
+    async function triggerSuperAnalysis(forceRefresh) {
+      if (!state.analysis || state.superAnalysisRunning) return;
+      const matchId = state.selectedMatch?.id;
+      
+      state.superAnalysisRunning = true;
+      state.superAIRunning = false;
+      state.superAnalysis = null;
+      state.superAIAnalysis = null;
+      state.aiFromCache = false;
+      render();
+      
+      // STEP 1: calcolo locale istantaneo (~400ms)
+      await new Promise(r => setTimeout(r, 300));
+      try {
+        state.superAnalysis = runSuperAlgorithm(state.selectedMatch, state.analysis);
+        console.log('&#x1F9E0; Super Algo locale completato:', state.superAnalysis.picks.length, 'mercati');
+      } catch (e) {
+        console.error('Super Algo locale error:', e);
+        state.superAnalysis = null;
+      }
+      state.superAnalysisRunning = false;
+      render();
+      
+      // Scroll immediato al pannello
+      await new Promise(r => setTimeout(r, 100));
+      const panel = document.getElementById('superAlgoPanel');
+      if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      if (!state.superAnalysis) return;
+
+      // STEP 2: controlla cache Firebase PRIMA di chiamare l'API
+      if (!forceRefresh && matchId) {
+        try {
+          const cached = await getCachedAIAnalysis(matchId);
+          if (cached) {
+            console.log('⚡ Analisi AI caricata dalla cache — zero chiamate API');
+            state.superAIAnalysis = cached;
+            state.aiFromCache = true;
+            state.superAIRunning = false;
+            render();
+            return;
+          }
+        } catch(e) {
+          console.warn('Errore lettura cache, procedo con chiamata API:', e.message);
+        }
+      }
+
+      // STEP 3: nessuna cache — chiama l'API
+      state.superAIRunning = true;
+      state.aiFromCache = false;
+      render();
+      
+      try {
+        const aiResult = await callClaudeForSuperAnalysis(state.selectedMatch, state.analysis, state.superAnalysis);
+        state.superAIAnalysis = aiResult;
+        // Salva in cache Firebase per uso futuro
+        if (matchId && aiResult && !aiResult.error) {
+          saveAIAnalysisToCache(matchId, aiResult);
+        }
+      } catch (e) {
+        console.error('Super AI error:', e);
+        state.superAIAnalysis = { error: e.message, newsFound: false };
+      }
+      state.superAIRunning = false;
+      // v7: Ricalcola Consensus con dati Super AI aggiornati
+      if (state.analysis && state.selectedMatch) {
+        try {
+          const aiC = generateAIAdvice(state.selectedMatch, state.analysis);
+          state.consensus = buildConsensusEngine(
+            state.selectedMatch, state.analysis, aiC, state.oddsLab, state.regressionScore,
+            state.superAIAnalysis, state.superAnalysis
+          );
+        } catch(e2) { console.warn('v7 consensus recalc:', e2); }
+      }
+      render();
+    }
+    
+    // Forza nuovo aggiornamento ignorando la cache
+    function refreshAIAnalysis() {
+      if (state.selectedMatch?.id) {
+        clearAICache(state.selectedMatch.id).then(() => {
+          triggerSuperAnalysis(true);
+        });
+      }
+    }
+    
+    async function callClaudeForSuperAnalysis(match, analysis, superData) {
+      const homeTeam = match.homeTeam || match.teams?.home?.name || match.home?.name || match.home || 'Team Casa';
+      const awayTeam = match.awayTeam || match.teams?.away?.name || match.away?.name || match.away || 'Team Ospite';
+      const league = match.league?.name || match.competition?.name || match.leagueName || '';
+      const country = match.league?.country || match.country || '';
+      const matchDate = match.date || match.fixture?.date || match.kickoff || 'oggi';
+      const { xG, p1X2, pOU, pBTTS, exactScores, h2h, homeForm, awayForm, homePosition, awayPosition, homeInjuries, awayInjuries } = analysis;
+      
+      // Costruisce sommario infortuni
+      const homeInj = (homeInjuries||[]).slice(0,3).map(i => i.player?.name||i.name||'N/D').join(', ') || 'nessuno noto';
+      const awayInj = (awayInjuries||[]).slice(0,3).map(i => i.player?.name||i.name||'N/D').join(', ') || 'nessuno noto';
+      
+      // Top esiti attesi
+      const topPicks = superData.picks.slice(0,6).map((p,i) => 
+        `${i+1}. ${p.value}: prob ${p.prob.toFixed(1)}%, superScore ${p.superScore.toFixed(1)}, convergenza ${(p.convergence*100).toFixed(0)}%, confidenza ${p.confidence}`
+      ).join('\n');
+      
+      // Exact scores top 3
+      const topScores = (exactScores||[]).slice(0,4).map(s => `${s.h}-${s.a}(${s.p.toFixed(1)}%)`).join(' ');
+      
+      // H2H summary
+      const h2hSummary = h2h ? `${h2h.homeWins}V-${h2h.draws}P-${h2h.awayWins}S, media gol: ${h2h.avgGoals}` : 'N/D';
+      
+      const prompt = `Sei Oracle AI, il sistema di pronostico calcistico piu' avanzato al mondo. La tua missione e' analizzare questa partita con la massima precisione possibile e fornire il pronostico ottimale. NON puoi permetterti errori — ogni previsione deve essere basata su dati solidi.
+
+=== PARTITA ===
+${homeTeam} vs ${awayTeam}
+Campionato: ${league} ${country ? '('+country+')' : ''}
+Data: ${matchDate}
+
+=== DATI STATISTICI ALGORITMO PRINCIPALE ===
+PROBABILITA' 1X2 (Poisson + Dixon-Coles):
+  Casa (1): ${p1X2.home.toFixed(2)}%
+  Pareggio (X): ${p1X2.draw.toFixed(2)}%
+  Ospite (2): ${p1X2.away.toFixed(2)}%
+
+xG ATTESI:
+  ${homeTeam}: ${xG.home.toFixed(3)}
+  ${awayTeam}: ${xG.away.toFixed(3)}
+  Totale: ${xG.total.toFixed(3)}
+
+GOL:
+  Over 1.5: ${pOU[1.5].over.toFixed(1)}% | Under 1.5: ${pOU[1.5].under.toFixed(1)}%
+  Over 2.5: ${pOU[2.5].over.toFixed(1)}% | Under 2.5: ${pOU[2.5].under.toFixed(1)}%
+  Over 3.5: ${pOU[3.5].over.toFixed(1)}% | Under 3.5: ${pOU[3.5].under.toFixed(1)}%
+  GG: ${pBTTS.toFixed(1)}% | NG: ${(100-pBTTS).toFixed(1)}%
+
+RISULTATI ESATTI PIU' PROBABILI: ${topScores}
+
+TESTA A TESTA: ${h2hSummary}
+FORMA RECENTE: ${homeTeam}: ${homeForm||'N/D'} | ${awayTeam}: ${awayForm||'N/D'}
+CLASSIFICA: ${homeTeam} pos.${homePosition||'?'} | ${awayTeam} pos.${awayPosition||'?'}
+INFORTUNI NOTI: ${homeTeam}: ${homeInj} | ${awayTeam}: ${awayInj}
+
+=== RANKING SUPER ALGORITMO MULTI-SEGNALE ===
+${topPicks}
+
+=== ISTRUZIONI OBBLIGATORIE ===
+1. USA IL WEB SEARCH per cercare OBBLIGATORIAMENTE:
+   a) Notizie ultimissimi giorni su ${homeTeam}: infortuni, squalifiche, formazione attesa, stato di forma
+   b) Notizie ultimissimi giorni su ${awayTeam}: infortuni, squalifiche, formazione attesa, stato di forma  
+   c) Contesto della partita: importanza per classifica, derby, rivalita', motivazioni
+   d) Quote bookmakers attuali (se disponibili)
+   e) Meteo/campo (se rilevante)
+
+2. ANALISI CRITICA:
+   - Valuta se i dati statistici riflettono la realta' attuale
+   - Identifica se ci sono informazioni che cambiano il quadro
+   - Considera pattern e tendenze recenti
+   - Valuta il contesto tattico (sistema di gioco, punti di forza/debolezza)
+
+3. PRONOSTICO FINALE:
+   - Scegli il pick con il rapporto rischio/rendimento MIGLIORE
+   - Deve essere realistico e ben motivato
+   - Considera la varianza: preferisci pick ad alta probabilita' a quelli speculativi
+
+Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
+{
+  "newsFound": true,
+  "keyNews": [
+    "Notizia specifica e concreta 1 con dettagli",
+    "Notizia specifica e concreta 2 con dettagli", 
+    "Notizia specifica e concreta 3 con dettagli"
+  ],
+  "teamsContext": "Analisi tattica e contesto motivazionale in 2-3 frasi concrete",
+  "aiVerdict": "Analisi finale in 3-4 frasi: perche' questo e' il momento giusto/sbagliato per giocare, quali fattori incidono di piu', qual e' la lettura corretta della partita",
+  "bestPick": "Mercato + Esito specifico es. 'Over 2.5' o '1 (Casa)' o 'GG'",
+  "bestPickProb": 72,
+  "bestPickReasoning": "Motivazione in 1-2 frasi del perche' questo pick",
+  "alternativePick": "Secondo pick consigliato",
+  "alternativePickProb": 65,
+  "riskLevel": "basso",
+  "algoConfirmed": true,
+  "adjustedTop3": ["pick 1", "pick 2", "pick 3"],
+  "recommendation": "GIOCA",
+  "confidence": 74,
+  "keyFactors": ["fattore 1", "fattore 2", "fattore 3", "fattore 4"],
+  "warningFlags": ["eventuale warning o stringa vuota"],
+  "bookmakerOdds": "quote trovate o null"
+}`;
+
+      // === GROQ API (gratuita) via Cloudflare Worker ===
+      const response = await fetch('https://bettingpro-ai.lucalagan.workers.dev/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 2000,
+          temperature: 0.3,
+          messages: [
+            { role: 'system', content: 'Sei un esperto analista di calcio. Rispondi SOLO con JSON valido, nessun testo prima o dopo. Nessun markdown.' },
+            { role: 'user', content: prompt }
+          ]
+        })
+      });
+      
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`API ${response.status}: ${errText.slice(0,200)}`);
+      }
+      const data = await response.json();
+      console.log('Oracle Groq raw:', JSON.stringify(data).slice(0,400));
+      
+      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+      
+      // Groq usa formato OpenAI: choices[0].message.content
+      const fullText = data.choices?.[0]?.message?.content || '';
+      
+      if (!fullText) throw new Error('Nessun testo nella risposta Groq');
+      console.log('Oracle Groq text:', fullText.slice(0,300));
+      
+      // Estrai JSON robusto
+      let parsed = null;
+      const mdMatch = fullText.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (mdMatch) { try { parsed = JSON.parse(mdMatch[1].trim()); } catch(e) {} }
+      if (!parsed) {
+        const s = fullText.indexOf('{'); const e2 = fullText.lastIndexOf('}');
+        if (s !== -1 && e2 !== -1) { try { parsed = JSON.parse(fullText.slice(s, e2+1)); } catch(e) {} }
+      }
+      if (!parsed) throw new Error('JSON non trovato: ' + fullText.slice(0,150));
+      
+      // Normalizza recommendation
+      if (!['GIOCA','SKIP','ATTENDI'].includes(parsed.recommendation)) {
+        const r = (parsed.recommendation||'').toUpperCase();
+        parsed.recommendation = r.includes('GIOCA') || r.includes('PLAY') || r.includes('YES') ? 'GIOCA' :
+                                r.includes('SKIP') || r.includes('EVITA') || r.includes('NO') ? 'SKIP' : 'ATTENDI';
+      }
+      
+      return parsed;
+    }
+    function showPerformance() {
+      state.view = 'performance';
+      render();
+    }
+    
+    // === LEAGUE FAVORITES & FILTERS ===
+    const LEAGUE_GROUPS = {
+      top5: {
+        label: '🇪🇺 Top 5',
+        countries: ['England', 'Italy', 'Spain', 'Germany', 'France'],
+        leagueNames: ['Premier League', 'Serie A', 'La Liga', 'Bundesliga', 'Ligue 1']
+      }
+    };
+    
+    // Bandiere per tutte le nazioni — usate per generare bottoni dinamici
+    const COUNTRY_FLAGS = {
+      'Albania':'🇦🇱','Algeria':'🇩🇿','Andorra':'🇦🇩','Angola':'🇦🇴','Argentina':'🇦🇷','Armenia':'🇦🇲',
+      'Australia':'🇦🇺','Austria':'🇦🇹','Azerbaijan':'🇦🇿','Bahrain':'🇧🇭','Bangladesh':'🇧🇩','Belarus':'🇧🇾',
+      'Belgium':'🇧🇪','Bolivia':'🇧🇴','Bosnia':'🇧🇦','Bosnia and Herzegovina':'🇧🇦','Brazil':'🇧🇷','Bulgaria':'🇧🇬',
+      'Cameroon':'🇨🇲','Canada':'🇨🇦','Chile':'🇨🇱','China':'🇨🇳','Colombia':'🇨🇴','Costa-Rica':'🇨🇷','Costa Rica':'🇨🇷',
+      'Croatia':'🇭🇷','Cyprus':'🇨🇾','Czech-Republic':'🇨🇿','Czech Republic':'🇨🇿','Denmark':'🇩🇰',
+      'Ecuador':'🇪🇨','Egypt':'🇪🇬','El-Salvador':'🇸🇻','England':'🏴','Estonia':'🇪🇪','Ethiopia':'🇪🇹',
+      'Faroe-Islands':'🇫🇴','Finland':'🇫🇮','France':'🇫🇷','Georgia':'🇬🇪','Germany':'🇩🇪','Ghana':'🇬🇭',
+      'Gibraltar':'🇬🇮','Greece':'🇬🇷','Guatemala':'🇬🇹','Honduras':'🇭🇳','Hong-Kong':'🇭🇰','Hungary':'🇭🇺',
+      'Iceland':'🇮🇸','India':'🇮🇳','Indonesia':'🇮🇩','Iran':'🇮🇷','Iraq':'🇮🇶','Ireland':'🇮🇪',
+      'Israel':'🇮🇱','Italy':'🇮🇹','Ivory-Coast':'🇨🇮','Jamaica':'🇯🇲','Japan':'🇯🇵','Jordan':'🇯🇴',
+      'Kazakhstan':'🇰🇿','Kenya':'🇰🇪','Kosovo':'🇽🇰','Kuwait':'🇰🇼','Latvia':'🇱🇻','Lebanon':'🇱🇧',
+      'Libya':'🇱🇾','Lithuania':'🇱🇹','Luxembourg':'🇱🇺','Malaysia':'🇲🇾','Mali':'🇲🇱','Malta':'🇲🇹',
+      'Mexico':'🇲🇽','Moldova':'🇲🇩','Montenegro':'🇲🇪','Morocco':'🇲🇦','Netherlands':'🇳🇱','New-Zealand':'🇳🇿',
+      'Nicaragua':'🇳🇮','Nigeria':'🇳🇬','North-Macedonia':'🇲🇰','Northern-Ireland':'🇬🇧','Norway':'🇳🇴',
+      'Oman':'🇴🇲','Palestine':'🇵🇸','Panama':'🇵🇦','Paraguay':'🇵🇾','Peru':'🇵🇪','Philippines':'🇵🇭',
+      'Poland':'🇵🇱','Portugal':'🇵🇹','Qatar':'🇶🇦','Romania':'🇷🇴','Russia':'🇷🇺','Rwanda':'🇷🇼',
+      'Saudi-Arabia':'🇸🇦','Saudi Arabia':'🇸🇦','Scotland':'🏴','Senegal':'🇸🇳','Serbia':'🇷🇸',
+      'Singapore':'🇸🇬','Slovakia':'🇸🇰','Slovenia':'🇸🇮','South-Africa':'🇿🇦','South Africa':'🇿🇦',
+      'South-Korea':'🇰🇷','South Korea':'🇰🇷','Spain':'🇪🇸','Sudan':'🇸🇩','Sweden':'🇸🇪','Switzerland':'🇨🇭',
+      'Syria':'🇸🇾','Tanzania':'🇹🇿','Thailand':'🇹🇭','Tunisia':'🇹🇳','Turkey':'🇹🇷','Uganda':'🇺🇬',
+      'Ukraine':'🇺🇦','United-Arab-Emirates':'🇦🇪','UAE':'🇦🇪','Uruguay':'🇺🇾','USA':'🇺🇸',
+      'Uzbekistan':'🇺🇿','Venezuela':'🇻🇪','Vietnam':'🇻🇳','Wales':'🏴','World':'🌍','Zambia':'🇿🇲','Zimbabwe':'🇿🇼'
+    };
+    
+    function toggleFavoriteLeague(leagueId) {
+      const idx = state.favoriteLeagues.indexOf(leagueId);
+      if (idx >= 0) {
+        state.favoriteLeagues.splice(idx, 1);
+      } else {
+        state.favoriteLeagues.push(leagueId);
+      }
+      localStorage.setItem('bp2_fav_leagues', JSON.stringify(state.favoriteLeagues));
+      if (typeof saveToFirebase === 'function') {
+        saveToFirebase('favoriteLeagues', state.favoriteLeagues).catch(e => console.debug('fav sync:', e.message));
+      }
+      render();
+    }
+    
+    function setLeagueFilter(filter) {
+      state.leagueFilter = filter;
+      render();
+    }
+    
+    function selectLeague(leagueId) {
+      state.selectedLeague = state.leagues.find(l => l.id === leagueId);
+      if (state.selectedLeague) {
+        state.view = 'matches';
+        render();
+      }
+    }
+    
+    function getFilteredLeagues() {
+      const filter = state.leagueFilter;
+      let filtered = state.leagues;
+      
+      if (filter === 'favorites') {
+        filtered = filtered.filter(l => state.favoriteLeagues.includes(l.id));
+      } else if (LEAGUE_GROUPS[filter]) {
+        const group = LEAGUE_GROUPS[filter];
+        filtered = filtered.filter(l => {
+          if (group.countries && group.countries.includes(l.country)) return true;
+          if (group.leagueNames && group.leagueNames.some(n => l.name.includes(n))) return true;
+          return false;
+        });
+      } else if (filter.startsWith('country:')) {
+        // Filtro dinamico per nazione: "country:Italy", "country:Brazil", etc.
+        const countryName = filter.substring(8);
+        filtered = filtered.filter(l => l.country === countryName);
+      }
+      // else 'all' → nessun filtro
+      
+      // Ordina: preferiti in cima, poi alfabetico
+      return filtered.sort((a, b) => {
+        const aFav = state.favoriteLeagues.includes(a.id) ? 0 : 1;
+        const bFav = state.favoriteLeagues.includes(b.id) ? 0 : 1;
+        if (aFav !== bFav) return aFav - bFav;
+        return `${a.country} ${a.name}`.localeCompare(`${b.country} ${b.name}`);
+      });
+    }
+    
+    function renderLeagues() {
+      const picks = state.dailyPicks;
+      const filtered = getFilteredLeagues();
+      const hasFavs = state.favoriteLeagues.length > 0;
+      
+      // Build league buttons — dinamici: prende le nazioni dalle partite del giorno
+      const countrySet = {};
+      state.leagues.forEach(function(l) {
+        if (l.country && !countrySet[l.country]) {
+          countrySet[l.country] = (state.matches || []).filter(m => m.league && m.league.country === l.country).length;
+        }
+      });
+      // Ordina: Top 5 prima, poi per numero partite decrescente, poi alfabetico
+      const top5Countries = ['Italy', 'England', 'Spain', 'Germany', 'France'];
+      const countryList = Object.keys(countrySet).sort(function(a, b) {
+        const aTop = top5Countries.indexOf(a);
+        const bTop = top5Countries.indexOf(b);
+        if (aTop >= 0 && bTop < 0) return -1;
+        if (bTop >= 0 && aTop < 0) return 1;
+        if (aTop >= 0 && bTop >= 0) return aTop - bTop;
+        if (countrySet[b] !== countrySet[a]) return countrySet[b] - countrySet[a];
+        return a.localeCompare(b);
+      });
+      
+      const filterBtns = [
+        { key: 'all', label: '🌍 Tutti', count: state.leagues.length },
+        ...(hasFavs ? [{ key: 'favorites', label: '⭐ Preferiti', count: state.leagues.filter(l => state.favoriteLeagues.includes(l.id)).length }] : []),
+        { key: 'top5', label: '🇪🇺 Top 5', count: null }
+      ];
+      
+      // Aggiungi bandierine per ogni nazione presente
+      countryList.forEach(function(country) {
+        const flag = COUNTRY_FLAGS[country] || '🏳️';
+        filterBtns.push({ key: 'country:' + country, label: flag, count: null, title: country });
+      });
+      
+      return `
+        <div class="date-tabs">
+          ${[-1, 0, 1, 2].map(d => `
+            <div class="date-tab ${state.selectedDate === d ? 'active' : ''}" data-date="${d}">
+              ${getDateLabel(d)} ${d !== 0 ? `(${formatDate(getDateString(d))})` : ''}
+            </div>
+          `).join('')}
+        </div>
+        
+        <!-- CAMPIONATI CON FILTRI -->
+        <div class="panel" style="margin-bottom: 16px;">
+          <div class="panel-title">📋 Campionati (${state.matches.length} partite)</div>
+          
+          <!-- FILTRI RAPIDI -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            ${filterBtns.filter(f => !f.key.startsWith('country:')).map(f => `
+              <button onclick="setLeagueFilter('${f.key.replace(/'/g, "\\'")}')" title="${f.title || f.label}" style="
+                padding:6px 12px;border-radius:20px;font-size:0.72rem;font-weight:700;cursor:pointer;
+                border:1.5px solid ${state.leagueFilter === f.key ? 'var(--accent-cyan)' : 'var(--border)'};
+                background:${state.leagueFilter === f.key ? 'rgba(0,212,255,0.12)' : 'var(--bg-input)'};
+                color:${state.leagueFilter === f.key ? 'var(--accent-cyan)' : 'var(--text-gray)'};
+                white-space:nowrap;transition:all 0.2s;
+              ">${f.label}${f.count !== null ? ' (' + f.count + ')' : ''}</button>
+            `).join('')}
+            <button onclick="(function(){ var el=document.getElementById('countryFlagsPanel'); if(el){el.style.display=el.style.display==='none'?'flex':'none';} })()" style="
+              padding:6px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;cursor:pointer;
+              border:1.5px solid ${state.leagueFilter.startsWith('country:') ? 'var(--accent-cyan)' : 'var(--border)'};
+              background:${state.leagueFilter.startsWith('country:') ? 'rgba(0,212,255,0.12)' : 'var(--bg-input)'};
+              color:${state.leagueFilter.startsWith('country:') ? 'var(--accent-cyan)' : 'var(--text-gray)'};
+              white-space:nowrap;transition:all 0.2s;
+            ">${state.leagueFilter.startsWith('country:') ? (COUNTRY_FLAGS[state.leagueFilter.substring(8)] || '🏳️') + ' ' + state.leagueFilter.substring(8) : '🏳️ Nazioni ▾'}</button>
+          </div>
+          <!-- BANDIERE NAZIONI (collassabile) -->
+          <div id="countryFlagsPanel" style="display:${state.leagueFilter.startsWith('country:') ? 'flex' : 'none'};gap:5px;flex-wrap:wrap;margin-bottom:10px;padding:8px;background:rgba(0,0,0,0.15);border-radius:10px;border:1px solid var(--border);">
+            ${filterBtns.filter(f => f.key.startsWith('country:')).map(f => `
+              <button onclick="setLeagueFilter('${f.key.replace(/'/g, "\\'")}')" title="${f.title || ''}" style="
+                width:32px;height:32px;border-radius:50%;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+                border:1.5px solid ${state.leagueFilter === f.key ? 'var(--accent-cyan)' : 'transparent'};
+                background:${state.leagueFilter === f.key ? 'rgba(0,212,255,0.15)' : 'rgba(255,255,255,0.04)'};
+                transition:all 0.15s;
+              ">${f.label}</button>
+            `).join('')}
+          </div>
+          
+          ${filtered.length === 0 ? `
+            <div style="text-align:center;padding:20px;color:var(--text-dark);">
+              ${state.leagueFilter === 'favorites' ? '⭐ Nessun preferito. Tap sulla ⭐ accanto al campionato per aggiungerlo.' : state.leagueFilter.startsWith('country:') ? '🏳️ Nessun campionato di ' + state.leagueFilter.substring(8) + ' con partite oggi.' : 'Nessun campionato trovato per questo filtro.'}
+            </div>
+          ` : `
+            <!-- LISTA CAMPIONATI -->
+            <div style="display:flex;flex-direction:column;gap:4px;max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+              ${filtered.map(l => {
+                const isFav = state.favoriteLeagues.includes(l.id);
+                return `
+                <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:${isFav ? 'rgba(251,191,36,0.06)' : 'var(--bg-card)'};border:1px solid ${isFav ? 'rgba(251,191,36,0.2)' : 'var(--border)'};border-radius:10px;cursor:pointer;transition:all 0.15s;" onclick="selectLeague(${l.id})">
+                  <button onclick="event.stopPropagation();toggleFavoriteLeague(${l.id})" style="background:none;border:none;cursor:pointer;font-size:1.2rem;padding:4px;flex-shrink:0;opacity:${isFav ? '1' : '0.35'};" title="${isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}">
+                    ${isFav ? '⭐' : '☆'}
+                  </button>
+                  ${l.logo ? '<img src="' + l.logo + '" style="width:28px;height:28px;border-radius:4px;flex-shrink:0;" onerror="this.style.display=\'none\'">' : ''}
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:0.95rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(l.name)}</div>
+                    <div style="font-size:0.75rem;color:var(--text-dark);">${esc(l.country)}</div>
+                  </div>
+                  <div style="font-size:0.85rem;font-weight:800;color:var(--accent-cyan);flex-shrink:0;">${l.matchCount}</div>
+                  <span style="font-size:0.7rem;color:var(--text-dark);flex-shrink:0;">▶</span>
+                </div>`;
+              }).join('')}
+            </div>
+          `}
+        </div>
+        
+        <!-- COLPO DEL GIORNO -->
+        ${renderColpoDelGiorno(picks)}
+
+        <!-- STATS BAR -->
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:var(--accent-cyan);">${state.matches.length}</div>
+            <div style="font-size:0.65rem;color:var(--text-dark);">Partite</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:var(--accent-green);">${state.leagues.length}</div>
+            <div style="font-size:0.65rem;color:var(--text-dark);">Campionati</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:var(--accent-gold);">${picks.matchAdvices.filter(a => a.confidence === 'high').length}</div>
+            <div style="font-size:0.65rem;color:var(--text-dark);">Alta Conf.</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:#a78bfa;">${picks.matchAdvices.length}</div>
+            <div style="font-size:0.65rem;color:var(--text-dark);">Analizzate</div>
+          </div>
+        </div>
+        
+        <!-- QUICK FIND BUTTONS -->
+        ${renderQuickFind(picks)}
+        
+      `;
+    }
+    
+    // === SCHEDINA VIRTUALE ===
+    function renderSchedinaVirtuale() { return ''; } // Spostata nel modal
+    
+    function renderSchedinaModal() {
+      const myBets = state.trackedBets;
+      const won = myBets.filter(b => b.status === 'won').length;
+      const lost = myBets.filter(b => b.status === 'lost').length;
+      const pending = myBets.filter(b => b.status === 'pending').length;
+      const completed = won + lost;
+      const wr = completed > 0 ? ((won / completed) * 100) : 0;
+      const sorted = [...myBets].sort((a, b) => {
+        if (a.status === 'pending' && b.status !== 'pending') return -1;
+        if (a.status !== 'pending' && b.status === 'pending') return 1;
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      }).slice(0, 30);
+      const timeAgo = ts => {
+        const d = Math.floor((Date.now() - new Date(ts)) / 60000);
+        if (d < 60) return d + 'min fa';
+        if (d < 1440) return Math.floor(d/60) + 'h fa';
+        return Math.floor(d/1440) + 'g fa';
+      };
+      return `
+        <div style="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:20px;"
+             onclick="state.schedinaModal=false;render();">
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:20px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto;margin-top:60px;"
+               onclick="event.stopPropagation()">
+            <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+              <div style="font-size:1.05rem;font-weight:800;color:var(--accent-gold);">&#x1F3AB; La Mia Schedina</div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div style="display:flex;gap:8px;">
+                  <div style="text-align:center;padding:3px 10px;background:var(--bg-input);border-radius:8px;">
+                    <div style="font-size:1rem;font-weight:800;color:var(--accent-green);">${won}</div>
+                    <div style="font-size:0.6rem;color:var(--text-dark);">Vinte</div>
+                  </div>
+                  <div style="text-align:center;padding:3px 10px;background:var(--bg-input);border-radius:8px;">
+                    <div style="font-size:1rem;font-weight:800;color:var(--accent-red);">${lost}</div>
+                    <div style="font-size:0.6rem;color:var(--text-dark);">Perse</div>
+                  </div>
+                  <div style="text-align:center;padding:3px 10px;background:var(--bg-input);border-radius:8px;">
+                    <div style="font-size:1rem;font-weight:800;color:var(--accent-yellow);">${pending}</div>
+                    <div style="font-size:0.6rem;color:var(--text-dark);">Attesa</div>
+                  </div>
+                </div>
+                <button onclick="state.schedinaModal=false;render();"
+                  style="background:transparent;border:1px solid var(--border);color:var(--text-gray);border-radius:50%;width:30px;height:30px;font-size:1.1rem;cursor:pointer;">&#x2715;</button>
+              </div>
+            </div>
+            <div style="padding:16px 20px;">
+              ${completed > 0 ? `
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;background:var(--bg-input);padding:10px 14px;border-radius:10px;">
+                  <span style="font-size:0.8rem;font-weight:700;color:var(--text-gray);">Win Rate</span>
+                  <div style="flex:1;height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;">
+                    <div style="width:${wr}%;height:100%;border-radius:4px;background:${wr>=60?'var(--accent-green)':wr>=45?'var(--accent-yellow)':'var(--accent-red)'};transition:width 0.5s;"></div>
+                  </div>
+                  <span style="font-size:1.1rem;font-weight:800;color:${wr>=60?'var(--accent-green)':wr>=45?'var(--accent-yellow)':'var(--accent-red)'};">${wr.toFixed(0)}%</span>
+                </div>
+              ` : ''}
+              ${myBets.length === 0 ? `
+                <div style="text-align:center;padding:30px;color:var(--text-gray);">
+                  <div style="font-size:2.5rem;margin-bottom:10px;">&#x1F4CB;</div>
+                  <div>Nessun pronostico tracciato.</div>
+                  <div style="font-size:0.78rem;margin-top:6px;">Clicca su una partita e aggiungi un pick alla schedina.</div>
+                </div>
+              ` : `
+                <div style="display:flex;flex-direction:column;gap:5px;">
+                  ${sorted.map(b => `
+                    <div class="schedina-item ${b.status}">
+                      <div class="schedina-item-left">
+                        <div class="schedina-item-match">${esc(b.matchName)}</div>
+                        <div class="schedina-item-info">${timeAgo(b.timestamp)} ${b.result ? '&bull; ' + b.result : '&bull; &#x23F3; In attesa'}</div>
+                      </div>
+                      <div class="schedina-item-right">
+                        <div class="schedina-item-pick">${esc(b.pick)}</div>
+                        <span style="font-size:0.72rem;font-weight:700;color:var(--accent-cyan)">${b.prob != null && !isNaN(b.prob) ? parseFloat(b.prob).toFixed(0)+'%' : ''}</span>
+                        <div class="schedina-item-status">${b.status==='won'?'&#x2705;':b.status==='lost'?'&#x274C;':'&#x23F3;'}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // === NUOVA: Lista Consiglio AI per ogni partita (identico al dettaglio) ===
+    function renderQuickFind(picks) {
+      const qf = state.quickFind;
+      
+      // Ogni filtro usa l'array dedicato dalle daily picks (con tutte le probabilità calcolate)
+      const filters = [
+        { key: 'sicuri',  label: '🔒 SOLO SICURI', color: '#f59e0b', getData: () => {
+          // Analizza TUTTI i mercati di ogni partita e trova quelli con probabilità alta + convergenza
+          const advs = picks.matchAdvices || [];
+          const results = [];
+          advs.forEach(a => {
+            if (!a.match) return;
+            try {
+              const hXG = parseFloat(a.xgHome || 1.3);
+              const aXG = parseFloat(a.xgAway || 1.1);
+              const p1X2 = quickCalc1X2(hXG, aXG);
+              const pO15 = quickCalcOver(hXG, aXG, 1.5);
+              const pO25 = quickCalcOver(hXG, aXG, 2.5);
+              const pO35 = quickCalcOver(hXG, aXG, 3.5);
+              const pBTTS = quickCalcBTTS(hXG, aXG);
+              const pU25 = 100 - pO25;
+              const p1X = p1X2.home + p1X2.draw;
+              const pX2 = p1X2.draw + p1X2.away;
+              const base = { matchId: a.matchId, match: a.match, homeName: a.homeName, awayName: a.awayName, league: a.league, time: a.time, leagueLogo: a.leagueLogo, confidence: 'high', dataQuality: a.dataQuality };
+
+              // Ogni mercato con soglia alta + segnali multipli di conferma
+              const candidates = [];
+
+              // Over 2.5: prob alta + xG totale alto + BTTS alta
+              if (pO25 >= 62 && hXG + aXG >= 2.7 && pBTTS >= 48)
+                candidates.push({ ...base, pick: 'Over 2.5 🔒', prob: pO25, signals: 3 + (hXG+aXG >= 3.0 ? 1 : 0) + (pBTTS >= 55 ? 1 : 0) });
+
+              // Under 2.5: prob alta + xG basso + BTTS bassa
+              if (pU25 >= 58 && hXG + aXG < 2.3 && pBTTS < 50)
+                candidates.push({ ...base, pick: 'Under 2.5 🔒', prob: pU25, signals: 3 + (hXG+aXG < 2.0 ? 1 : 0) + (pBTTS < 42 ? 1 : 0) });
+
+              // Over 1.5: prob molto alta + almeno un po' di gol
+              if (pO15 >= 78 && hXG + aXG >= 2.2)
+                candidates.push({ ...base, pick: 'Over 1.5 🔒', prob: pO15, signals: 3 + (hXG+aXG >= 2.8 ? 1 : 0) });
+
+              // GG: prob alta + entrambe xG > 0.9
+              if (pBTTS >= 60 && hXG >= 0.95 && aXG >= 0.85)
+                candidates.push({ ...base, pick: 'GG 🔒', prob: pBTTS, signals: 3 + (hXG >= 1.2 && aXG >= 1.0 ? 1 : 0) + (pO25 >= 55 ? 1 : 0) });
+
+              // NG: prob alta + almeno una squadra debole
+              if ((100 - pBTTS) >= 58 && (hXG < 0.8 || aXG < 0.7))
+                candidates.push({ ...base, pick: 'NG 🔒', prob: 100 - pBTTS, signals: 3 + (hXG < 0.6 || aXG < 0.5 ? 1 : 0) });
+
+              // 1 Casa: dominio xG + prob alta
+              if (p1X2.home >= 62 && hXG > aXG * 1.3)
+                candidates.push({ ...base, pick: '1 (Casa) 🔒', prob: p1X2.home, signals: 3 + (hXG > aXG * 1.5 ? 1 : 0) });
+
+              // 2 Ospite: dominio xG + prob alta
+              if (p1X2.away >= 48 && aXG > hXG * 1.15)
+                candidates.push({ ...base, pick: '2 (Ospite) 🔒', prob: p1X2.away, signals: 3 + (aXG > hXG * 1.3 ? 1 : 0) });
+
+              // 1X: sicurezza + casa forte
+              if (p1X >= 75 && hXG >= aXG)
+                candidates.push({ ...base, pick: '1X 🔒', prob: p1X, signals: 3 + (p1X >= 82 ? 1 : 0) });
+
+              // X2: ospite tiene
+              if (pX2 >= 62 && aXG >= hXG * 0.85)
+                candidates.push({ ...base, pick: 'X2 🔒', prob: pX2, signals: 3 + (pX2 >= 70 ? 1 : 0) });
+
+              // Prendi il miglior candidato per questa partita (quello con più segnali)
+              if (candidates.length > 0) {
+                candidates.sort((a, b) => b.signals - a.signals || b.prob - a.prob);
+                results.push(candidates[0]);
+              }
+            } catch(e) {}
+          });
+          return results.sort((a,b) => b.prob - a.prob).slice(0, 15);
+        }},
+        { key: 'home1',   label: '🏠 Trova 1',    color: '#00d4ff', getData: () => picks.vittorieCasa.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: '1 (Casa)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
+        { key: 'away2',   label: '✈️ Trova 2',    color: '#f87171', getData: () => picks.vittorieOspite.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: '2 (Ospite)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
+        { key: 'gg',      label: '⚽ Trova GG',   color: '#00e5a0', getData: () => picks.gg.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: 'GG (' + p.prob.toFixed(0) + '%)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
+        { key: 'over25',  label: '📈 Over 2.5',   color: '#f59e0b', getData: () => picks.over25.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: 'Over 2.5', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
+        { key: 'over15',  label: '📊 Over 1.5',   color: '#a78bfa', getData: () => (picks.matchAdvices || []).filter(a => { try { const pOU = calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1)); return pOU[1.5].over >= 72; } catch(e) { return false; } }).map(a => ({ ...a, pick: 'Over 1.5', prob: (() => { try { return calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1))[1.5].over; } catch(e) { return 0; } })() })).sort((a,b) => b.prob - a.prob).slice(0, 15) },
+        { key: 'under25', label: '📉 Under 2.5',  color: '#64748b', getData: () => (picks.matchAdvices || []).filter(a => { try { const pOU = calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1)); return pOU[2.5].under >= 50; } catch(e) { return false; } }).map(a => ({ ...a, pick: 'Under 2.5', prob: (() => { try { return calcOU(parseFloat(a.xgHome||1.3), parseFloat(a.xgAway||1.1))[2.5].under; } catch(e) { return 0; } })() })).sort((a,b) => b.prob - a.prob).slice(0, 15) },
+        { key: 'pareggi', label: '🤝 Trova X',    color: '#c084fc', getData: () => picks.pareggi.map(p => ({ ...p, matchId: p.match?.id, homeName: p.match?.home?.name, awayName: p.match?.away?.name, pick: 'X (Pareggio)', prob: p.prob, confidence: p.confidence, league: p.league, time: p.time })) },
+      ];
+      
+      let results = [];
+      let af = null;
+      if (qf) {
+        af = filters.find(f => f.key === qf);
+        if (af) {
+          try {
+            results = af.getData().sort((a,b) => b.prob - a.prob).slice(0, 15);
+          } catch(e) { console.warn('QuickFind error:', e); results = []; }
+        }
+      }
+      
+      return `
+        ${(() => {
+          try {
+            var ap = getAmicoPicks();
+            if (!ap.length) return '';
+            var goldN = ap.filter(function(p){return p.tier==='gold'}).length;
+            return '<div style="margin-bottom:16px;"><button onclick="toggleAmicoPicks()" style="width:100%;padding:14px 16px;background:linear-gradient(135deg,rgba(251,191,36,0.08),rgba(245,158,11,0.04));border:1.5px solid rgba(251,191,36,0.25);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:inherit;"><div style="display:flex;align-items:center;gap:10px;"><span style="font-size:1.3rem;">🎯</span><div style="text-align:left;"><div style="font-size:0.85rem;font-weight:900;color:#fbbf24;">Analizzate dall\'Amico</div><div style="font-size:0.6rem;color:var(--text-dark);">' + ap.length + ' picks · ' + goldN + ' ORO ' + (ap.length - goldN) + ' altri</div></div></div><span style="font-size:1.2rem;color:var(--text-dark);">▾</span></button><div id="amicoPicksContainer" style="display:none;margin-top:8px;">' + renderAmicoPicks() + '</div></div>';
+          } catch(e) { console.warn('Amico error:', e); return ''; }
+        })()}
+        <div class="panel" style="margin-bottom:16px;">
+          <div class="panel-title" style="margin-bottom:12px;">&#x1F50D; Trova i Migliori Pick</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;${qf ? 'margin-bottom:14px;' : ''}">
+            ${filters.map(f => `
+              <button onclick="state.quickFind=state.quickFind==='${f.key}'?null:'${f.key}';render();"
+                style="padding:7px 13px;border-radius:20px;border:1.5px solid ${f.color};
+                       background:${qf===f.key?f.color:'transparent'};color:${qf===f.key?'#0a0f1e':f.color};
+                       font-size:0.76rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+                ${f.label}
+              </button>
+            `).join('')}
+          </div>
+          ${qf && af ? `
+            <div style="border-top:1px solid var(--border);padding-top:12px;">
+              ${results.length === 0 ? `
+                <div style="text-align:center;padding:16px;color:var(--text-gray);font-size:0.85rem;">Nessun pick trovato. Carica le partite del giorno.</div>
+              ` : `
+                <div style="font-size:0.71rem;color:var(--text-dark);margin-bottom:10px;">
+                  Top ${results.length} per <strong style="color:${af.color}">${af.label}</strong> &bull; ordinati per probabilit&agrave;
+                  ${(() => { try { var ok=0,ko=0; results.forEach(function(r){var c=checkPickResult(r.matchId,r.pick);if(c){if(c.won)ok++;else ko++;}}); return ok+ko>0?' &bull; <span style="color:#10b981;">'+ok+'✅</span> <span style="color:#ef4444;">'+ko+'❌</span>':''; } catch(e){return '';} })()}
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  ${results.map((a,i) => `
+                    <div onclick="{ const m=state.matches.find(x=>x.id===${a.matchId}); if(m)analyzeMatch(m); }"
+                         style="background:var(--bg-card);border:1px solid ${i===0?af.color:'var(--border)'};border-radius:10px;
+                                padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;
+                                ${i===0?'box-shadow:0 0 10px '+af.color+'20;':''}">
+                      <div style="min-width:0;flex:1;">
+                        <div style="font-size:0.6rem;color:var(--text-dark);margin-bottom:2px;">${esc(a.league)} &bull; ${a.time} ${renderPickResultBadge(a.matchId, a.pick)}</div>
+                        <div style="font-size:0.82rem;font-weight:700;color:var(--text-white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                          ${esc(a.homeName)} vs ${esc(a.awayName)}
+                        </div>
+                        <div style="font-size:0.7rem;color:${af.color};font-weight:600;margin-top:2px;">${esc(a.pick)}</div>
+                      </div>
+                      <div style="text-align:right;flex-shrink:0;">
+                        <div style="font-size:1.25rem;font-weight:800;color:${a.prob>=75?'#00e5a0':a.prob>=60?'#fbbf24':'var(--text-gray)'};">
+                          ${typeof a.prob==='number'?a.prob.toFixed(0):a.prob}%
+                        </div>
+                        <div style="font-size:0.58rem;color:var(--text-dark);">${a.confidence==='high'?'&#x1F7E2; Alta':a.confidence==='medium'?'&#x1F7E1; Media':'&#x26AA; Bassa'}</div>
+                        ${i===0?'<div style="font-size:0.55rem;color:#f59e0b;font-weight:700;">&#x2B50; TOP</div>':''}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+    
+    function renderLiveSection() {
+      if (state.liveLoading) {
+        return `<div style="padding:20px;text-align:center;"><div class="spinner"></div><div style="font-size:0.78rem;color:var(--text-dark);margin-top:8px;">Caricamento partite live...</div></div>`;
+      }
+      
+      const matches = state.liveMatches;
+      const picks = state.liveMatchPicks || {};
+      const alerts = state.liveAlerts;
+      
+      if (matches.length === 0) {
+        return `<div style="text-align:center;padding:20px;">
+          <div style="font-size:2rem;margin-bottom:8px;">📡</div>
+          <div style="color:var(--text-gray);font-size:0.85rem;">Nessuna partita in corso al momento</div>
+          <div style="color:var(--text-dark);font-size:0.72rem;margin-top:6px;">Le partite live verranno mostrate automaticamente</div>
+        </div>`;
+      }
+      
+      // Raggruppa per campionato
+      const byLeague = {};
+      matches.forEach(m => {
+        const key = (m.league?.country || '') + ' - ' + (m.league?.name || 'Altro');
+        if (!byLeague[key]) byLeague[key] = { logo: m.league?.logo, matches: [] };
+        byLeague[key].matches.push(m);
+      });
+      
+      let html = '';
+      
+      // Header stats
+      html += '<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:12px;flex-wrap:wrap;align-items:center;">';
+      html += '<div style="font-size:0.72rem;color:var(--text-dark);">🔴 <strong style="color:white;">' + matches.length + '</strong> partite</div>';
+      html += '<div style="font-size:0.72rem;color:var(--text-dark);">🚨 <strong style="color:#ef4444;">' + alerts.filter(a => a.level === 'high').length + '</strong> alert alti</div>';
+      html += '<div style="font-size:0.72rem;color:var(--text-dark);">⚠️ <strong style="color:#fbbf24;">' + alerts.filter(a => a.level === 'medium').length + '</strong> alert medi</div>';
+      html += '<div style="margin-left:auto;display:flex;align-items:center;gap:8px;">';
+      html += '<span class="live-auto-refresh" style="font-size:0.65rem;color:var(--text-dark);">🔄 <span class="live-countdown">' + state.liveCountdown + 's</span></span>';
+      html += '<button class="live-refresh-btn" id="refreshLive" style="font-size:0.68rem;padding:4px 10px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:8px;cursor:pointer;color:#00d4ff;">⟳</button>';
+      html += '</div></div>';
+      
+      // Per ogni campionato
+      Object.entries(byLeague).forEach(([leagueName, league]) => {
+        html += '<div style="margin-bottom:14px;">';
+        html += '<div style="font-size:0.68rem;color:var(--text-dark);font-weight:700;padding:4px 0;display:flex;align-items:center;gap:6px;">';
+        if (league.logo) html += '<img src="' + league.logo + '" style="width:14px;height:14px;border-radius:2px;" onerror="this.style.display=\'none\'">';
+        html += leagueName + '</div>';
+        
+        // Per ogni partita
+        league.matches.forEach(m => {
+          const mPicks = (picks[m.id] || []).filter(p => p.verdict !== 'VINTO');
+          const topPicks = mPicks; // all picks, grouped by category below
+          const hg = m.goals?.home || 0;
+          const ag = m.goals?.away || 0;
+          const statusText = m.status === 'HT' ? 'INT' : m.status === '1H' || m.status === '2H' ? m.elapsed + '\'' : m.status;
+          
+          html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;">';
+          
+          // Riga partita: squadre + score + minuto
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;cursor:pointer;" onclick="{ const mx=state.matches.find(x=>x.id===' + m.id + '); if(mx)analyzeMatch(mx); else alert(\'Apri questa partita dalla lista campionati per analisi completa\'); }">';
+          html += '<div style="flex:1;min-width:0;">';
+          html += '<div style="font-size:0.82rem;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(m.home.name) + ' vs ' + esc(m.away.name) + '</div>';
+          html += '</div>';
+          html += '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">';
+          html += '<div style="font-size:1.4rem;font-weight:900;color:white;letter-spacing:2px;">' + hg + ' - ' + ag + '</div>';
+          html += '<div style="background:rgba(239,68,68,0.15);color:#f87171;font-size:0.65rem;font-weight:800;padding:3px 8px;border-radius:6px;animation:pulse 1.5s infinite;">' + statusText + '</div>';
+          html += '</div></div>';
+          
+          // Stats compatte (se disponibili)
+          const st = m.stats && m.stats.length >= 2;
+          if (st) {
+            const hs = m.stats[0]?.statistics || [];
+            const as = m.stats[1]?.statistics || [];
+            const g = (arr, t) => { const s = arr.find(x => x.type === t); return s ? (parseInt(s.value) || 0) : 0; };
+            const sOnH = g(hs, 'Shots on Goal'), sOnA = g(as, 'Shots on Goal');
+            const cH = g(hs, 'Corner Kicks'), cA = g(as, 'Corner Kicks');
+            const pH = g(hs, 'Ball Possession') || 50, pA = g(as, 'Ball Possession') || 50;
+            html += '<div style="display:flex;gap:10px;font-size:0.65rem;color:var(--text-dark);margin-bottom:10px;flex-wrap:wrap;">';
+            html += '<span>🎯 Tiri: <strong style="color:var(--text-gray);">' + sOnH + '-' + sOnA + '</strong></span>';
+            html += '<span>🚩 Corner: <strong style="color:var(--text-gray);">' + cH + '-' + cA + '</strong></span>';
+            html += '<span>📊 Poss: <strong style="color:var(--text-gray);">' + pH + '%-' + pA + '%</strong></span>';
+            html += '</div>';
+          }
+          
+          // Top picks per questa partita - priorità: 1T/2T over/under, poi total, poi gg, poi esito
+          if (topPicks.length > 0) {
+            // Raggruppa per categoria
+            const cats = { '1T': [], '2T': [], 'total': [], 'gg': [], 'esito': [], 'altro': [] };
+            mPicks.forEach(p => { if (cats[p.cat]) cats[p.cat].push(p); else cats.altro.push(p); });
+            
+            // Mostra sezioni con picks
+            const sections = [
+              { key: '1T', label: '1° Tempo', icon: '🕐' },
+              { key: '2T', label: '2° Tempo', icon: '🕑' },
+              { key: 'total', label: 'Over/Under', icon: '📊' },
+              { key: 'gg', label: 'GG/NG', icon: '⚡' },
+              { key: 'esito', label: 'Esito', icon: '🏆' }
+            ].filter(s => cats[s.key] && cats[s.key].length > 0);
+            
+            html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+            sections.forEach(sec => {
+              const secPicks = cats[sec.key].slice(0, 2);
+              html += '<div style="font-size:0.58rem;color:var(--text-dark);font-weight:700;padding:4px 2px 1px;margin-top:2px;">' + sec.icon + ' ' + sec.label + '</div>';
+              secPicks.forEach((p, i) => {
+              const isGioca = p.verdict === 'GIOCA';
+              const isValuta = p.verdict === 'VALUTA';
+              const bgColor = isGioca ? 'rgba(16,185,129,0.08)' : isValuta ? 'rgba(251,191,36,0.06)' : 'rgba(100,116,139,0.06)';
+              const borderColor = isGioca ? 'rgba(16,185,129,0.25)' : isValuta ? 'rgba(251,191,36,0.2)' : 'rgba(100,116,139,0.15)';
+              const verdictColor = isGioca ? '#10b981' : isValuta ? '#fbbf24' : '#64748b';
+              const verdictIcon = isGioca ? '✅' : isValuta ? '⚠️' : '⛔';
+              
+              html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;background:' + bgColor + ';border:1px solid ' + borderColor + ';">';
+              
+              // Sinistra: pick + reason
+              html += '<div style="flex:1;min-width:0;">';
+              html += '<div style="font-size:0.78rem;font-weight:700;color:white;">' + p.icon + ' ' + p.market + '</div>';
+              html += '<div style="font-size:0.62rem;color:var(--text-dark);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(p.reason) + '</div>';
+              html += '</div>';
+              
+              // Destra: prob + verdetto + quota
+              html += '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">';
+              html += '<div style="text-align:right;">';
+              html += '<div style="font-size:1rem;font-weight:900;color:' + (p.prob >= 72 ? '#10b981' : p.prob >= 55 ? '#00d4ff' : '#fbbf24') + ';">' + p.prob + '%</div>';
+              html += '<div style="font-size:0.55rem;color:var(--text-dark);">@' + p.quota + '</div>';
+              html += '</div>';
+              html += '<div style="background:' + verdictColor + '15;border:1px solid ' + verdictColor + '40;border-radius:6px;padding:3px 8px;font-size:0.62rem;font-weight:800;color:' + verdictColor + ';white-space:nowrap;">' + verdictIcon + ' ' + p.verdict + '</div>';
+              html += '</div>';
+              
+              html += '</div>';
+            });
+            });
+            html += '</div>';
+          } else {
+            html += '<div style="font-size:0.68rem;color:var(--text-dark);text-align:center;padding:6px;">⏳ In attesa di dati sufficienti...</div>';
+          }
+          
+          html += '</div>'; // fine card partita
+        });
+        
+        html += '</div>'; // fine gruppo campionato
+      });
+      
+      return html;
+    }
+
+    function renderMatches() {
+      const matches = state.matches.filter(m => m.league.id === state.selectedLeague.id).sort((a, b) => a.timestamp - b.timestamp);
+      
+      return `
+        <div class="back-btn" id="backToLeagues" onclick="backToLeagues()">← Campionati</div>
+        <div class="panel">
+          <div class="panel-title">⚽ ${esc(state.selectedLeague.country)} - ${esc(state.selectedLeague.name)}</div>
+          <div class="matches-list">
+            ${matches.map((m, idx) => {
+              const isLive = ['1H','2H','HT','ET','P','LIVE'].includes(m.status);
+              const isFT = ['FT','AET','PEN'].includes(m.status);
+              const hasGoals = m.goals && m.goals.home != null && m.goals.away != null;
+              return `
+                <div class="match-item" data-id="${m.id}" style="transition:background 0.15s,transform 0.1s;" title="Swipe ← per analizzare">
+                  <div class="match-item-left">
+                    <div class="match-item-time">${isLive ? m.elapsed+"'" : isFT ? '<span style="color:#10b981;font-weight:800;">FT</span>' : formatTime(m.date)}</div>
+                    <div class="match-item-teams">${esc(m.home.name)} vs ${esc(m.away.name)}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    ${isFT && hasGoals ? '<div style="font-size:1rem;font-weight:900;color:white;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);border-radius:8px;padding:3px 10px;letter-spacing:1px;">' + m.goals.home + ' - ' + m.goals.away + '</div>' : ''}
+                    ${isLive && hasGoals ? '<div style="font-size:1rem;font-weight:900;color:#f87171;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:3px 10px;letter-spacing:1px;animation:pulse 1.5s infinite;">' + m.goals.home + ' - ' + m.goals.away + '</div>' : ''}
+                    <div class="match-item-badge ${isLive ? 'live' : ''}">${isLive ? 'LIVE' : isFT ? '' : formatDate(m.date)}</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderAnalysis() {
+      const m = state.selectedMatch;
+      const d = state.analysis;
+      if (!m || !d) return `<div class="back-btn" id="backToMatches" onclick="backToMatches()">← Partite</div><div class="empty">Caricamento...</div>`;
+      
+      // Genera consiglio AI
+      const ai = generateAIAdvice(m, d);
+      const stat = generateStatisticalAdvice(m, d);
+
+      return `
+        <div class="analizza-btn-area">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="back-btn" id="backToMatches" onclick="backToMatches()" style="margin-bottom:0">← Partite</div>
+            ${(() => {
+              const matches = state.matches.filter(mx => mx.league?.id === state.selectedLeague?.id);
+              const idx = matches.findIndex(mx => mx.id === m?.id);
+              if (matches.length < 2) return '';
+              return `<div style="display:flex;gap:5px;align-items:center;">
+                <button onclick="navigateMatch(-1)" ${idx <= 0 ? 'disabled' : ''} style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:4px 9px;cursor:pointer;color:var(--text-gray);font-size:0.72rem;opacity:${idx <= 0 ? 0.35 : 1};">‹</button>
+                <span style="font-size:0.62rem;color:var(--text-dark);">${idx+1}/${matches.length}</span>
+                <button onclick="navigateMatch(1)" ${idx >= matches.length - 1 ? 'disabled' : ''} style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:4px 9px;cursor:pointer;color:var(--text-gray);font-size:0.72rem;opacity:${idx >= matches.length - 1 ? 0.35 : 1};">›</button>
+              </div>`;
+            })()}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+            ${state.superAIAnalysis && !state.superAIAnalysis.error ? `
+              <div style="display:flex;gap:6px;align-items:center;">
+                <button class="gf-btn" style="margin-top:0;width:auto;padding:8px 14px;font-size:0.78rem;border-radius:10px;" onclick="openGiudizioFinale(${m.id})">
+                  ⚖️ Giudizio Finale
+                </button>
+                <button class="analizza-btn" style="background:rgba(139,92,246,0.15);border-color:rgba(139,92,246,0.3);" onclick="triggerSuperAnalysis()">
+                  &#x26A1; ${state.aiFromCache ? 'Cached — Rianalizza' : 'Rianalizza'}
+                </button>
+                <button onclick="refreshAIAnalysis()" title="Forza aggiornamento ignorando la cache" style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:6px 10px;cursor:pointer;color:#00d4ff;font-size:0.72rem;">
+                  &#x1F504;
+                </button>
+              </div>
+            ` : `
+              <div style="display:flex;gap:6px;align-items:center;">
+                <button class="gf-btn" style="margin-top:0;width:auto;padding:8px 14px;font-size:0.78rem;border-radius:10px;" onclick="openGiudizioFinale(${m.id})">
+                  ⚖️ Giudizio Finale
+                </button>
+                <button class="analizza-btn ${state.superAnalysisRunning ? 'loading' : ''}" id="analizzaBtn" onclick="triggerSuperAnalysis()">
+                  ${state.superAnalysisRunning ? '&#9203; Analisi in corso...' : '&#128302; ANALIZZA con Super AI'}
+                </button>
+              </div>
+            `}
+            <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;">
+              ${(d.h2h && (d.h2h.matches || d.h2h.totalMatches) >= 3) ? `<span style="font-size:0.6rem;background:rgba(0,229,160,0.12);color:#00e5a0;padding:2px 7px;border-radius:4px;">✔ H2H ${d.h2h.matches || d.h2h.totalMatches} gare</span>` : '<span style="font-size:0.6rem;background:rgba(248,113,113,0.1);color:#f87171;padding:2px 7px;border-radius:4px;">⚠ H2H scarso</span>'}
+              ${d.xG && d.xG.total > 0 ? '<span style="font-size:0.6rem;background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 7px;border-radius:4px;">✔ xG ok</span>' : ''}
+              ${d.homeStats ? '<span style="font-size:0.6rem;background:rgba(139,92,246,0.1);color:#a78bfa;padding:2px 7px;border-radius:4px;">✔ Stats</span>' : ''}
+              ${d.lineupsAvailable ? '<span style="font-size:0.6rem;background:rgba(0,229,160,0.2);color:#00e5a0;padding:2px 7px;border-radius:4px;font-weight:800;">⚽ Formazioni Ufficiali</span>' : '<span style="font-size:0.6rem;background:rgba(100,116,139,0.15);color:#64748b;padding:2px 7px;border-radius:4px;">⏳ Formazioni N/D</span>'}
+              ${d.bookmakerOdds ? `<span style="font-size:0.6rem;background:rgba(245,158,11,0.15);color:#f59e0b;padding:2px 7px;border-radius:4px;">💰 ${d.bookmakerOdds.bookmakerName}</span>` : ''}
+              ${d.homeFatigue && d.homeFatigue < 0.95 ? `<span style="font-size:0.6rem;background:rgba(248,113,113,0.15);color:#f87171;padding:2px 7px;border-radius:4px;">⚡ ${m.home.name.split(' ')[0]} stanco</span>` : ''}
+              ${d.awayFatigue && d.awayFatigue < 0.95 ? `<span style="font-size:0.6rem;background:rgba(248,113,113,0.15);color:#f87171;padding:2px 7px;border-radius:4px;">⚡ ${m.away.name.split(' ')[0]} stanco</span>` : ''}
+            </div>
+          </div>
+        </div>
+        
+        ${state.superAnalysis ? safeRender(() => renderSuperAnalysis(state.superAnalysis, m), '', 'SuperAnalysis') : ''}
+        
+        <div class="analysis-hero">
+          <div class="hero-league">${esc(m.league.country)} • ${esc(m.league.name)} • ${formatDateFull(m.date)} ${formatTime(m.date)}</div>
+          <div class="hero-match">
+            <div class="hero-team">
+              ${m.home.logo ? `<img src="${m.home.logo}" class="hero-team-logo" onerror="this.style.display='none'">` : `<div class="hero-team-logo-fallback">${getInitials(m.home.name)}</div>`}
+              <div class="hero-team-name">${esc(m.home.name)}</div>
+            </div>
+            <div class="hero-prediction">
+              <div class="hero-score-box">${d.exactScores && d.exactScores[0] ? d.exactScores[0].h : '?'}</div>
+              <div class="hero-vs">VS</div>
+              <div class="hero-score-box">${d.exactScores && d.exactScores[0] ? d.exactScores[0].a : '?'}</div>
+            </div>
+            <div class="hero-team">
+              ${m.away.logo ? `<img src="${m.away.logo}" class="hero-team-logo" onerror="this.style.display='none'">` : `<div class="hero-team-logo-fallback">${getInitials(m.away.name)}</div>`}
+              <div class="hero-team-name">${esc(m.away.name)}</div>
+            </div>
+          </div>
+          
+          <!-- MG CASA / MG OSPITE sotto risultato esatto previsto -->
+          <div class="hero-mg-section">
+            <div class="hero-mg-box">
+              <div class="hero-mg-label">&#x1F3E0; MG ${m.home.name.split(' ')[0]}</div>
+              <div class="hero-mg-value">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
+              <div class="hero-mg-prob">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
+            </div>
+            <div class="hero-mg-box">
+              <div class="hero-mg-label">✈️ MG ${m.away.name.split(' ')[0]}</div>
+              <div class="hero-mg-value">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
+              <div class="hero-mg-prob">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
+            </div>
+          </div>
+          
+          <!-- RISULTATO REALE -->
+          ${renderRealResult(m, d)}
+          
+        </div>
+        
+        <!-- TABS PRONOSTICI: AI + STATISTICO -->
+        <div class="section-accordion">
+          <div class="section-accordion-header open" onclick="toggleAccordion(this)">
+            <div class="section-accordion-title"><span>🤖</span> Pronostici AI & Statistico</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="section-accordion-meta">${ai.pick} ${ai.prob.toFixed(0)}%</span>
+              <span class="section-accordion-arrow">▼</span>
+            </div>
+          </div>
+          <div class="section-accordion-body open" style="padding:0;">
+        <div style="margin-bottom:4px;">
+          <!-- Tab switcher -->
+          <div class="advice-tabs">
+            <button class="advice-tab active" onclick="switchAdviceTab('ai', this)">
+              🤖 Consiglio AI
+              <span style="margin-left:6px;font-size:0.65rem;opacity:0.7;">${ai.prob.toFixed(0)}%</span>
+            </button>
+            <button class="advice-tab stat" onclick="switchAdviceTab('stat', this)">
+              📊 Statistico Puro
+              <span style="margin-left:6px;font-size:0.65rem;opacity:0.7;">${stat.prob.toFixed(0)}%</span>
+            </button>
+          </div>
+
+          <!-- Panel AI -->
+          <div id="advicePanel_ai_${m.id}" class="advice-panel active" style="background:var(--bg-card);border:1px solid rgba(0,212,255,0.2);border-radius:0 12px 12px 12px;">
+            <div class="ai-advice" style="border:none;border-radius:0 12px 12px 12px;">
+              <div class="ai-header">
+                <div class="ai-icon">&#x1F916;</div>
+                <div class="ai-title-group">
+                  <div class="ai-title">Consiglio AI</div>
+                  <div class="ai-subtitle">Analisi basata su xG, statistiche e probabilità</div>
+                </div>
+                <div class="ai-confidence ${ai.confidence}">${ai.confidence === 'high' ? '&#x1F3AF; Alta' : ai.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
+              </div>
+              <div class="ai-pick">
+                <div class="ai-pick-label">Pronostico Consigliato</div>
+                <div class="ai-pick-value">${ai.pick}</div>
+                <div class="ai-pick-prob">${ai.prob.toFixed(0)}% probabilità</div>
+              </div>
+              <div class="ai-reasoning">
+                <div class="ai-reasoning-title">&#x1F4A1; Perché questo pronostico</div>
+                <div class="ai-reasoning-list">
+                  ${ai.reasons.map(r => `
+                    <div class="ai-reason ${r.type}">
+                      <span class="ai-reason-icon">${r.type === 'positive' ? '✅' : r.type === 'negative' ? '⚠️' : '&#x1F4CA;'}</span>
+                      <span>${r.text}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              ${ai.alternatives.length > 0 ? `
+                <div class="ai-alternatives">
+                  <div class="ai-alt-title">Alternative valide:</div>
+                  <div class="ai-alt-grid">
+                    ${ai.alternatives.map(a => `<div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>`).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              <button class="track-btn ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'tracked' : ''}"
+                      onclick="trackPrematchBet(${m.id}, '${esc(m.home.name)} vs ${esc(m.away.name)}', '${esc(ai.pick)}', ${ai.prob.toFixed(0)}, event)"
+                      ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? 'disabled' : ''}>
+                ${state.trackedBets.some(b => b.matchId === m.id && b.type === 'prematch') ? '✅ Pronostico Tracciato' : '&#x1F3AF; GIOCATO - Traccia questo pronostico'}
+              </button>
+            </div>
+          </div>
+
+          <!-- Panel STATISTICO -->
+          <div id="advicePanel_stat_${m.id}" class="advice-panel" style="background:var(--bg-card);border:1px solid rgba(0,212,255,0.2);border-radius:12px 0 12px 12px;">
+            <div class="statistical-advice" style="border:none;border-radius:12px 0 12px 12px;">
+              <div class="ai-header">
+                <div class="ai-icon">&#x1F4CA;</div>
+                <div class="ai-title-group">
+                  <div class="ai-title" style="background:linear-gradient(135deg,var(--accent-cyan),var(--accent-green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Pronostico Statistico</div>
+                  <div class="ai-subtitle">Poisson + Dixon-Coles + xG puri — zero filtri AI</div>
+                </div>
+                <div class="ai-confidence ${stat.confidence}">${stat.confidence === 'high' ? '&#x1F3AF; Alta' : stat.confidence === 'medium' ? '✓ Media' : '⚠️ Bassa'}</div>
+              </div>
+              <div class="ai-pick">
+                <div class="ai-pick-label">Probabilità Massima</div>
+                <div class="ai-pick-value">${stat.pick}</div>
+                <div class="ai-pick-prob">${stat.prob.toFixed(0)}% probabilità</div>
+              </div>
+              <div class="ai-reasoning">
+                <div class="ai-reasoning-title">&#x1F4C8; Dettagli modello</div>
+                <div class="ai-reasoning-list">
+                  <div class="ai-reason positive"><span class="ai-reason-icon">✅</span><span>Mercato: ${stat.market}</span></div>
+                  <div class="ai-reason neutral"><span class="ai-reason-icon">&#x1F4CA;</span><span>1X2 → Casa ${d.p1X2.home.toFixed(0)}% | X ${d.p1X2.draw.toFixed(0)}% | Ospite ${d.p1X2.away.toFixed(0)}%</span></div>
+                  <div class="ai-reason neutral"><span class="ai-reason-icon">🎯</span><span>xG → ${m.home.name.split(' ')[0]} ${d.xG.home.toFixed(2)} | ${m.away.name.split(' ')[0]} ${d.xG.away.toFixed(2)} | Totale ${d.xG.total.toFixed(2)}</span></div>
+                  <div class="ai-reason neutral"><span class="ai-reason-icon">⚽</span><span>Over 1.5: ${d.pOU[1.5].over.toFixed(0)}% | Over 2.5: ${d.pOU[2.5].over.toFixed(0)}% | GG: ${d.pBTTS.toFixed(0)}%</span></div>
+                </div>
+              </div>
+              ${stat.alternatives.length > 0 ? `
+                <div class="ai-alternatives">
+                  <div class="ai-alt-title">Top alternative pure:</div>
+                  <div class="ai-alt-grid">
+                    ${stat.alternatives.map(a => `<div class="ai-alt-chip">${a.pick}<span>${a.prob}%</span></div>`).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              ${stat.pick !== ai.pick ? `
+                <div style="margin-top:12px;padding:10px 12px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;font-size:0.72rem;color:#fbbf24;">
+                  ⚠️ Il modello statistico puro diverge dall'AI: <strong>${stat.pick}</strong> vs <strong>${ai.pick}</strong> — considera entrambi prima di decidere.
+                </div>
+              ` : `
+                <div style="margin-top:12px;padding:10px 12px;background:rgba(0,229,160,0.06);border:1px solid rgba(0,229,160,0.15);border-radius:8px;font-size:0.72rem;color:#00e5a0;">
+                  ✅ AI e modello statistico concordano su <strong>${ai.pick}</strong> — segnale di convergenza forte.
+                </div>
+              `}
+            </div>
+          </div>
+        </div>
+          </div>
+        </div>
+      
+      <!-- BETTINGPRO BASE -->
+      <div class="section-accordion">
+        <div class="section-accordion-header open" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>🤖</span> BettingPro Base</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:0.6rem;background:rgba(168,85,247,0.12);color:#c084fc;padding:2px 8px;border-radius:8px;font-weight:700;">vs Oracle</span>
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body open">
+          ${safeRender(() => renderBettingProBase(m, d), '', 'BettingProBase')}
+        </div>
+      </div>
+      
+      <!-- TRAP DETECTOR -->
+      <div class="section-accordion">
+        <div class="section-accordion-header open" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>🚨</span> Trap Detector</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              try {
+                const t = calculateTrapScore(m, d, ai);
+                const bg = t.level === 'trap' ? 'rgba(239,68,68,0.12)' : t.level === 'risk' ? 'rgba(249,115,22,0.12)' : t.level === 'caution' ? 'rgba(251,191,36,0.12)' : 'rgba(16,185,129,0.12)';
+                const cl = t.color;
+                return '<span style="font-size:0.6rem;background:' + bg + ';color:' + cl + ';padding:2px 8px;border-radius:8px;font-weight:800;">' + t.score + '/100 ' + t.label + '</span>';
+              } catch(e) { return ''; }
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body open">
+          ${safeRender(() => renderTrapDetector(m, d, ai), '', 'TrapDetector')}
+        </div>
+      </div>
+      
+      <!-- NG INSIGHT -->
+
+      <!-- === v7: CONSENSUS ENGINE === -->
+      <div class="section-accordion">
+        <div class="section-accordion-header open" onclick="toggleAccordion(this)" style="border-color:rgba(0,212,255,0.25);">
+          <div class="section-accordion-title"><span>🏆</span> Consensus Engine</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              if (!state.consensus) return '<span style="font-size:0.6rem;color:var(--text-dark);">Caricamento...</span>';
+              return '<span style="font-size:0.6rem;background:' + state.consensus.confidenceColor + '18;color:' + state.consensus.confidenceColor + ';padding:2px 8px;border-radius:8px;font-weight:800;">' + state.consensus.pick + ' ' + state.consensus.prob + '% — ' + state.consensus.confidence + '</span>';
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body open">
+          ${state.consensus ? safeRender(() => renderConsensusPanel(state.consensus), '', 'ConsensusEngine') : '<div style="padding:14px;color:var(--text-dark);font-size:0.72rem;text-align:center;">⏳ Consensus Engine in elaborazione...</div>'}
+        </div>
+      </div>
+      
+      <!-- === v7: REGRESSION SCORE === -->
+      <div class="section-accordion">
+        <div class="section-accordion-header open" onclick="toggleAccordion(this)" style="border-color:rgba(139,92,246,0.2);">
+          <div class="section-accordion-title"><span>📊</span> Regression Score</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              if (!state.regressionScore) return '<span style="font-size:0.6rem;color:var(--text-dark);">Caricamento...</span>';
+              return '<span style="font-size:0.6rem;background:' + state.regressionScore.gradeColor + '18;color:' + state.regressionScore.gradeColor + ';padding:2px 8px;border-radius:8px;font-weight:800;">' + state.regressionScore.grade + ' ' + state.regressionScore.score + '/100</span>';
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body open">
+          ${state.regressionScore ? safeRender(() => renderRegressionPanel(state.regressionScore), '', 'RegressionScore') : '<div style="padding:14px;color:var(--text-dark);font-size:0.72rem;text-align:center;">⏳ Regression in elaborazione...</div>'}
+        </div>
+      </div>
+
+      <!-- === v7: ODDS LAB === -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)" style="border-color:rgba(245,158,11,0.2);">
+          <div class="section-accordion-title"><span>💰</span> Odds Lab — Multi-Bookmaker</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              if (!state.oddsLab) return '<span style="font-size:0.6rem;color:var(--text-dark);">Caricamento...</span>';
+              const steamCount = state.oddsLab.steamMoves.filter(s => s.type === 'bullish').length;
+              return '<span style="font-size:0.6rem;background:rgba(245,158,11,0.12);color:#f59e0b;padding:2px 8px;border-radius:8px;font-weight:700;">' + state.oddsLab.bookmakers.length + ' book' + (steamCount > 0 ? ' • 🔥' + steamCount + ' steam' : '') + '</span>';
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${state.oddsLab ? safeRender(() => renderOddsLab(state.oddsLab), '', 'OddsLab') : '<div style="padding:14px;color:var(--text-dark);font-size:0.72rem;text-align:center;">⏳ Fetching quote da multi-bookmaker...</div>'}
+        </div>
+      </div>
+      
+      <!-- === v7: VALUE BET ENGINE === -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)" style="border-color:rgba(0,229,160,0.2);">
+          <div class="section-accordion-title"><span>🎯</span> Value Bet Engine + Kelly</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              if (!state.valueBets) return '<span style="font-size:0.6rem;color:var(--text-dark);">Caricamento...</span>';
+              const count = state.valueBets.totalValueBets;
+              return count > 0 
+                ? '<span style="font-size:0.6rem;background:rgba(0,229,160,0.15);color:#00e5a0;padding:2px 8px;border-radius:8px;font-weight:800;">🎯 ' + count + ' VALUE</span>'
+                : '<span style="font-size:0.6rem;background:rgba(100,116,139,0.12);color:#94a3b8;padding:2px 8px;border-radius:8px;font-weight:700;">No value</span>';
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${state.valueBets ? safeRender(() => renderValueBets(state.valueBets), '', 'ValueBets') : '<div style="padding:14px;color:var(--text-dark);font-size:0.72rem;text-align:center;">⏳ Calcolo Value Bets in corso...</div>'}
+        </div>
+      </div>
+
+      <!-- NG INSIGHT (originale) -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>🚫</span> NG Insight</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              try {
+                const ngP = (100 - (d.pBTTS || 50)).toFixed(0);
+                const ngColor = ngP >= 55 ? '#10b981' : ngP >= 48 ? '#fbbf24' : '#ef4444';
+                return '<span style="font-size:0.6rem;background:' + ngColor + '18;color:' + ngColor + ';padding:2px 8px;border-radius:8px;font-weight:700;">NG ' + ngP + '%</span>';
+              } catch(e) { return ''; }
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${safeRender(() => renderNGInsight(m, d), '', 'NGInsight')}
+        </div>
+      </div>
+      
+      <!-- GG INSIGHT -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>⚽</span> GG Insight</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              try {
+                const ggP = (d.pBTTS || 50).toFixed(0);
+                const ggColor = ggP >= 58 ? '#10b981' : ggP >= 50 ? '#fbbf24' : '#ef4444';
+                return '<span style="font-size:0.6rem;background:' + ggColor + '18;color:' + ggColor + ';padding:2px 8px;border-radius:8px;font-weight:700;">GG ' + ggP + '%</span>';
+              } catch(e) { return ''; }
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${safeRender(() => renderGGInsight(m, d), '', 'GGInsight')}
+        </div>
+      </div>
+      
+      <!-- MULTIGOL COMBINATO -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>🎯</span> Multigol Combinato</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:0.6rem;background:rgba(0,212,255,0.12);color:#00d4ff;padding:2px 8px;border-radius:8px;font-weight:700;">Casa+Ospite</span>
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${safeRender(() => renderMultigolCombinato(m, d), '', 'MultigolCombinato')}
+        </div>
+      </div>
+      
+      <!-- CORNER & TIRI -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>🚩</span> Corner & Tiri</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              try {
+                const c = d.corners || {};
+                return c.total ? '<span style="font-size:0.6rem;background:rgba(251,191,36,0.12);color:#fbbf24;padding:2px 8px;border-radius:8px;font-weight:700;">' + c.total.toFixed(1) + ' corner</span>' : '';
+              } catch(e) { return ''; }
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${safeRender(() => renderCornerTiri(m, d), '', 'CornerTiri')}
+        </div>
+      </div>
+      
+      <!-- STORICO VARIAZIONI -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>📈</span> Storico Variazioni</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            ${(() => {
+              try {
+                const hLen = getPredictionHistory(m.id).length;
+                return hLen > 0 ? '<span style="font-size:0.6rem;background:rgba(0,212,255,0.12);color:#00d4ff;padding:2px 8px;border-radius:8px;font-weight:700;">' + hLen + ' reg.</span>' : '';
+              } catch(e) { return ''; }
+            })()}
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${safeRender(() => renderHistorySection(m.id), '<div style="padding:12px;color:var(--text-dark);font-size:0.78rem;">📊 Storico non disponibile.</div>', 'HistorySection')}
+        </div>
+      </div>
+      
+      <!-- GAP ANALYSER -->
+      <div class="section-accordion">
+        <div class="section-accordion-header" onclick="toggleAccordion(this)">
+          <div class="section-accordion-title"><span>📐</span> GAP Analyser</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="section-accordion-arrow">▼</span>
+          </div>
+        </div>
+        <div class="section-accordion-body">
+          ${safeRender(() => renderGAPAnalyser(m, d), '', 'GAPAnalyser')}
+        </div>
+      </div>
+      
+
+        
+        <!-- ═══ SEZIONI ACCORDION ═══ -->
+
+        <!-- SEZIONE A: Probabilità -->
+        <div class="section-accordion">
+          <div class="section-accordion-header open" onclick="toggleAccordion(this)">
+            <div class="section-accordion-title">
+              <span>🎯</span> Probabilità & Mercati Principali
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="section-accordion-meta">1X2 · Over/Under · GG</span>
+              <span class="section-accordion-arrow">▼</span>
+            </div>
+          </div>
+          <div class="section-accordion-body open">
+            <div class="analysis-grid">
+              <div class="analysis-card">
+                <div class="card-title">
+                  <div class="card-title-icon">🎯</div>
+                  <span>1X2 &amp; xG</span>
+              <span class="card-title-badge">xG ${d.xG.total.toFixed(2)}</span>
+            </div>
+            <div class="prob-row">
+              <span class="prob-label">1 Casa</span>
+              <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${d.p1X2.home}%"></div></div>
+              <span class="prob-value">${d.p1X2.home.toFixed(0)}%</span>
+            </div>
+            <div class="prob-row">
+              <span class="prob-label">X Pari</span>
+              <div class="prob-bar-track"><div class="prob-bar-fill yellow" style="width:${d.p1X2.draw}%"></div></div>
+              <span class="prob-value">${d.p1X2.draw.toFixed(0)}%</span>
+            </div>
+            <div class="prob-row">
+              <span class="prob-label">2 Ospite</span>
+              <div class="prob-bar-track"><div class="prob-bar-fill purple" style="width:${d.p1X2.away}%"></div></div>
+              <span class="prob-value">${d.p1X2.away.toFixed(0)}%</span>
+            </div>
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:0.72rem;color:var(--text-gray);">
+              <span>xG <strong style="color:var(--accent-cyan);">${d.xG.home.toFixed(2)}</strong></span>
+              <span style="color:var(--text-dark);">Expected Goals</span>
+              <span>xG <strong style="color:var(--accent-red);">${d.xG.away.toFixed(2)}</strong></span>
+            </div>
+          </div>
+          
+          <div class="analysis-card">
+            <div class="card-title"><div class="card-title-icon">⚽</div><span>Over/Under & GG</span></div>
+            ${[1.5, 2.5, 3.5].map(l => `
+              <div class="prob-row">
+                <span class="prob-label">O/U ${l}</span>
+                <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${d.pOU[l].over}%"></div></div>
+                <span class="prob-value">${d.pOU[l].over.toFixed(0)}%</span>
+              </div>
+            `).join('')}
+            <div class="prob-row">
+              <span class="prob-label">GG</span>
+              <div class="prob-bar-track"><div class="prob-bar-fill green" style="width:${d.pBTTS}%"></div></div>
+              <span class="prob-value">${d.pBTTS.toFixed(0)}%</span>
+            </div>
+          </div>
+            </div> <!-- fine analysis-grid sezione A -->
+          </div> <!-- fine accordion-body A -->
+        </div> <!-- fine accordion A -->
+
+        <!-- SEZIONE C: Gol & Score -->
+        <div class="section-accordion">
+          <div class="section-accordion-header" onclick="toggleAccordion(this)">
+            <div class="section-accordion-title">
+              <span>🎯</span> Multigol & Gol Analysis
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="section-accordion-meta">${(() => {
+                const sp = getSmartMultigolPick(d.xG.home, d.xG.away);
+                return 'MG ' + sp.range + ' ' + sp.prob.toFixed(0) + '%';
+              })()}</span>
+              <span class="section-accordion-arrow">▼</span>
+            </div>
+          </div>
+          <div class="section-accordion-body">
+
+            <!-- SMART PICK HERO -->
+            ${(() => {
+              const sp = getSmartMultigolPick(d.xG.home, d.xG.away);
+              const totXG = (d.xG.home + d.xG.away).toFixed(2);
+              const confClass = sp.confidence || 'media';
+              const confLabel = confClass === 'alta' ? '🎯 ALTA FIDUCIA' : confClass === 'media' ? '⚡ FIDUCIA MEDIA' : '⚠️ BASSA FIDUCIA';
+              return `
+              <div class="mg-smart-pick">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+                  <div>
+                    <div class="mg-smart-label">🏆 Miglior Multigol</div>
+                    <div class="mg-smart-range">MG ${sp.range}</div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
+                      <span class="mg-smart-prob">${sp.prob.toFixed(0)}%</span>
+                      <span class="mg-smart-quota">Quota fair @${sp.quota}</span>
+                      <span class="mg-smart-confidence ${confClass}">${confLabel}</span>
+                    </div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:0.62rem;color:var(--text-dark);">xG Totale</div>
+                    <div style="font-size:1.4rem;font-weight:900;color:var(--accent-cyan);">${totXG}</div>
+                    <div style="font-size:0.58rem;color:var(--text-dark);margin-top:2px;">Poisson Distribution</div>
+                  </div>
+                </div>
+                <!-- DISTRIBUZIONE GOL VISUALE -->
+                <div style="margin-top:14px;">
+                  <div style="font-size:0.6rem;color:var(--text-dark);margin-bottom:6px;font-weight:600;">📊 Probabilità gol totali nella partita</div>
+                  <div class="mg-dist-bar">
+                    ${calcGoalDistribution(d.xG.home, d.xG.away).map((g, i) => {
+                      const maxH = 50;
+                      const h = Math.max(3, g.prob * (maxH / 30));
+                      const isInRange = i >= sp.min && i <= sp.max;
+                      const color = isInRange ? '#10b981' : 'rgba(100,116,139,0.3)';
+                      return '<div class="mg-dist-col">' +
+                        '<div class="mg-dist-pct">' + g.prob.toFixed(0) + '%</div>' +
+                        '<div class="mg-dist-fill" style="height:' + h + 'px;background:' + color + ';"></div>' +
+                        '<div class="mg-dist-label">' + g.goals + '</div>' +
+                      '</div>';
+                    }).join('')}
+                  </div>
+                  <div style="font-size:0.55rem;color:var(--text-dark);text-align:center;margin-top:4px;">Le barre verdi = gol nel range MG ${sp.range}</div>
+                </div>
+              </div>`;
+            })()}
+
+            <div class="analysis-grid">
+              <!-- TUTTI I RANGE MULTIGOL -->
+              <div class="analysis-card wide">
+                <div class="card-title"><div class="card-title-icon">🎰</div><span>Tutti i Range Multigol</span></div>
+                <div class="multigoal-grid">
+                  ${d.multigoal ? d.multigoal.slice(0, 8).map((mg, i) => {
+                    const isBest = i === 0;
+                    const probColor = mg.prob >= 65 ? '#00e5a0' : mg.prob >= 50 ? '#fbbf24' : 'var(--accent-cyan)';
+                    return '<div class="multigoal-box ' + (isBest ? 'best' : '') + '">' +
+                      '<div class="multigoal-range">' + mg.range + '</div>' +
+                      '<div class="multigoal-prob" style="color:' + probColor + ';">' + mg.prob.toFixed(0) + '%</div>' +
+                      '<div class="multigoal-quota">@' + mg.quota + '</div>' +
+                    '</div>';
+                  }).join('') : '<div>N/A</div>'}
+                </div>
+              </div>
+
+              <!-- GOL PER TEMPO -->
+              <div class="analysis-card">
+                <div class="card-title"><div class="card-title-icon">⏱️</div><span>Gol per Tempo</span></div>
+                ${d.temporalDistribution ? `
+                  <div class="prob-row">
+                    <span class="prob-label">Over 0.5 1°T</span>
+                    <div class="prob-bar-track"><div class="prob-bar-fill cyan" style="width:${d.temporalDistribution.primoTempo.over05}%"></div></div>
+                    <span class="prob-value">${d.temporalDistribution.primoTempo.over05.toFixed(0)}%</span>
+                  </div>
+                  <div class="prob-row">
+                    <span class="prob-label">Over 0.5 2°T</span>
+                    <div class="prob-bar-track"><div class="prob-bar-fill green" style="width:${d.temporalDistribution.secondoTempo.over05}%"></div></div>
+                    <span class="prob-value">${d.temporalDistribution.secondoTempo.over05.toFixed(0)}%</span>
+                  </div>
+                  <div class="prob-row">
+                    <span class="prob-label">Over 1.5 1°T</span>
+                    <div class="prob-bar-track"><div class="prob-bar-fill yellow" style="width:${d.temporalDistribution.primoTempo.over15}%"></div></div>
+                    <span class="prob-value">${d.temporalDistribution.primoTempo.over15.toFixed(0)}%</span>
+                  </div>
+                  <div class="tempo-highlight">
+                    <span>⚡ Tempo con più gol:</span>
+                    <strong>${d.temporalDistribution.tempoConPiuGol}</strong>
+                    <span class="tempo-prob">(${d.temporalDistribution.probTempoConPiuGol.toFixed(0)}%)</span>
+                  </div>
+                ` : '<div>N/A</div>'}
+              </div>
+
+              <!-- MULTIGOL PER SQUADRA -->
+              <div class="analysis-card wide">
+                <div class="card-title">
+                  <div class="card-title-icon">⚽</div>
+                  <span>Multigol per Squadra</span>
+                  <span class="card-title-badge">Gol individuali</span>
+                </div>
+                
+                <!-- SMART PICKS SQUADRE — riepilogo in alto -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                  ${(() => {
+                    const bestH = (d.multigoalHome || []).filter(mg => mg.range.includes('-') && mg.prob >= 30).sort((a,b) => {
+                      const wA = (a.range.split('-')[1] - a.range.split('-')[0]) <= 2 ? 10 : 0;
+                      const wB = (b.range.split('-')[1] - b.range.split('-')[0]) <= 2 ? 10 : 0;
+                      return (b.prob + wB) - (a.prob + wA);
+                    })[0];
+                    const bestA = (d.multigoalAway || []).filter(mg => mg.range.includes('-') && mg.prob >= 30).sort((a,b) => {
+                      const wA = (a.range.split('-')[1] - a.range.split('-')[0]) <= 2 ? 10 : 0;
+                      const wB = (b.range.split('-')[1] - b.range.split('-')[0]) <= 2 ? 10 : 0;
+                      return (b.prob + wB) - (a.prob + wA);
+                    })[0];
+                    const hColor = bestH && bestH.prob >= 60 ? '#10b981' : bestH && bestH.prob >= 45 ? '#fbbf24' : '#f87171';
+                    const aColor = bestA && bestA.prob >= 60 ? '#10b981' : bestA && bestA.prob >= 45 ? '#fbbf24' : '#f87171';
+                    return `
+                    <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:10px;text-align:center;">
+                      <div style="font-size:0.58rem;color:var(--text-dark);font-weight:600;">🏠 ${esc(m.home.name.split(' ')[0])}</div>
+                      <div style="font-size:1.2rem;font-weight:900;color:white;margin:4px 0;">MG ${bestH ? bestH.range : '-'}</div>
+                      <div style="font-size:0.82rem;font-weight:800;color:${hColor};">${bestH ? bestH.prob.toFixed(0) + '%' : '-'}</div>
+                      <div style="font-size:0.58rem;color:var(--accent-cyan);">@${bestH && bestH.prob > 0 ? (100/bestH.prob).toFixed(2) : '-'}</div>
+                    </div>
+                    <div style="background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.2);border-radius:10px;padding:10px;text-align:center;">
+                      <div style="font-size:0.58rem;color:var(--text-dark);font-weight:600;">✈️ ${esc(m.away.name.split(' ')[0])}</div>
+                      <div style="font-size:1.2rem;font-weight:900;color:white;margin:4px 0;">MG ${bestA ? bestA.range : '-'}</div>
+                      <div style="font-size:0.82rem;font-weight:800;color:${aColor};">${bestA ? bestA.prob.toFixed(0) + '%' : '-'}</div>
+                      <div style="font-size:0.58rem;color:var(--accent-red);">@${bestA && bestA.prob > 0 ? (100/bestA.prob).toFixed(2) : '-'}</div>
+                    </div>`;
+                  })()}
+                </div>
+                
+                <!-- DETTAGLIO BARRE -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                  <!-- CASA -->
+                  <div>
+                    <div style="font-size:0.68rem;font-weight:700;color:var(--accent-cyan);margin-bottom:8px;">
+                      xG ${d.xG.home.toFixed(2)}
+                    </div>
+                    ${d.multigoalHome ? d.multigoalHome.map(mg => `
+                      <div class="prob-row" style="margin-bottom:6px;">
+                        <span class="prob-label" style="min-width:32px;font-weight:700;font-size:0.68rem;">${mg.range}</span>
+                        <div class="prob-bar-track">
+                          <div class="prob-bar-fill cyan" style="width:${Math.min(100,mg.prob)}%"></div>
+                        </div>
+                        <span class="prob-value" style="font-size:0.7rem;color:${mg.prob>=65?'#00e5a0':mg.prob>=50?'#fbbf24':'var(--text-gray)'};">${mg.prob.toFixed(0)}%</span>
+                      </div>
+                    `).join('') : '<div style="color:var(--text-dark)">N/A</div>'}
+                  </div>
+                  <!-- OSPITE -->
+                  <div>
+                    <div style="font-size:0.68rem;font-weight:700;color:var(--accent-red);margin-bottom:8px;">
+                      xG ${d.xG.away.toFixed(2)}
+                    </div>
+                    ${d.multigoalAway ? d.multigoalAway.map(mg => `
+                      <div class="prob-row" style="margin-bottom:6px;">
+                        <span class="prob-label" style="min-width:32px;font-weight:700;font-size:0.68rem;">${mg.range}</span>
+                        <div class="prob-bar-track">
+                          <div class="prob-bar-fill" style="width:${Math.min(100,mg.prob)}%;background:linear-gradient(90deg,#f87171,#fca5a5);"></div>
+                        </div>
+                        <span class="prob-value" style="font-size:0.7rem;color:${mg.prob>=65?'#00e5a0':mg.prob>=50?'#fbbf24':'var(--text-gray)'};">${mg.prob.toFixed(0)}%</span>
+                      </div>
+                    `).join('') : '<div style="color:var(--text-dark)">N/A</div>'}
+                  </div>
+                </div>
+                <!-- GG/NG compatta -->
+                <div style="margin-top:12px;padding:8px 12px;background:var(--bg-card-light);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                  <span style="font-size:0.72rem;color:var(--text-gray);">GG (entrambe segnano)</span>
+                  <span style="font-size:0.9rem;font-weight:800;color:${d.pBTTS>=65?'#00e5a0':d.pBTTS>=50?'#fbbf24':'#f87171'};">${d.pBTTS.toFixed(0)}%</span>
+                  <span style="font-size:0.72rem;color:var(--text-gray);">NG</span>
+                  <span style="font-size:0.9rem;font-weight:800;color:${(100-d.pBTTS)>=65?'#00e5a0':(100-d.pBTTS)>=50?'#fbbf24':'#f87171'};">${(100-d.pBTTS).toFixed(0)}%</span>
+                </div>
+              </div>
+
+            </div> <!-- fine analysis-grid sezione C -->
+          </div> <!-- fine accordion-body C -->
+        </div> <!-- fine accordion C -->
+
+        <!-- SEZIONE D: Squadre -->
+        <div class="section-accordion">
+          <div class="section-accordion-header" onclick="toggleAccordion(this)">
+            <div class="section-accordion-title">
+              <span>🏟</span> Squadre & Contesto
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span class="section-accordion-meta">Classifica · Formazioni · Assenze · Comparazione</span>
+              <span class="section-accordion-arrow">▼</span>
+            </div>
+          </div>
+          <div class="section-accordion-body">
+            <div class="analysis-grid">
+              <!-- CLASSIFICA E MOTIVAZIONE -->
+              <div class="analysis-card">
+                <div class="card-title"><div class="card-title-icon">&#x1F3C6;</div><span>Classifica</span></div>
+            ${d.homePosition ? `
+              <div class="standings-card">
+                <div class="standings-header">
+                  <div>
+                    <span style="font-weight:600; font-size:0.85rem;">${m.home.name.split(' ')[0]}</span>
+                    <span class="standings-position">${d.homePosition.position}°<sup>/${d.homePosition.totalTeams}</sup></span>
+                  </div>
+                  <span class="motivation-badge ${d.homePosition.motivationColor}">${d.homePosition.motivationText}</span>
+                </div>
+                <div class="standings-stats">
+                  <span class="standings-stat">&#x1F4CA; ${d.homePosition.points} pt</span>
+                  <span class="standings-stat">✅ ${d.homePosition.won}V</span>
+                  <span class="standings-stat">➖ ${d.homePosition.draw}P</span>
+                  <span class="standings-stat">❌ ${d.homePosition.lost}S</span>
+                </div>
+              </div>
+            ` : '<div class="standings-card"><span style="color:var(--text-dark)">Classifica non disponibile</span></div>'}
+            ${d.awayPosition ? `
+              <div class="standings-card">
+                <div class="standings-header">
+                  <div>
+                    <span style="font-weight:600; font-size:0.85rem;">${m.away.name.split(' ')[0]}</span>
+                    <span class="standings-position">${d.awayPosition.position}°<sup>/${d.awayPosition.totalTeams}</sup></span>
+                  </div>
+                  <span class="motivation-badge ${d.awayPosition.motivationColor}">${d.awayPosition.motivationText}</span>
+                </div>
+                <div class="standings-stats">
+                  <span class="standings-stat">&#x1F4CA; ${d.awayPosition.points} pt</span>
+                  <span class="standings-stat">✅ ${d.awayPosition.won}V</span>
+                  <span class="standings-stat">➖ ${d.awayPosition.draw}P</span>
+                  <span class="standings-stat">❌ ${d.awayPosition.lost}S</span>
+                </div>
+              </div>
+            ` : ''}
+            <!-- Forma recente compatta -->
+            ${(d.homeForm || d.awayForm) ? `
+            <div style="margin-top:10px;padding:8px 12px;background:var(--bg-card-light);border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:0.62rem;color:var(--text-dark);">${m.home.name.split(' ')[0]}</span>
+                <span style="font-size:0.8rem;">${(d.homeForm||'').split('').map(c=>c==='W'?'<span style="color:#00e5a0">▲</span>':c==='D'?'<span style="color:#fbbf24">—</span>':'<span style="color:#f87171">▼</span>').join('')}</span>
+              </div>
+              <span style="font-size:0.6rem;color:var(--text-dark);">forma</span>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:0.8rem;">${(d.awayForm||'').split('').map(c=>c==='W'?'<span style="color:#00e5a0">▲</span>':c==='D'?'<span style="color:#fbbf24">—</span>':'<span style="color:#f87171">▼</span>').join('')}</span>
+                <span style="font-size:0.62rem;color:var(--text-dark);">${m.away.name.split(' ')[0]}</span>
+              </div>
+            </div>` : ''}
+          </div>
+          
+          <!-- FORMAZIONI UFFICIALI -->
+          ${d.lineupsAvailable ? `
+          <div class="analysis-card wide">
+            <div class="card-title"><div class="card-title-icon">⚽</div><span>Formazioni Ufficiali</span>
+              <span class="card-title-badge" style="background:rgba(0,229,160,0.2);color:#00e5a0;">LIVE</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div>
+                <div style="font-size:0.72rem;color:var(--accent-cyan);font-weight:700;margin-bottom:8px;">
+                  &#x1F3E0; ${esc(m.home.name)} — ${d.homeLineup.formation}
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                  ${d.homeLineup.keyPlayers.map(p => `
+                    <span style="font-size:0.62rem;padding:2px 6px;border-radius:6px;
+                      background:${p.pos.includes('F')||p.pos==='ST'||p.pos==='CF' ? 'rgba(0,229,160,0.15)' : p.pos==='GK'||p.pos==='G' ? 'rgba(139,92,246,0.15)' : p.pos.includes('D')||p.pos==='CB' ? 'rgba(248,113,113,0.12)' : 'rgba(0,212,255,0.12)'};
+                      color:${p.pos.includes('F')||p.pos==='ST'||p.pos==='CF' ? '#00e5a0' : p.pos==='GK'||p.pos==='G' ? '#a78bfa' : p.pos.includes('D')||p.pos==='CB' ? '#f87171' : '#00d4ff'};">
+                      ${p.number}. ${p.name.split(' ').slice(-1)[0]}
+                    </span>
+                  `).join('')}
+                </div>
+                <div style="margin-top:8px;font-size:0.68rem;color:rgba(148,163,184,0.5);">
+                  Forza attacco: <strong style="color:#00d4ff;">${(d.homeLineup.attackStrength*100).toFixed(0)}%</strong>
+                  &nbsp;|&nbsp; Solidità: <strong style="color:#a78bfa;">${(d.homeLineup.defenseStrength*100).toFixed(0)}%</strong>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:0.72rem;color:var(--accent-red);font-weight:700;margin-bottom:8px;">
+                  ✈️ ${esc(m.away.name)} — ${d.awayLineup.formation}
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                  ${d.awayLineup.keyPlayers.map(p => `
+                    <span style="font-size:0.62rem;padding:2px 6px;border-radius:6px;
+                      background:${p.pos.includes('F')||p.pos==='ST'||p.pos==='CF' ? 'rgba(0,229,160,0.15)' : p.pos==='GK'||p.pos==='G' ? 'rgba(139,92,246,0.15)' : p.pos.includes('D')||p.pos==='CB' ? 'rgba(248,113,113,0.12)' : 'rgba(0,212,255,0.12)'};
+                      color:${p.pos.includes('F')||p.pos==='ST'||p.pos==='CF' ? '#00e5a0' : p.pos==='GK'||p.pos==='G' ? '#a78bfa' : p.pos.includes('D')||p.pos==='CB' ? '#f87171' : '#00d4ff'};">
+                      ${p.number}. ${p.name.split(' ').slice(-1)[0]}
+                    </span>
+                  `).join('')}
+                </div>
+                <div style="margin-top:8px;font-size:0.68rem;color:rgba(148,163,184,0.5);">
+                  Forza attacco: <strong style="color:#00d4ff;">${(d.awayLineup.attackStrength*100).toFixed(0)}%</strong>
+                  &nbsp;|&nbsp; Solidità: <strong style="color:#a78bfa;">${(d.awayLineup.defenseStrength*100).toFixed(0)}%</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+          ` : ''}
+
+          <!-- RADAR CHART COMPARATIVO -->
+          ${safeRender(() => renderRadarChart(m, d), '', 'RadarChart')}
+
+          <!-- INFORTUNATI -->
+          <div class="analysis-card">
+            <div class="card-title"><div class="card-title-icon">&#x1F3E5;</div><span>Assenze</span></div>
+            <div class="injuries-card" style="margin-bottom: 8px;">
+              <div class="injuries-header">
+                <span>&#x1F3E0; ${m.home.name.split(' ')[0]}</span>
+              </div>
+              ${d.homeInjuries && d.homeInjuries.length > 0 ? `
+                <div class="injuries-list">
+                  ${d.homeInjuries.slice(0, 5).map(inj => `
+                    <span class="injury-chip">❌ ${inj.player}</span>
+                  `).join('')}
+                  ${d.homeInjuries.length > 5 ? `<span class="injury-chip">+${d.homeInjuries.length - 5} altri</span>` : ''}
+                </div>
+              ` : '<span class="no-injuries">✅ Rosa completa</span>'}
+            </div>
+            <div class="injuries-card">
+              <div class="injuries-header">
+                <span>✈️ ${m.away.name.split(' ')[0]}</span>
+              </div>
+              ${d.awayInjuries && d.awayInjuries.length > 0 ? `
+                <div class="injuries-list">
+                  ${d.awayInjuries.slice(0, 5).map(inj => `
+                    <span class="injury-chip">❌ ${inj.player}</span>
+                  `).join('')}
+                  ${d.awayInjuries.length > 5 ? `<span class="injury-chip">+${d.awayInjuries.length - 5} altri</span>` : ''}
+                </div>
+              ` : '<span class="no-injuries">✅ Rosa completa</span>'}
+            </div>
+          </div>
+          
+          <div class="analysis-card wide">
+            <div class="card-title"><div class="card-title-icon">&#x1F3B2;</div><span>Risultati Esatti</span></div>
+            <div class="scores-grid">
+              ${d.exactScores.map((s, i) => `
+                <div class="score-box ${i === 0 ? 'highlight' : ''}">
+                  <div class="score-box-value">${s.h}-${s.a}</div>
+                  <div class="score-box-prob">${s.p.toFixed(1)}%</div>
+                </div>
+              `).join('')}
+            </div>
+            <!-- MG CASA / MG OSPITE sotto risultati esatti -->
+            <div class="mg-under-scores">
+              <div class="mg-box-compact">
+                <div class="mg-box-label">&#x1F3E0; MG ${m.home.name.split(' ')[0]}</div>
+                <div class="mg-box-value">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
+                <div class="mg-box-prob">${d.multigoalHome ? d.multigoalHome.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
+              </div>
+              <div class="mg-box-compact">
+                <div class="mg-box-label">✈️ MG ${m.away.name.split(' ')[0]}</div>
+                <div class="mg-box-value">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).range : 'N/A'}</div>
+                <div class="mg-box-prob">${d.multigoalAway ? d.multigoalAway.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'N/A', prob:0}).prob.toFixed(0) : 0}%</div>
+              </div>
+            </div>
+              </div> <!-- fine analysis-grid sezione D -->
+            </div> <!-- fine accordion-body D -->
+          </div> <!-- fine accordion D -->
+        
+        <div class="predictions-panel">
+          <div class="predictions-header">
+            <div class="predictions-title">⚽ PRONOSTICI AI</div>
+            <div class="predictions-subtitle">Clicca per aggiungere alla schedina</div>
+            <div class="predictions-legend">
+              <div class="legend-item"><span class="legend-dot high"></span> Alta (&gt;65%)</div>
+              <div class="legend-item"><span class="legend-dot mid"></span> Media (50-65%)</div>
+              <div class="legend-item"><span class="legend-dot low"></span> Bassa (&lt;50%)</div>
+            </div>
+          </div>
+          <div class="predictions-grid">
+            ${d.predictions.map(p => `
+              <div class="prediction-card ${isInSlip(m.id, p.market) ? 'selected' : ''}" data-market="${p.market}" data-value="${p.value}" data-prob="${p.prob.toFixed(0)}">
+                <div class="prediction-market">${p.market}</div>
+                <div class="prediction-value">${p.value}</div>
+                <div class="prediction-prob ${getProbClass(p.prob)}">${p.prob.toFixed(0)}%</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSlipFloating() {
+      if (state.slip.length === 0) return '';
+      return `
+        <div class="slip-floating">
+          <div class="slip-count">&#x1F3AB; ${state.slip.length} pronostici</div>
+          <button class="slip-btn primary" id="viewSlip">&#x1F4CB; Vedi</button>
+          <button class="slip-btn secondary" id="copySlip">&#x1F4CB; Copia</button>
+          <button class="slip-btn danger" id="clearSlip">&#x1F5D1;️</button>
+        </div>
+      `;
+    }
+
+    function renderSlipModal() {
+      const totalProb = state.slip.reduce((acc, s) => acc * (s.prob / 100), 1) * 100;
+      return `
+        <div class="slip-modal" id="slipModal">
+          <div class="slip-modal-content">
+            <div class="slip-modal-header">
+              <div class="slip-modal-title">&#x1F3AB; La Tua Schedina</div>
+              <button class="slip-modal-close" id="closeSlip">×</button>
+            </div>
+            <div class="slip-modal-body">
+              ${state.slip.map(s => `
+                <div class="slip-item">
+                  <div class="slip-item-info">
+                    <div class="slip-item-match">${esc(s.matchName)}</div>
+                    <div class="slip-item-bet">${s.market}: ${s.value}</div>
+                    <div class="slip-item-prob">${s.prob}%</div>
+                  </div>
+                  <button class="slip-item-remove" data-key="${s.key}">×</button>
+                </div>
+              `).join('')}
+              <div class="slip-total">
+                <div class="slip-total-label">Probabilità Combinata</div>
+                <div class="slip-total-value">${totalProb.toFixed(2)}%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ============================================================
+    // SWIPE MOBILE — tra partite della stessa lega
+    // ============================================================
+    let _swipeStartX = 0, _swipeStartY = 0;
+    
+    function initSwipeOnMatches() {
+      const matchItems = document.querySelectorAll('.match-item[data-id]');
+      matchItems.forEach(el => {
+        el.addEventListener('touchstart', e => {
+          _swipeStartX = e.touches[0].clientX;
+          _swipeStartY = e.touches[0].clientY;
+        }, { passive: true });
+        el.addEventListener('touchend', e => {
+          const dx = e.changedTouches[0].clientX - _swipeStartX;
+          const dy = e.changedTouches[0].clientY - _swipeStartY;
+          if (Math.abs(dx) < 40 || Math.abs(dy) > Math.abs(dx) * 0.7) return; // non è uno swipe orizzontale
+          // swipe RIGHT (dx > 0) → vai alla partita precedente nell'analisi
+          // swipe LEFT  (dx < 0) → vai alla prossima partita
+          if (state.view === 'analysis' && state.selectedMatch) {
+            const matches = state.matches.filter(m => m.league.id === state.selectedLeague?.id);
+            const idx = matches.findIndex(m => m.id === state.selectedMatch.id);
+            if (dx < -40 && idx < matches.length - 1) {
+              analyzeMatch(matches[idx + 1]);
+            } else if (dx > 40 && idx > 0) {
+              analyzeMatch(matches[idx - 1]);
+            }
+          }
+        }, { passive: true });
+      });
+    }
+
+    // Swipe sulla vista MATCHES: swipe left su una partita la analizza direttamente
+    function initSwipeOnMatchesList() {
+      const matchItems = document.querySelectorAll('.match-item[data-id]');
+      matchItems.forEach(el => {
+        let sx = 0;
+        el.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+        el.addEventListener('touchend', e => {
+          const dx = e.changedTouches[0].clientX - sx;
+          if (dx < -60) {
+            // Swipe sinistra veloce = analizza questa partita
+            const matchId = parseInt(el.dataset.id);
+            const match = state.matches.find(m => m.id === matchId);
+            if (match) analyzeMatch(match);
+          }
+        }, { passive: true });
+      });
+    }
+
+        function attachEvents() {
+      // === EVENT DELEGATION - Un solo listener per tutto ===
+      const app = document.getElementById('app');
+      if (!app) return;
+      
+      // Handler per tutti i click
+      app.onclick = function(e) {
+        const target = e.target;
+        
+        // === BACK BUTTONS (priorità massima) ===
+        const backBtn = target.closest('.back-btn, .btn-secondary, #backToLeagues, #backFromPerformance, #backToMatches');
+        if (backBtn) {
+          const text = backBtn.textContent || '';
+          const id = backBtn.id || '';
+          
+          // Torna ai campionati
+          if (id === 'backToLeagues' || id === 'backFromPerformance' || text.includes('Campionati')) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('&#x1F519; Tornando ai campionati...');
+            state.view = 'leagues';
+            state.selectedLeague = null;
+            render();
+            return false;
+          }
+          
+          // Torna alle partite
+          if (id === 'backToMatches' || text.includes('Partite')) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('&#x1F519; Tornando alle partite...');
+            state.view = 'matches';
+            state.selectedMatch = null;
+            state.analysis = null;
+            render();
+            return false;
+          }
+        }
+        
+        // === DATE TABS ===
+        const dateTab = target.closest('.date-tab[data-date]');
+        if (dateTab) {
+          if (state.liveMode) {
+            state.liveMode = false;
+            stopLiveAutoRefresh();
+          }
+          state.consigliMode = false;
+          loadMatches(parseInt(dateTab.dataset.date));
+          return;
+        }
+        
+        // === MATCH ITEMS ===
+        const matchItem = target.closest('.match-item[data-id]');
+        if (matchItem) {
+          const m = state.matches.find(x => x.id === parseInt(matchItem.dataset.id));
+          if (m) analyzeMatch(m);
+          return;
+        }
+        
+        // === GIOCATO BUTTONS (from home advice cards) ===
+        const giocatoBtn = target.closest('.btn-giocato[data-track-matchid]');
+        if (giocatoBtn && !giocatoBtn.disabled) {
+          const matchId = parseInt(giocatoBtn.dataset.trackMatchid);
+          const pick = giocatoBtn.dataset.trackPick;
+          const prob = parseFloat(giocatoBtn.dataset.trackProb);
+          const match = state.matches.find(m => m.id === matchId);
+          const matchName = match ? `${match.home.name} vs ${match.away.name}` : 'Match';
+          trackFromHome(matchId, matchName, pick, prob, null);
+          return;
+        }
+        
+        // === PICK CARDS ===
+        const pickCard = target.closest('.pick-card[data-matchid]');
+        if (pickCard) {
+          const matchId = parseInt(pickCard.dataset.matchid);
+          const match = state.matches.find(m => m.id === matchId);
+          if (match) {
+            addToSlip(match, pickCard.dataset.market, pickCard.dataset.value, parseFloat(pickCard.dataset.prob));
+          }
+          return;
+        }
+        
+        // === RADDOPPIO CARDS ===
+        const raddoppioCard = target.closest('.raddoppio-card[data-raddoppio]');
+        if (raddoppioCard) {
+          const idx = parseInt(raddoppioCard.dataset.raddoppio);
+          const raddoppio = state.dailyPicks.raddoppi[idx];
+          if (raddoppio) {
+            raddoppio.bets.forEach(b => {
+              addToSlip(b.match, 'radd_' + b.bet, b.bet, b.prob);
+            });
+          }
+          return;
+        }
+        
+        // === PREDICTION/COMBO CARDS ===
+        const predCard = target.closest('.prediction-card, .combo-card');
+        if (predCard && state.selectedMatch) {
+          addToSlip(state.selectedMatch, predCard.dataset.market, predCard.dataset.value, parseFloat(predCard.dataset.prob));
+          return;
+        }
+        
+        // === CONSIGLIO CARDS (onclick inline) ===
+        const consiglioCard = target.closest('.consiglio-card[onclick]');
+        if (consiglioCard) {
+          // L'onclick inline gestisce già questo
+          return;
+        }
+        
+        // === SLIP REMOVE ===
+        const removeBtn = target.closest('.slip-item-remove[data-key]');
+        if (removeBtn) {
+          removeFromSlip(removeBtn.dataset.key);
+          return;
+        }
+        
+        // === SLIP BUTTONS ===
+        if (target.id === 'openSlip' || target.id === 'viewSlip' || target.closest('#openSlip, #viewSlip')) {
+          state.slipModal = true;
+          render();
+          return;
+        }
+        if (target.id === 'closeSlip' || target.closest('#closeSlip')) {
+          state.slipModal = false;
+          render();
+          return;
+        }
+        if (target.id === 'clearSlip' || target.closest('#clearSlip')) {
+          clearSlip();
+          return;
+        }
+        if (target.id === 'slipModal') {
+          state.slipModal = false;
+          render();
+          return;
+        }
+        
+        // === REFRESH LIVE ===
+        if (target.id === 'refreshLive' || target.closest('#refreshLive')) {
+          loadLiveMatches();
+          return;
+        }
+        
+        // === BET RESULT BUTTONS ===
+        if (target.id === 'betWin' || target.closest('#betWin')) {
+          recordBetResult(true);
+          return;
+        }
+        if (target.id === 'betLoss' || target.closest('#betLoss')) {
+          recordBetResult(false);
+          return;
+        }
+        if (target.id === 'betReset' || target.closest('#betReset')) {
+          resetMoney();
+          return;
+        }
+        
+        // === COPY SLIP ===
+        if (target.id === 'copySlip' || target.closest('#copySlip')) {
+          const text = state.slip.map(s => `${s.matchName}: ${s.market} ${s.value} (${s.prob}%)`).join('\n');
+          navigator.clipboard.writeText(text);
+          alert('Schedina copiata!');
+          return;
+        }
+      };
+      
+      // === CHANGE EVENTS (devono essere attaccati singolarmente) ===
+      // League selection now handled by selectLeague() via onclick
+      
+      const bankrollInput = document.getElementById('bankrollInput');
+      if (bankrollInput) {
+        bankrollInput.onchange = function(e) {
+          state.money.bankroll = parseFloat(e.target.value) || 100;
+          saveMoney();
+          render();
+        };
+      }
+      
+      const targetInput = document.getElementById('targetInput');
+      if (targetInput) {
+        targetInput.onchange = function(e) {
+          state.money.target = parseFloat(e.target.value) || 500;
+          saveMoney();
+          render();
+        };
+      }
+      
+      const totalBetsInput = document.getElementById('totalBetsInput');
+      if (totalBetsInput) {
+        totalBetsInput.onchange = function(e) {
+          state.money.totalBets = parseInt(e.target.value) || 10;
+          saveMoney();
+          render();
+        };
+      }
+      
+      const oddsInput = document.getElementById('oddsInput');
+      if (oddsInput) {
+        oddsInput.onchange = function(e) {
+          state.money.currentOdds = parseFloat(e.target.value) || 1.80;
+          saveMoney();
+          render();
+        };
+      }
+    }
+
+    // === GLOBAL FUNCTIONS (for inline onclick handlers) ===
+    window.addToSlip = addToSlip;   // usato in super pick cards onclick inline
+    window.state = state;            // accessibile da onclick inline
+    window.selectMatch = selectMatch;
+    window.analyzeMatch = analyzeMatch;
+    window.toggleSettingsPanel = toggleSettingsPanel;
+    window.showPerformance = showPerformance;
+    window.toggleSetting = toggleSetting;
+    window.backToLeagues = backToLeagues;
+    window.backToMatches = backToMatches;
+    window.navigateMatch = navigateMatch;
+    window.switchAdviceTab = switchAdviceTab;
+    window.openGiudizioFinale = openGiudizioFinale;
+    window.closeGiudizioFinale = closeGiudizioFinale;
+    window.refreshAIAnalysis = refreshAIAnalysis;
+    window.toggleAccordion = toggleAccordion;
+    window.toggleTheme = toggleTheme;
+    window.openHistoryDetail = openHistoryDetail;
+    window.selectMatch_CDG = selectMatch_CDG;
+    window.initSwipeOnMatches = initSwipeOnMatches;
+    window.initSwipeOnMatchesList = initSwipeOnMatchesList;
+    window.manualVerifyBets = manualVerifyBets;
+    window.trackFromHome = trackFromHome;
+    window.trackLiveBet = trackLiveBet;
+    window.trackPrematchBet = trackPrematchBet;
+    window.resetAllData = resetAllData;
+    window.toggleConsigliMode = toggleConsigliMode;
+    window.loadLiveMatches = loadLiveMatches;
+    window.toggleLiveMode = toggleLiveMode;
+    window.triggerSuperAnalysis = triggerSuperAnalysis;
+    // === LEAGUE FILTER GLOBAL FUNCTIONS ===
+    window.selectLeague = selectLeague;
+    window.toggleFavoriteLeague = toggleFavoriteLeague;
+    window.setLeagueFilter = setLeagueFilter;
+    
+    // === AUTH GLOBAL FUNCTIONS ===
+    window.firebaseLogin = firebaseLogin;
+    window.firebaseLogout = firebaseLogout;
+    window.firebaseRegister = firebaseRegister;
+    window.toggleLoginModal = toggleLoginModal;
+    window.handleLogin = handleLogin;
+    window.handleRegister = handleRegister;
+    window.render = render;
+    
+    // === GIUDIZIO FINALE ===
+    // Cache: { matchId: { timestamp, data, history: [{ timestamp, data }] } }
+    const gfCache = JSON.parse(localStorage.getItem('bp2_giudizio_cache') || '{}');
+
+    function saveGFCache() {
+      try { localStorage.setItem('bp2_giudizio_cache', JSON.stringify(gfCache)); } catch(e) {}
+    }
+
+    function openGiudizioFinale(matchId) {
+      const m = state.selectedMatch;
+      const d = state.analysis;
+      if (!m || !d) return alert('Dati non disponibili. Apri prima l\'analisi della partita.');
+
+      const now = Date.now();
+      const cacheKey = String(matchId);
+      const cached = gfCache[cacheKey];
+      const CACHE_TTL = 15 * 60 * 1000;
+
+      // Se cache fresca E i dati super non sono cambiati, mostra direttamente
+      const superChanged = cached && (
+        (state.superAnalysis && !cached.data.hasSuperAlgo) ||
+        (state.superAIAnalysis && !cached.data.hasSuperAI)
+      );
+
+      if (cached && (now - cached.timestamp) < CACHE_TTL && !superChanged) {
+        renderGiudizioFinaleModal(m, d, cached.data, cached);
+        return;
+      }
+
+      // Calcola giudizio con TUTTI i dati disponibili
+      const giudizio = computeGiudizioFinale(m, d, state.superAnalysis, state.superAIAnalysis);
+
+      // Salva in cache con storico variazioni
+      if (!gfCache[cacheKey]) {
+        gfCache[cacheKey] = { timestamp: now, data: giudizio, history: [] };
+      } else {
+        const prev = gfCache[cacheKey].data;
+        if (prev && prev.topMarkets[0]?.value !== giudizio.topMarkets[0]?.value) {
+          gfCache[cacheKey].history.push({ timestamp: gfCache[cacheKey].timestamp, data: prev });
+          if (gfCache[cacheKey].history.length > 10) gfCache[cacheKey].history.shift();
+        }
+        gfCache[cacheKey].timestamp = now;
+        gfCache[cacheKey].data = giudizio;
+      }
+      saveGFCache();
+      renderGiudizioFinaleModal(m, d, giudizio, gfCache[cacheKey]);
+    }
+
+    function computeGiudizioFinale(match, analysis, superAnalysis, superAIAnalysis) {
+      const { xG, p1X2, pOU, pBTTS, exactScores, multigoal, multigoalHome, multigoalAway,
+              temporalDistribution, h2hInfo, corners, cards, homeForm, awayForm } = analysis;
+      const homeXG = xG.home, awayXG = xG.away, totXG = xG.total;
+
+      const formScore = (f) => {
+        if (!f || f === 'N/A') return 2.5;
+        return f.slice(0,5).split('').reduce((s,c) => s + (c==='W'?1:c==='D'?0.4:0), 0);
+      };
+      const hFS = formScore(homeForm), aFS = formScore(awayForm);
+
+      const h2h = h2hInfo || {};
+      const h2hGames = (h2h.homeWins||0) + (h2h.awayWins||0) + (h2h.draws||0) || 1;
+      const h2hAvgGoals = parseFloat(h2h.avgGoals) || totXG;
+      const h2hBTTS = h2h.bttsCount ? (h2h.bttsCount / h2hGames) * 100 : pBTTS;
+      const h2hOver25 = h2h.over25Count ? (h2h.over25Count / h2hGames) * 100 : pOU[2.5].over;
+
+      const getMLWeight = (market) => {
+        const data = state.mlThresholds && state.mlThresholds[market];
+        if (!data || data.totalPredictions < 10) return 0.50;
+        return Math.min(0.92, Math.max(0.35, parseFloat(data.accuracy) / 100));
+      };
+
+      const hCS = analysis.homeData?.cleanSheetPct || 25;
+      const aCS = analysis.awayData?.cleanSheetPct || 25;
+      const hFTS = analysis.homeData?.failedToScorePct || 25;
+      const aFTS = analysis.awayData?.failedToScorePct || 25;
+
+      const esProb = (fn) => (exactScores || []).filter(fn).reduce((s,e) => s + (e.p || e.prob || 0), 0);
+      const drawExact = esProb(s => s.h === s.a);
+      const homeWinExact = esProb(s => s.h > s.a);
+      const awayWinExact = esProb(s => s.h < s.a);
+      const over25Exact = esProb(s => s.h + s.a >= 3);
+      const bttsExact = esProb(s => s.h >= 1 && s.a >= 1);
+
+      const bk = analysis.bookmakerOdds || {};
+      const bkHome = bk.home || 0;
+      const bkDraw = bk.draw || 0;
+      const bkAway = bk.away || 0;
+      const hasBookmaker = bkHome > 0;
+
+      // === SUPER ALGORITHM DATA ===
+      const hasSuperAlgo = !!(superAnalysis && superAnalysis.picks && superAnalysis.picks.length > 0);
+      const superPicks = hasSuperAlgo ? superAnalysis.picks : [];
+      const getSuperScore = (valueMatch) => {
+        const found = superPicks.find(p => {
+          const v = (p.value||'').toLowerCase();
+          const m = valueMatch.toLowerCase();
+          return v === m || v.includes(m) || m.includes(v);
+        });
+        return found ? found.superScore : 0;
+      };
+      const getSuperConf = (valueMatch) => {
+        const found = superPicks.find(p => {
+          const v = (p.value||'').toLowerCase();
+          const m = valueMatch.toLowerCase();
+          return v === m || v.includes(m) || m.includes(v);
+        });
+        return found ? found.confidence : null;
+      };
+
+      // === SUPER AI (Claude/Groq) DATA ===
+      const hasSuperAI = !!(superAIAnalysis && superAIAnalysis.bestPick && !superAIAnalysis.error);
+      const aiBestPick = hasSuperAI ? (superAIAnalysis.bestPick || '').toLowerCase() : '';
+      const aiConfidence = hasSuperAI ? (superAIAnalysis.confidence || 50) : 0;
+      const aiRecommendation = hasSuperAI ? superAIAnalysis.recommendation : '';
+      const aiAlgoConfirmed = hasSuperAI ? superAIAnalysis.algoConfirmed : false;
+      const aiTop3 = hasSuperAI ? (superAIAnalysis.adjustedTop3 || []).map(s => s.toLowerCase()) : [];
+
+      // Global AI penalty/bonus
+      const aiGlobalMult = aiRecommendation === 'SKIP' ? 0.85 : aiRecommendation === 'GIOCA' ? 1.05 : 1.0;
+
+      const markets = [];
+
+      function scoreMarket(opts) {
+        const { value, icon, prob, signals, weights, mlKey, contextBonus } = opts;
+        const totalWeight = weights.reduce((s,w) => s + w, 0);
+        const activeWeight = signals.reduce((s, active, i) => s + (active ? weights[i] : 0), 0);
+        const convergence = totalWeight > 0 ? activeWeight / totalWeight : 0;
+        const mlW = getMLWeight(mlKey || value);
+        const ctx = contextBonus || 1.0;
+
+        // === SUPER ALGO BONUS ===
+        // Se il Super Algorithm concorda (alto superScore), boost convergenza
+        let superBonus = 1.0;
+        const sScore = getSuperScore(value);
+        const sConf = getSuperConf(value);
+        if (hasSuperAlgo) {
+          if (sScore >= 40) superBonus = 1.15;
+          else if (sScore >= 25) superBonus = 1.08;
+          else if (sScore >= 15) superBonus = 1.03;
+          else superBonus = 0.95;
+          // Extra boost se il Super Algorithm gli da confidenza alta
+          if (sConf === 'high') superBonus *= 1.08;
+        }
+
+        // === SUPER AI (Claude) BONUS ===
+        let aiBonus = 1.0;
+        if (hasSuperAI) {
+          const valLower = value.toLowerCase();
+          // bestPick match diretto
+          if (aiBestPick.includes(valLower) || valLower.includes(aiBestPick) ||
+              (aiBestPick.includes('casa') && valLower.includes('casa')) ||
+              (aiBestPick.includes('ospite') && valLower.includes('ospite')) ||
+              (aiBestPick === valLower)) {
+            aiBonus = 1.20 + (aiConfidence - 50) * 0.003; // Fino a +35% per confidenza 100
+            if (aiAlgoConfirmed) aiBonus *= 1.05;
+          }
+          // In top 3
+          else if (aiTop3.some(t => t.includes(valLower) || valLower.includes(t))) {
+            aiBonus = 1.10;
+          }
+          // Non in top 3: leggera penalita'
+          else {
+            aiBonus = 0.97;
+          }
+          // Applica moltiplicatore globale (SKIP/GIOCA)
+          aiBonus *= aiGlobalMult;
+        }
+
+        const rawScore = (prob / 100) * Math.pow(convergence, 0.7) * (0.4 + 0.6 * mlW) * ctx * superBonus * aiBonus;
+        const superScore = rawScore * 100;
+
+        let confidence;
+        if (prob >= 72 && convergence >= 0.60 && mlW >= 0.55) confidence = 'high';
+        else if (prob >= 55 && convergence >= 0.45) confidence = 'mid';
+        else confidence = 'low';
+        // Upgrade se TUTTI concordano
+        if (confidence === 'mid' && superBonus >= 1.10 && aiBonus >= 1.10) confidence = 'high';
+
+        return { value, icon, prob, convergence, superScore, confidence, 
+                 mlAccuracy: (mlW*100).toFixed(0), signalHits: signals.filter(Boolean).length, signalTotal: signals.length,
+                 superAlgoScore: sScore.toFixed(1), superAlgoConf: sConf || '-',
+                 aiMatch: aiBonus > 1.05 ? 'bestPick' : aiBonus > 1.02 ? 'top3' : '-',
+                 superBonus: superBonus.toFixed(2), aiBonus: aiBonus.toFixed(2) };
+      }
+
+      // Build all markets (same signals as before)
+      const balanced = Math.abs(homeXG - awayXG) < 0.4;
+
+      // 1. VITTORIA CASA
+      markets.push(scoreMarket({ value: '1 (Casa)', icon: '\u{1F3E0}', prob: p1X2.home, mlKey: '1',
+        signals: [p1X2.home>=50, homeXG>awayXG*1.15, hFS>=3.0, (h2h.homeWins||0)>(h2h.awayWins||0), homeWinExact>45, hasBookmaker?bkHome>=45:p1X2.home>=48, aFTS>=28, hFS>aFS, homeXG>=1.3, p1X2.home>=55],
+        weights: [3,3,2,2,2,3,1.5,1,1,2.5],
+        contextBonus: (hasBookmaker&&bkHome>=55)?1.12:homeXG>awayXG*1.3?1.08:1.0 }));
+
+      // 2. PAREGGIO
+      markets.push(scoreMarket({ value: 'X (Pareggio)', icon: '\u{1F91D}', prob: p1X2.draw, mlKey: 'X',
+        signals: [p1X2.draw>=26, balanced, Math.abs(p1X2.home-p1X2.away)<12, drawExact>=25, totXG<2.5, hasBookmaker?bkDraw>=28:p1X2.draw>=27, (h2h.draws||0)>=h2hGames*0.25, hFS>=1.5&&hFS<=3.5&&aFS>=1.5&&aFS<=3.5, pOU[2.5].under>=48, Math.abs(hFS-aFS)<1.5],
+        weights: [3,2.5,2,3,2,2.5,1.5,1.5,1.5,1],
+        contextBonus: balanced&&drawExact>=28?1.15:1.0 }));
+
+      // 3. VITTORIA OSPITE
+      markets.push(scoreMarket({ value: '2 (Ospite)', icon: '\u2708\uFE0F', prob: p1X2.away, mlKey: '2',
+        signals: [p1X2.away>=35, awayXG>homeXG, aFS>=3.0, (h2h.awayWins||0)>=(h2h.homeWins||0), awayWinExact>30, hasBookmaker?bkAway>=35:p1X2.away>=38, hFTS>=28, aFS>hFS, awayXG>=1.1, p1X2.away>=40],
+        weights: [3,3,2,2,2,3,1.5,1,1.5,2.5],
+        contextBonus: (hasBookmaker&&bkAway>=45)?1.12:awayXG>homeXG*1.2?1.08:1.0 }));
+
+      // 4. OVER 1.5
+      markets.push(scoreMarket({ value: 'Over 1.5', icon: '\u26BD', prob: pOU[1.5].over, mlKey: 'Over 1.5',
+        signals: [pOU[1.5].over>=75, totXG>=2.3, h2hAvgGoals>=2.0, homeXG>=0.9&&awayXG>=0.7, hFS+aFS>=4.0, over25Exact+esProb(s=>s.h+s.a===2)>=60, hFTS<30&&aFTS<35, pBTTS>=45],
+        weights: [3,2.5,2,2,1.5,2,1.5,1.5] }));
+
+      // 5. OVER 2.5
+      markets.push(scoreMarket({ value: 'Over 2.5', icon: '\u{1F525}', prob: pOU[2.5].over, mlKey: 'Over 2.5',
+        signals: [pOU[2.5].over>=55, totXG>=2.8, h2hAvgGoals>=2.5, homeXG>=1.2&&awayXG>=1.0, pBTTS>=55, over25Exact>=40, h2hOver25>=50, hFS+aFS>=4.5],
+        weights: [3,3,2,2.5,2,2,1.5,1.5],
+        contextBonus: totXG>=3.3?1.08:1.0 }));
+
+      // 6. UNDER 2.5
+      markets.push(scoreMarket({ value: 'Under 2.5', icon: '\u{1F6E1}\uFE0F', prob: pOU[2.5].under, mlKey: 'Under 2.5',
+        signals: [pOU[2.5].under>=50, totXG<2.3, h2hAvgGoals<2.5, pBTTS<50, hFTS>=25||aFTS>=25, hCS>=30||aCS>=30, esProb(s=>s.h+s.a<=2)>=50, hFS+aFS<5.0],
+        weights: [3,3,2,2,1.5,1.5,2.5,1],
+        contextBonus: totXG<2.0?1.08:1.0 }));
+
+      // 7. GG (BTTS)
+      markets.push(scoreMarket({ value: 'GG (BTTS Si)', icon: '\u26A1', prob: pBTTS, mlKey: 'GG',
+        signals: [pBTTS>=55, homeXG>=0.9&&awayXG>=0.9, h2hBTTS>=50, hFTS<30&&aFTS<30, bttsExact>=55, pOU[1.5].over>=72, hFS>=2.0&&aFS>=2.0, hCS<40&&aCS<40],
+        weights: [3,3,2,2,2.5,1.5,1.5,1] }));
+
+      // 8. NO GG
+      const noGG = 100 - pBTTS;
+      markets.push(scoreMarket({ value: 'NG (BTTS No)', icon: '\u{1F6AB}', prob: noGG, mlKey: 'NG',
+        signals: [noGG>=50, hFTS>=28||aFTS>=28, hCS>=30||aCS>=30, totXG<2.5, esProb(s=>s.h===0||s.a===0)>=45, pOU[2.5].under>=45, h2hBTTS<55],
+        weights: [3,2,2,2,2.5,1.5,1.5] }));
+
+      // 9. 1X
+      const p1X = p1X2.home + p1X2.draw;
+      markets.push(scoreMarket({ value: '1X', icon: '\u{1F3E0}\u{1F91D}', prob: p1X, mlKey: '1X',
+        signals: [p1X>=70, homeXG>=awayXG, hFS>=2.5, p1X2.away<30, hasBookmaker?(bkHome+bkDraw)>=68:p1X>=68, homeWinExact+drawExact>=65],
+        weights: [3,2,1.5,2,2.5,2] }));
+
+      // 10. X2
+      const pX2 = p1X2.draw + p1X2.away;
+      markets.push(scoreMarket({ value: 'X2', icon: '\u{1F91D}\u2708\uFE0F', prob: pX2, mlKey: 'X2',
+        signals: [pX2>=55, awayXG>=homeXG*0.85, aFS>=2.5, p1X2.home<45, hasBookmaker?(bkDraw+bkAway)>=50:pX2>=52, awayWinExact+drawExact>=45],
+        weights: [3,2,1.5,2,2.5,2] }));
+
+      // 11. OVER 3.5
+      markets.push(scoreMarket({ value: 'Over 3.5', icon: '\u{1F4A5}', prob: pOU[3.5].over, mlKey: 'Over 3.5',
+        signals: [pOU[3.5].over>=40, totXG>=3.5, pBTTS>=60, h2hAvgGoals>=3.0, over25Exact>=50],
+        weights: [3,3,2,2,2] }));
+
+      // 12. UNDER 3.5
+      markets.push(scoreMarket({ value: 'Under 3.5', icon: '\u{1F512}', prob: pOU[3.5].under, mlKey: 'Under 3.5',
+        signals: [pOU[3.5].under>=65, totXG<3.0, esProb(s=>s.h+s.a<=3)>=65],
+        weights: [3,3,2.5] }));
+
+      // 13. MULTIGOAL migliore
+      if (multigoal && multigoal.length > 0) {
+        const bestMG = multigoal.reduce((best, mg) => mg.prob > best.prob ? mg : best, {range:'1-3', prob:0});
+        if (bestMG.prob > 30) {
+          markets.push(scoreMarket({ value: 'MG ' + bestMG.range, icon: '\u{1F4CA}', prob: bestMG.prob,
+            signals: [bestMG.prob>=55, totXG>=1.5, totXG<=4.5], weights: [3,2,2] }));
+        }
+      }
+
+      markets.sort((a, b) => b.superScore - a.superScore);
+
+      const topExact = (exactScores || []).slice(0, 10).map((s, i) => ({
+        score: s.h + '-' + s.a, prob: s.p || s.prob, rank: i + 1
+      }));
+
+      // === AI VERDICT DATA ===
+      const aiVerdict = hasSuperAI ? {
+        bestPick: superAIAnalysis.bestPick,
+        bestPickProb: superAIAnalysis.bestPickProb,
+        reasoning: superAIAnalysis.bestPickReasoning || superAIAnalysis.aiVerdict || '',
+        recommendation: superAIAnalysis.recommendation,
+        confidence: superAIAnalysis.confidence,
+        keyNews: superAIAnalysis.keyNews || [],
+        keyFactors: superAIAnalysis.keyFactors || [],
+        warningFlags: (superAIAnalysis.warningFlags || []).filter(w => w && w.length > 0),
+        riskLevel: superAIAnalysis.riskLevel || '',
+        alternativePick: superAIAnalysis.alternativePick || '',
+        alternativeProb: superAIAnalysis.alternativePickProb || 0,
+        teamsContext: superAIAnalysis.teamsContext || ''
+      } : null;
+
+      const meta = {
+        xGTotal: totXG.toFixed(2), xGHome: homeXG.toFixed(2), xGAway: awayXG.toFixed(2),
+        formaHome: homeForm || 'N/A', formaAway: awayForm || 'N/A',
+        h2hPartite: h2hGames, h2hMediaGol: h2hAvgGoals.toFixed(1), bttsPct: pBTTS.toFixed(0),
+        lineupsUsed: analysis.lineupsAvailable || false,
+        bookmakerUsed: hasBookmaker, bookmakerName: bk.bookmakerName || '',
+        fatigueHome: analysis.homeFatigue || 1.0, fatigueAway: analysis.awayFatigue || 1.0,
+        quality: analysis.quality || 'base', dixonColes: true,
+        signalsAnalyzed: markets.reduce((s,m) => s + m.signalTotal, 0),
+        hasSuperAlgo, hasSuperAI
+      };
+
+      return { topMarkets: markets.slice(0, 10), topExact, meta, aiVerdict, computedAt: Date.now(), hasSuperAlgo, hasSuperAI };
+    }
+
+    function renderGiudizioFinaleModal(match, analysis, giudizio, cacheEntry) {
+      const m = match;
+      const league = (m.league?.country || '') + ' \u2022 ' + (m.league?.name || '');
+      const dateStr = formatDateFull(m.date) + ' ' + formatTime(m.date);
+      const hasHistory = cacheEntry && cacheEntry.history && cacheEntry.history.length > 0;
+      const ai = giudizio.aiVerdict;
+
+      const probClass = (p) => p >= 65 ? 'high' : p >= 45 ? 'mid' : 'low';
+
+      // Data source badges
+      const sources = [];
+      sources.push('\u{1F4CA} Poisson + Dixon-Coles');
+      if (giudizio.meta.bookmakerUsed) sources.push('\u{1F4B0} Quote Bookmaker');
+      if (giudizio.meta.lineupsUsed) sources.push('\u26BD Formazioni Ufficiali');
+      if (giudizio.hasSuperAlgo) sources.push('\u{1F9E0} Super Algorithm');
+      if (giudizio.hasSuperAI) sources.push('\u{1F916} Oracle AI');
+
+      const html = '\n' +
+        '<div class="gf-overlay" id="gfOverlay" onclick="if(event.target===this)closeGiudizioFinale()">\n' +
+        '  <div class="gf-modal">\n' +
+        '    <div class="gf-header">\n' +
+        '      <button class="gf-close" onclick="closeGiudizioFinale()">\u00D7</button>\n' +
+        '      <div class="gf-title">\u2696\uFE0F GIUDIZIO FINALE</div>\n' +
+        '      <div class="gf-match-info">' + league + ' \u2022 ' + dateStr + '</div>\n' +
+        '      <div class="gf-teams">' + esc(m.home.name) + ' vs ' + esc(m.away.name) + '</div>\n' +
+        '      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">' +
+              sources.map(s => '<span style="font-size:0.62rem;background:rgba(168,85,247,0.12);color:#c084fc;padding:3px 8px;border-radius:12px;">' + s + '</span>').join('') +
+        '      </div>\n' +
+        '    </div>\n' +
+        '    <div class="gf-body">\n' +
+
+        // AI VERDICT SECTION (if available)
+        (ai ? (
+          '<div class="gf-section" style="background:linear-gradient(135deg,rgba(168,85,247,0.06),rgba(34,211,238,0.04));border:1px solid rgba(168,85,247,0.2);border-radius:14px;padding:16px;margin-bottom:16px;">\n' +
+          '  <div class="gf-section-title">\u{1F916} Verdetto Oracle AI' +
+          '    <span style="margin-left:auto;font-size:0.7rem;padding:3px 10px;border-radius:10px;font-weight:700;' +
+          (ai.recommendation === 'GIOCA' ? 'background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);">\u2705 ' + ai.recommendation :
+           ai.recommendation === 'SKIP' ? 'background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);">\u274C ' + ai.recommendation :
+           'background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);">\u23F3 ' + ai.recommendation) +
+          '</span></div>\n' +
+          '  <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">\n' +
+          '    <div style="flex:1;">\n' +
+          '      <div style="font-size:1.1rem;font-weight:800;color:white;">' + esc(ai.bestPick) + '</div>\n' +
+          '      <div style="font-size:0.75rem;color:var(--accent-cyan);margin-top:2px;">Confidenza: ' + ai.confidence + '% | Rischio: ' + esc(ai.riskLevel) + '</div>\n' +
+          '    </div>\n' +
+          '    <div style="font-size:1.8rem;font-weight:900;color:' + (ai.bestPickProb >= 70 ? '#10b981' : ai.bestPickProb >= 55 ? '#00d4ff' : '#fbbf24') + ';">' + (ai.bestPickProb || '?') + '%</div>\n' +
+          '  </div>\n' +
+          (ai.reasoning ? '<div style="font-size:0.75rem;color:var(--text-gray);margin-bottom:10px;line-height:1.5;">' + esc(ai.reasoning) + '</div>' : '') +
+          (ai.alternativePick ? '<div style="font-size:0.72rem;color:var(--text-dark);">Alternativa: <strong style="color:var(--accent-cyan);">' + esc(ai.alternativePick) + '</strong> (' + ai.alternativeProb + '%)</div>' : '') +
+          (ai.keyNews && ai.keyNews.length > 0 ? (
+            '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(168,85,247,0.15);">' +
+            '  <div style="font-size:0.7rem;color:var(--accent-purple);font-weight:700;margin-bottom:6px;">\u{1F4F0} Notizie Chiave</div>' +
+            ai.keyNews.slice(0,3).map(n => '<div style="font-size:0.68rem;color:var(--text-gray);margin-bottom:3px;">\u2022 ' + esc(n) + '</div>').join('') +
+            '</div>'
+          ) : '') +
+          (ai.warningFlags && ai.warningFlags.length > 0 ? (
+            '<div style="margin-top:8px;padding:8px 10px;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:8px;">' +
+            ai.warningFlags.map(w => '<div style="font-size:0.68rem;color:#f87171;">\u26A0\uFE0F ' + esc(w) + '</div>').join('') +
+            '</div>'
+          ) : '') +
+          '</div>\n'
+        ) : (
+          '<div class="gf-cached-notice">\u{1F916} Oracle AI non ancora eseguito \u2014 clicca "ANALIZZA con Super AI" per dati piu\u0300 completi</div>\n'
+        )) +
+
+        // CONVERGENZA BADGE
+        (giudizio.hasSuperAlgo || giudizio.hasSuperAI ? (
+          '<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">' +
+          (giudizio.hasSuperAlgo ? '<span style="font-size:0.68rem;background:rgba(0,229,160,0.08);color:#00e5a0;padding:4px 10px;border-radius:8px;border:1px solid rgba(0,229,160,0.2);">\u2705 Super Algorithm integrato nel ranking</span>' : '') +
+          (giudizio.hasSuperAI ? '<span style="font-size:0.68rem;background:rgba(168,85,247,0.08);color:#c084fc;padding:4px 10px;border-radius:8px;border:1px solid rgba(168,85,247,0.2);">\u2705 Oracle AI boost applicato</span>' : '') +
+          '</div>'
+        ) : '') +
+
+        // TOP MERCATI
+        '<div class="gf-section">\n' +
+        '  <div class="gf-section-title">\u{1F3C6} Pronostici Classificati (Score Composito)</div>\n' +
+        '  <div class="gf-result-grid">\n' +
+        giudizio.topMarkets.map((mk, i) =>
+          '<div class="gf-result-item ' + (i === 0 ? 'top' : '') + '">' +
+          '  <div class="gf-result-rank">' + (i + 1) + '</div>' +
+          '  <span style="font-size:1.1rem;">' + mk.icon + '</span>' +
+          '  <div class="gf-result-value">' + mk.value +
+          '    <div style="font-size:0.58rem;color:var(--text-dark);margin-top:2px;">' +
+                 mk.signalHits + '/' + mk.signalTotal + ' segnali \u00B7 ML ' + mk.mlAccuracy + '%' +
+                 (mk.aiMatch === 'bestPick' ? ' \u00B7 <span style="color:#a855f7;">\u{1F916}AI Pick</span>' : mk.aiMatch === 'top3' ? ' \u00B7 <span style="color:#c084fc;">\u{1F916}Top3</span>' : '') +
+                 (parseFloat(mk.superAlgoScore) >= 20 ? ' \u00B7 <span style="color:#00e5a0;">\u{1F9E0}' + mk.superAlgoScore + '</span>' : '') +
+          '    </div>' +
+          '  </div>' +
+          '  <div class="gf-result-bar"><div class="gf-result-bar-fill" style="width:' + Math.min(mk.prob, 100) + '%"></div></div>' +
+          '  <div class="gf-result-prob ' + probClass(mk.prob) + '">' + mk.prob.toFixed(0) + '%</div>' +
+          '</div>'
+        ).join('') +
+        '  </div>\n' +
+        '</div>\n' +
+
+        // RISULTATI ESATTI
+        '<div class="gf-section">\n' +
+        '  <div class="gf-section-title">\u{1F3AF} Risultati Esatti (Dixon-Coles)</div>\n' +
+        '  <div class="gf-exact-grid">\n' +
+        giudizio.topExact.map((ex, i) =>
+          '<div class="gf-exact-box ' + (i < 3 ? 'top' : '') + '">' +
+          '  <div class="gf-exact-score">' + ex.score + '</div>' +
+          '  <div class="gf-exact-prob">' + ex.prob.toFixed(1) + '%</div>' +
+          '</div>'
+        ).join('') +
+        '  </div>\n' +
+        '</div>\n' +
+
+        // STORICO VARIAZIONI
+        (hasHistory ? (
+          '<div class="gf-section">' +
+          '  <div class="gf-section-title">\u{1F4C8} Storico Variazioni</div>' +
+          '  <div class="gf-result-grid">' +
+          cacheEntry.history.map((h, i) => {
+            const t = new Date(h.timestamp);
+            const timeStr = t.toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'}) + ' ' + t.toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit'});
+            const topMk = h.data.topMarkets[0];
+            const topEx = h.data.topExact[0];
+            return '<div class="gf-result-item" style="opacity:' + (0.5 + i * 0.05) + ';">' +
+              '<div style="font-size:0.68rem;color:var(--text-dark);min-width:75px;">' + timeStr + '</div>' +
+              '<div class="gf-result-value" style="font-size:0.82rem;">' + (topMk?.icon||'') + ' ' + (topMk?.value||'N/A') + ' ' + (topMk?.prob?.toFixed(0)||'') + '%</div>' +
+              '<div style="font-size:0.72rem;color:var(--text-gray);">Esatto: ' + (topEx?.score||'N/A') + '</div>' +
+              '</div>';
+          }).join('') +
+          '  </div>' +
+          '</div>'
+        ) : '') +
+
+        // META INFO
+        '<div class="gf-meta">\n' +
+        '  <div class="gf-meta-title">\u{1F4CB} Dati Utilizzati</div>\n' +
+        '  <div class="gf-meta-row"><span>xG Totale</span><span class="gf-meta-val">' + giudizio.meta.xGTotal + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>xG Casa / Ospite</span><span class="gf-meta-val">' + giudizio.meta.xGHome + ' / ' + giudizio.meta.xGAway + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Forma</span><span class="gf-meta-val">' + giudizio.meta.formaHome + ' / ' + giudizio.meta.formaAway + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>H2H</span><span class="gf-meta-val">' + giudizio.meta.h2hPartite + ' partite (avg ' + giudizio.meta.h2hMediaGol + ' gol)</span></div>\n' +
+        '  <div class="gf-meta-row"><span>BTTS</span><span class="gf-meta-val">' + giudizio.meta.bttsPct + '%</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Formazioni</span><span class="gf-meta-val">' + (giudizio.meta.lineupsUsed ? '\u2705' : '\u23F3') + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Bookmaker</span><span class="gf-meta-val">' + (giudizio.meta.bookmakerUsed ? '\u2705 ' + giudizio.meta.bookmakerName : '\u274C') + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Super Algorithm</span><span class="gf-meta-val">' + (giudizio.hasSuperAlgo ? '\u2705 Integrato' : '\u274C Non eseguito') + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Oracle AI</span><span class="gf-meta-val">' + (giudizio.hasSuperAI ? '\u2705 Integrato' : '\u274C Non eseguito') + '</span></div>\n' +
+        '  <div class="gf-meta-row"><span>Segnali</span><span class="gf-meta-val">' + (giudizio.meta.signalsAnalyzed || 'N/A') + '</span></div>\n' +
+        (giudizio.meta.fatigueHome < 0.98 ? '  <div class="gf-meta-row"><span>\u26A1 Stanchezza Casa</span><span class="gf-meta-val" style="color:#f87171;">x' + giudizio.meta.fatigueHome.toFixed(2) + '</span></div>\n' : '') +
+        (giudizio.meta.fatigueAway < 0.98 ? '  <div class="gf-meta-row"><span>\u26A1 Stanchezza Ospite</span><span class="gf-meta-val" style="color:#f87171;">x' + giudizio.meta.fatigueAway.toFixed(2) + '</span></div>\n' : '') +
+        '</div>\n' +
+
+        '<div class="gf-timestamp">\n' +
+        '  Calcolato il ' + new Date(giudizio.computedAt).toLocaleString('it-IT') + ' \u2014 Cache ' + ((Date.now() - giudizio.computedAt)/60000).toFixed(0) + ' min fa\n' +
+        '</div>\n' +
+
+        '    </div>\n' +
+        '  </div>\n' +
+        '</div>\n';
+
+      const existing = document.getElementById('gfOverlay');
+      if (existing) existing.remove();
+      document.body.insertAdjacentHTML('beforeend', html);
+    }
+
+        function closeGiudizioFinale() {
+      const el = document.getElementById('gfOverlay');
+      if (el) el.remove();
+    }
+
+    // === INIT ===
+    async function init() {
+      console.log('&#x1F680; BettingPro v7 + Odds Lab + Value Engine + Consensus starting...');
+
+      // === PULIZIA localStorage ALL'AVVIO ===
+      // Svuota bp2_prediction_history se supera 1MB (previene QuotaExceededError)
+      try {
+        const histRaw = localStorage.getItem('bp2_prediction_history');
+        if (histRaw && histRaw.length > 500_000) { // > 500KB = troppo grande
+          console.warn('⚠️ bp2_prediction_history troppo grande (' + (histRaw.length/1024).toFixed(0) + 'KB), pulizia...');
+          const hist = JSON.parse(histRaw);
+          // Tieni solo le ultime 15 partite
+          const keys = Object.keys(hist);
+          const toKeep = keys.slice(-15);
+          const trimmed = {};
+          toKeep.forEach(k => {
+            trimmed[k] = hist[k];
+            // Tieni solo ultime 3 predictions per partita
+            if (trimmed[k].predictions) trimmed[k].predictions = trimmed[k].predictions.slice(-3);
+          });
+          localStorage.setItem('bp2_prediction_history', JSON.stringify(trimmed));
+          state.predictionHistory = trimmed;
+          console.log('✅ Storico ridotto a ' + toKeep.length + ' partite');
+        }
+      } catch(e) {
+        // Se anche questo fallisce, azzera
+        try { localStorage.removeItem('bp2_prediction_history'); state.predictionHistory = {}; } catch(_) {}
+        console.warn('Storico prediction azzerato per errore');
+      }
+
+      // Ripristina sessione se salvata
+      const sessionRestored = await restoreAuthSession();
+      console.log(`&#x1F464; User ID: ${USER_ID} ${sessionRestored ? '(session restored)' : '(local)'}`);
+      
+      // Mostra interfaccia subito con dati localStorage
+      loadSlipFromLocalStorage();
+      render();
+      
+      // Carica dati da Firebase in background (non bloccante)
+      Promise.all([
+        loadTrackingFromLocalStorage(),
+        loadMLThresholdsFromCloud(),
+        loadMLStatsFromCloud(),
+        loadPerformanceHistoryFromCloud()
+      ]).then(() => {
+        console.log('✅ Dati utente caricati da cloud');
+        // Aggiorna ML stats con i dati tracciati
+        if (state.trackedBets.length >= 5) {
+          updateMLFromResults();
+        }
+        render(); // Re-render con dati Firebase
+      }).catch(e => console.warn('Cloud data load partial failure:', e));
+      
+      // Check API status in background (non bloccante)
+      checkAPIStatus().catch(e => console.warn('API check failed:', e));
+      
+      // Carica partite
+      try {
+        await loadMatches(0);
+      } catch (e) {
+        console.error('Load matches failed:', e);
+        state.loading = false;
+        render();
+      }
+      
+      // Verifica automatica risultati pronostici pendenti (non bloccante)
+      autoVerifyPendingBets().catch(e => console.warn('Auto-verify failed:', e));
+      
+      // Controlla risultati ogni 10 minuti
+      setInterval(() => {
+        autoVerifyPendingBets().catch(e => console.warn('Auto-verify interval failed:', e));
+      }, 10 * 60 * 1000);
+      
+      // Sync con Firebase ogni 5 minuti (backup automatico)
+      setInterval(() => {
+        if (firebaseEnabled) {
+          console.log('&#x1F504; Sync automatico con Firebase...');
+          saveToFirebase('trackedBets', state.trackedBets).catch(e => console.warn('Auto-sync failed:', e));
+          saveToFirebase('mlThresholds', state.mlThresholds).catch(e => console.warn('Auto-sync ML failed:', e));
+          saveToFirebase('mlStats', state.mlStats).catch(e => console.warn('Auto-sync mlStats failed:', e));
+          saveToFirebase('performanceHistory', state.performanceHistory).catch(e => console.warn('Auto-sync perf failed:', e));
+        }
+      }, 5 * 60 * 1000);
+    }
+
+    init();
