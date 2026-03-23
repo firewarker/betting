@@ -1594,7 +1594,8 @@
           xgTotal: totXG.toFixed(2),
           totXG: totXG.toFixed(2),
           homeXG: homeXG.toFixed(2),
-          awayXG: awayXG.toFixed(2)
+          awayXG: awayXG.toFixed(2),
+          dataQuality
         };
         
         // === GENERA CONSIGLIO AI REALE (identico alla pagina dettaglio) ===
@@ -2246,6 +2247,11 @@
       // 9. Campionato top
       if ([39,135,140,78,61,71,88,94,128,253,2,3,848].includes(a.leagueId)) { score += 4; }
       
+      // 10. QUALITÀ DATI FOOTYSTATS — penalizza dati stimati
+      if (dq === 'high') { score += 6; details.push('📊 Dati xG reali'); }
+      else if (dq === 'medium') { score += 0; } // neutro
+      else { score -= 8; details.push('⚠️ Dati stimati'); } // penalizzazione forte per low quality
+      
       score = Math.max(0, Math.min(100, score));
       
       var tier, tierLabel, tierColor, tierIcon;
@@ -2254,7 +2260,7 @@
       else if (score >= 28) { tier = 'bronze'; tierLabel = 'BRONZO'; tierColor = '#cd7f32'; tierIcon = '🥉'; }
       else { tier = 'skip'; tierLabel = 'SKIP'; tierColor = '#ef4444'; tierIcon = '⛔'; }
       
-      return { score: score, tier: tier, tierLabel: tierLabel, tierColor: tierColor, tierIcon: tierIcon, details: details, pick: a.pick, prob: prob, matchName: a.matchName, matchId: a.matchId, homeName: a.homeName, awayName: a.awayName, league: a.league, time: a.time, confidence: conf, impliedOdds: impliedOdds };
+      return { score: score, tier: tier, tierLabel: tierLabel, tierColor: tierColor, tierIcon: tierIcon, details: details, pick: a.pick, prob: prob, matchName: a.matchName, matchId: a.matchId, homeName: a.homeName, awayName: a.awayName, league: a.league, time: a.time, confidence: conf, impliedOdds: impliedOdds, dataQuality: dq };
     }
     
     function getAmicoPicks() {
@@ -2334,7 +2340,7 @@
         tp.forEach(function(p) {
           t += '<div onclick="{ const m=state.matches.find(x=>x.id===' + p.matchId + '); if(m)analyzeMatch(m); }" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-card);border:1.5px solid ' + color + '20;border-radius:10px;transition:.15s;" onmouseover="this.style.borderColor=\'' + color + '\'" onmouseout="this.style.borderColor=\'' + color + '20\'">';
           t += '<div style="flex-shrink:0;width:38px;height:38px;border-radius:50%;background:' + color + '15;border:1.5px solid ' + color + '40;display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:900;color:' + color + ';">' + p.score + '</div>';
-          t += '<div style="flex:1;min-width:0;"><div style="font-size:0.72rem;font-weight:800;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(p.homeName) + ' - ' + esc(p.awayName) + '</div><div style="font-size:0.58rem;color:var(--text-dark);margin-top:1px;">' + esc(p.league) + ' · ' + p.time + ' ' + renderPickResultBadge(p.matchId, p.pick) + '</div></div>';
+          t += '<div style="flex:1;min-width:0;"><div style="font-size:0.72rem;font-weight:800;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(p.homeName) + ' - ' + esc(p.awayName) + '</div><div style="font-size:0.58rem;color:var(--text-dark);margin-top:1px;">' + esc(p.league) + ' · ' + p.time + ' ' + renderPickResultBadge(p.matchId, p.pick) + ' ' + renderDataQualityBadge(p.dataQuality) + '</div></div>';
           t += '<div style="flex-shrink:0;text-align:right;"><div style="font-size:0.75rem;font-weight:900;color:' + color + ';">' + esc(p.pick.split('(')[0].trim()) + '</div><div style="font-size:0.68rem;font-weight:700;color:var(--text-gray);">' + p.prob.toFixed(0) + '% <span style="font-size:0.55rem;color:var(--text-dark);">~@' + (p.impliedOdds ? p.impliedOdds.toFixed(2) : '?') + '</span></div></div>';
           t += '</div>';
         });
@@ -2397,6 +2403,13 @@
       if (!r) return ''; // non finita o non trovata
       if (r.won) return '<span style="font-size:0.6rem;background:rgba(16,185,129,0.15);color:#10b981;padding:2px 6px;border-radius:6px;font-weight:800;">✅ ' + r.score + '</span>';
       return '<span style="font-size:0.6rem;background:rgba(239,68,68,0.15);color:#ef4444;padding:2px 6px;border-radius:6px;font-weight:800;">❌ ' + r.score + '</span>';
+    }
+    
+    // === DATA QUALITY BADGE — Indica affidabilità dati FootyStats ===
+    function renderDataQualityBadge(dq) {
+      if (dq === 'high') return '<span title="xG FootyStats reali" style="font-size:0.5rem;background:rgba(16,185,129,0.15);color:#10b981;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;">📊 HD</span>';
+      if (dq === 'medium') return '<span title="PPG/AvgGoals stimati" style="font-size:0.5rem;background:rgba(251,191,36,0.15);color:#fbbf24;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;">📉 MD</span>';
+      return '<span title="Dati generici stimati — bassa affidabilità" style="font-size:0.5rem;background:rgba(239,68,68,0.15);color:#ef4444;padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;">⚠️ LD</span>';
     }
 
     // === TRADER PICKS ===
@@ -11080,6 +11093,10 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
             <div style="font-size:0.65rem;color:var(--text-dark);">Alta Conf.</div>
           </div>
           <div style="flex:1;min-width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-size:1.4rem;font-weight:800;color:#10b981;">${picks.matchAdvices.filter(a => a.dataQuality === 'high').length}</div>
+            <div style="font-size:0.65rem;color:var(--text-dark);">📊 HD</div>
+          </div>
+          <div style="flex:1;min-width:80px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;">
             <div style="font-size:1.4rem;font-weight:800;color:#a78bfa;">${picks.matchAdvices.length}</div>
             <div style="font-size:0.65rem;color:var(--text-dark);">Analizzate</div>
           </div>
@@ -11307,7 +11324,7 @@ Rispondi ESCLUSIVAMENTE con questo JSON preciso (zero testo fuori dal JSON):
                                 padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;
                                 ${i===0?'box-shadow:0 0 10px '+af.color+'20;':''}">
                       <div style="min-width:0;flex:1;">
-                        <div style="font-size:0.6rem;color:var(--text-dark);margin-bottom:2px;">${esc(a.league)} &bull; ${a.time} ${renderPickResultBadge(a.matchId, a.pick)}</div>
+                        <div style="font-size:0.6rem;color:var(--text-dark);margin-bottom:2px;">${esc(a.league)} &bull; ${a.time} ${renderPickResultBadge(a.matchId, a.pick)} ${renderDataQualityBadge(a.dataQuality)}</div>
                         <div style="font-size:0.82rem;font-weight:700;color:var(--text-white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                           ${esc(a.homeName)} vs ${esc(a.awayName)}
                         </div>
